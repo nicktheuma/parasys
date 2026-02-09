@@ -8,7 +8,8 @@ export function Experience() {
   const { width, material, showProps } = useControls({
     width: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
     material: { options: { Default: '#999999', Wood: '#5d4037', Modern: '#222222', Alabaster: '#f5f5f5' } },
-    showProps: true // Toggle for the books/goblets
+    showProps: true,
+    showGrid: false,
   })
 
   // Ensure this matches your actual filename in /public
@@ -30,6 +31,7 @@ export function Experience() {
 
   return (
     <group dispose={null}>
+      {/* <gridHelper args={[100, 100]} visible={showGrid}/> */}
       {/* THE MAIN PIECE */}
       {/* <mesh ref={consoleRef} geometry={nodes.CONSOLE001.geometry} material={materials['WOOD MATERIAL']} envMapIntensity={2.5} roughness={0.4} metalness={0.1} color={'#ffffff'} /> */}
       <mesh ref={consoleRef} geometry={nodes.Plane011.geometry}>
