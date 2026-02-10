@@ -13,7 +13,7 @@ function App() {
           <Stage 
               intensity={0.5}
               preset="rembrandt"
-              shadows={{ type: 'contact',  color:'black', blur: 2.5, opacity: 0.3, offset:0.01, bias:-0.0001, normalBias:0, size:2048}}
+              shadows={{ type: 'contact',  color:'black', blur: 2.5, opacity: 0.3, offset:0, bias:-0.0001, normalBias:0, size:2048}}
               adjustCamera={1}
               environment="studio">
              <Experience />

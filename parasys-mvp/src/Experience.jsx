@@ -5,25 +5,30 @@ import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 
 export function Experience() {
-  const { width, material, showProps } = useControls({
-    width: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
-    material: { options: { Default: '#999999', Wood: '#5d4037', Modern: '#222222', Alabaster: '#f5f5f5' } },
-    showProps: true // Toggle for the books/goblets
-  })
-
   // Ensure this matches your actual filename in /public
-  const { nodes, materials } = useGLTF('/console_2.glb') 
+  const { nodes, materials } = useGLTF('/furniture_4.glb') 
+  const startDims = new THREE.Vector3(0.151748,2,2);
   
   const consoleRef = useRef()
   const leftGroupRef = useRef()
   const rightGroupRef = useRef()
 
+  const { width, material, showProps } = useControls({
+    width: { value: 1.8, min: startDims.x, max: 1, step: 0.01},
+    material: { options: { Default: '#999999', Wood: '#5d4037', Modern: '#222222', Alabaster: '#f5f5f5' } },
+    showProps: true // Toggle for the books/goblets
+  })
+
   useFrame(() => {
     // 1. Scale the main console body
-    consoleRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width, 0.1)
+    const width_factor = width / startDims.x;
+    consoleRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor, 0.1)
+
+    // console.log(leftGroupRef.current.position);
+    // print("test"); //INTERESTING: PRINTS SCREENSHOT OF PAGE
     
     // 2. Move the accessories on the left and right sides
-    const sideOffset = width / 2
+    const sideOffset = (width-startDims.x)/2
     leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
     rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
   })
@@ -32,49 +37,26 @@ export function Experience() {
     <group dispose={null}>
       {/* THE MAIN PIECE */}
       {/* <mesh ref={consoleRef} geometry={nodes.CONSOLE001.geometry} material={materials['WOOD MATERIAL']} envMapIntensity={2.5} roughness={0.4} metalness={0.1} color={'#ffffff'} /> */}
-      <mesh ref={consoleRef} geometry={nodes.Plane011.geometry}>
+      {/* <mesh ref={consoleRef} geometry={nodes.C_Medieval_chair}>
         <meshStandardMaterial color={material} roughness={0.4} />
-      </mesh>
+      </mesh> */}
+      <mesh ref={consoleRef} geometry={nodes.C_Medieval_chair.geometry} material={materials['chair']} />
       
       {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
       <group ref={leftGroupRef} visible={showProps}>
-        <mesh geometry={nodes.BOOKS003.geometry} material={materials['PAPER MATERIAL']} />
-        <mesh geometry={nodes.BOOKS004.geometry} material={materials['BOOK COVER MATERIAL.002']}  />
-        <mesh geometry={nodes.Circle003_2.geometry}><meshStandardMaterial color={'#ffffff'} roughness={0} emissive={'#ff0000'} emissiveIntensity={1.5} /></mesh>
-        <mesh geometry={nodes.Circle003_3.geometry} material={materials['WHITE PANEL.001']}  />
+        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
       </group>
 
       {/* RIGHT SIDE ACCESSORIES (Stay on the right edge) */}
       <group ref={rightGroupRef} visible={showProps}>
-        {/* <mesh geometry={nodes.LAMP005.geometry} material={materials['FABRIC MATERIAL']} />  */}
-        <mesh geometry={nodes.BOOKS009.geometry} material={materials['BOOK COVER MATERIAL.004']} />
-        <mesh geometry={nodes.GOBLETS.geometry} material={materials['METAL MATERIAL.001']}  />
-        {/* <mesh geometry={nodes.DOOR_HANDLES.geometry} material={materials['METAL MATERIAL.002']}  /> */}
+        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
       </group>
 
       {/* CENTER PIECES (Stay in the middle) */}
-      <group visible={showProps}>
-        <mesh geometry={nodes.BOWL.geometry} material={materials['MARBLE MATERIAL.02']}  />
-        <mesh geometry={nodes.HOLDER.geometry} material={materials['WOOD MATERIAL.001']}  />
-        {/* <mesh geometry={nodes.PAINTING004.geometry} material={materials['PANITING MATERIAL']} /> */}
-        <mesh geometry={nodes.BOOKS003.geometry} material={materials['BOOK COVER MATERIAL.005']}  />
-      </group>
+      {/* <group visible={showProps}>
+        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
+        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
+      </group> */}
     </group>
   )
 }
-
-
-// NOTES
-
-        {/* <mesh geometry={nodes.LAMP005.geometry}>
-            <meshStandardMaterial 
-                {...materials['FABRIC MATERIAL']} // This spreads all the maps (map, normal, etc.)
-                roughness={0.6}   // Fine-tune the "Blender look" here
-                metalness={0.1}
-                envMapIntensity={1.5} // Boosts the "Luxury" reflections
-            />
-        </mesh> */}
-
-        {/* <mesh geometry={nodes.LAMP003.geometry} material={materials['GLASS MATERIAL']}/> */}
-            {/* <meshStandardMaterial {...materials['GLASS MATERIAL']} roughness={0.4} />   
-        </mesh> */}
