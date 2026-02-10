@@ -6,9 +6,9 @@ import { Experience } from './Experience'
 function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#efefef' }}>
-      <Canvas shadows gl={{ antialias: false }} dpr={[1, 1.5]} camera={{ position: [4, -1, 8], fov: 35 }}>
+      <Canvas shadows gl={{ antialias: false }} dpr={[1, 1.5]}>
         <Suspense fallback={null}>
-          <PerspectiveCamera makeDefault position={[0, 1.5, 4]} fov={45} />
+          <PerspectiveCamera fov={45} />
           {/* Stage handles professional lighting and shadows automatically */}
           <Stage 
               intensity={0.5}
