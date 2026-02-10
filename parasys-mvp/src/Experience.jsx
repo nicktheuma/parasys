@@ -2,7 +2,7 @@ import { useControls } from 'leva'
 import { useLayoutEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useGLTF } from '@react-three/drei'
+import { useGLTF, Line, Text, Billboard } from '@react-three/drei'
 
 export function Experience() {
   // Ensure this matches your actual filename in /public
@@ -13,7 +13,6 @@ export function Experience() {
   const Ornament1_startDims = new THREE.Vector3(0.036,2,2);
   const Ornament2_startDims = new THREE.Vector3(0.0294,2,2);
 
-  
   const consoleRef = useRef()
   const leftGroupRef = useRef()
   const rightGroupRef = useRef()
@@ -22,7 +21,7 @@ export function Experience() {
   const C_OrnamentRef2 = useRef()
   const C_SeatRef = useRef()
 
-  const mat_Mirror = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0, metalness: 1})
+  const mat_Mirror = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Solid = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
 
   const { width, material, showProps } = useControls({
@@ -31,12 +30,10 @@ export function Experience() {
     showProps: true // Toggle for props
   })
 
-  useFrame(() => {
-    // const box = new THREE.Box3().setFromObject(C_BackRef)
-    // const size = new THREE.Vector3()
-    // box.getSize(size)
-    // console.log(size.x)
+  // Calculate coordinates based on scale
+  const w = width / 2
 
+  useFrame(() => {
     // 1. Scale the main console body
     const Seat_width_factor = (width-0.014) / Seat_startDims.x;
     const Back_width_factor = (width-0.022) / Back_startDims.x;
@@ -53,6 +50,7 @@ export function Experience() {
     const sideOffset = (width-startDims.x)/2
     leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
     rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
+    // Dimension((0,-10,0),(0,10,0), width)
   })
 
   return (
@@ -77,11 +75,69 @@ export function Experience() {
         <mesh geometry={nodes.ROrnament_Medieval_chair_001.geometry} material={material} />
       </group>
 
+      {/* Width Label (Bottom Front) */}
+      <DimensionLine 
+        start={[-w, 0.12, -0.03]} 
+        end={[w, 0.12, -0.03]} 
+        label={width.toFixed(2)} 
+      />
+
       {/* CENTER PIECES (Stay in the middle) */}
-      {/* <group visible={showProps}>
-        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
-        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
-      </group> */}
+      <group visible={showProps}>
+        {/* <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
+        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  /> */}
+      </group>
+    </group>
+  )
+}
+
+function DimensionLine({ start, end, label, offset = 0.01 }) {
+  // Calculate the center point for the label
+  const center = [
+    (start[0] + end[0]) / 2,
+    (start[1] + end[1]) / 2,
+    (start[2] + end[2]) / 2,
+  ]
+  const center_L = [center[0] - offset, center[1], center[2]]
+  const center_R = [center[0] + offset, center[1], center[2]]
+
+  return (
+    <group>
+      {/* The Main Dimension Line */}
+      <Line points={[start, center_L]} color='#b0b0b0' lineWidth={1} dashed={false} />
+      <Line points={[center_R, end]} color='#b0b0b0' lineWidth={1} dashed={false} />
+
+      {/* Left Extension (Witness) Line */}
+      <Line 
+        points={[
+          [start[0], start[1], start[2]], 
+          [start[0], start[1] - 0.005, start[2]] // Small tick downwards
+        ]} 
+        color={'#b0b0b0'} 
+        lineWidth={1} 
+      />
+      
+      {/* Right Extension (Witness) Line */}
+      <Line 
+        points={[
+          [end[0], end[1], end[2]], 
+          [end[0], end[1] - 0.005, end[2]] 
+        ]} 
+        color={'#b0b0b0'} 
+        lineWidth={1} 
+      />
+      
+      {/* The Label - Using Billboard so it always faces us */}
+      <Billboard position={[0, 0.12, -0.03]}>
+          <Text
+            fontSize={0.005}
+            color='#6b6b6b'
+            anchorX="center"
+            anchorY="middle"
+          >
+            {(label * 10).toFixed(2)}m
+          </Text>
+      </Billboard>
     </group>
   )
 }
