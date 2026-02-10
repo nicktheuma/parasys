@@ -9,7 +9,7 @@ export function Experience() {
     width: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
     material: { options: { Default: '#999999', Wood: '#5d4037', Modern: '#222222', Alabaster: '#f5f5f5' } },
     showProps: true,
-    showGrid: false,
+    // showGrid: false,
   })
 
   // Ensure this matches your actual filename in /public
