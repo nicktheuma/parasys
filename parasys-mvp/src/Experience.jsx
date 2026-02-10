@@ -22,8 +22,6 @@ export function Experience() {
   const C_SeatRef = useRef()
   const Dimensions = useRef()
 
-  const [dims, setDims] = useState({width:2, height:2, depth:2})
-
   const mat_Mirror = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Solid = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
 
@@ -77,6 +75,12 @@ export function Experience() {
         <mesh geometry={nodes.ROrnament_Medieval_chair_001.geometry} material={material} />
       </group>
 
+      {/* CENTER PIECES (Stay in the middle) */}
+      {/* <group visible={showProps}>
+        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
+        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
+      </group> */}
+
       {/* DIMENSIONS */}
       <group ref={Dimensions} visible={showDims}>
         {/* Width Label (Bottom Front) */}
@@ -86,12 +90,6 @@ export function Experience() {
           label={width.toFixed(2)} 
         />
       </group>
-
-      {/* CENTER PIECES (Stay in the middle) */}
-      {/* <group visible={showProps}>
-        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
-        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
-      </group> */}
     </group>
   )
 }
