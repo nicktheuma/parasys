@@ -1,8 +1,8 @@
 import { useControls } from 'leva'
-import { useLayoutEffect, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useGLTF, Line, Text, Billboard } from '@react-three/drei'
+import { useGLTF, Line, Text, Billboard, Html } from '@react-three/drei'
 
 export function Experience() {
   // Ensure this matches your actual filename in /public
@@ -21,6 +21,8 @@ export function Experience() {
   const C_OrnamentRef2 = useRef()
   const C_SeatRef = useRef()
   const Dimensions = useRef()
+
+  const [dims, setDims] = useState({width:2, height:2, depth:2})
 
   const mat_Mirror = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Solid = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
