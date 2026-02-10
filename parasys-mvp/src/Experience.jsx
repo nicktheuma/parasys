@@ -20,14 +20,16 @@ export function Experience() {
   const C_OrnamentRef1 = useRef()
   const C_OrnamentRef2 = useRef()
   const C_SeatRef = useRef()
+  const Dimensions = useRef()
 
   const mat_Mirror = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Solid = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
 
-  const { width, material, showProps } = useControls({
+  const { width, material, showProps, showDims } = useControls({
     width: { value: startDims.x, min: startDims.x, max: 0.3, step: 0.01},
     material: { options: { Default: materials['chair'], Mirror: mat_Mirror, Solid: mat_Solid } },
-    showProps: true // Toggle for props
+    showProps: true,
+    showDims: true
   })
 
   // Calculate coordinates based on scale
@@ -44,13 +46,11 @@ export function Experience() {
     C_OrnamentRef2.current.scale.x = THREE.MathUtils.lerp(C_OrnamentRef2.current.scale.x, Ornament2_width_factor, 0.1)
     C_SeatRef.current.scale.x = THREE.MathUtils.lerp(C_SeatRef.current.scale.x, Seat_width_factor, 0.1)
     C_BackRef.current.scale.x = THREE.MathUtils.lerp(C_BackRef.current.scale.x, Back_width_factor, 0.1)
-    // console.log(C_BackRef.current.scale.x, Back_width_factor)
     
     // 2. Move the accessories on the left and right sides
     const sideOffset = (width-startDims.x)/2
     leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
     rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
-    // Dimension((0,-10,0),(0,10,0), width)
   })
 
   return (
@@ -62,31 +62,34 @@ export function Experience() {
       <mesh ref={C_BackRef} geometry={nodes.CBack_Medieval_chair.geometry} material={material} />
 
       {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
-      <group ref={leftGroupRef} visible={showProps}>
+      <group ref={leftGroupRef}>
         <mesh geometry={nodes.L_Medieval_chair.geometry} material={material}  />
         <mesh geometry={nodes.LOrnament_Medieval_chair.geometry} material={material} />
         <mesh geometry={nodes.LOrnament_Medieval_chair_001.geometry} material={material} />
       </group>
 
       {/* RIGHT SIDE ACCESSORIES (Stay on the right edge) */}
-      <group ref={rightGroupRef} visible={showProps}>
+      <group ref={rightGroupRef}>
         <mesh geometry={nodes.R_Medieval_chair.geometry} material={material}  />
         <mesh geometry={nodes.ROrnament_Medieval_chair.geometry} material={material} />
         <mesh geometry={nodes.ROrnament_Medieval_chair_001.geometry} material={material} />
       </group>
 
-      {/* Width Label (Bottom Front) */}
-      <DimensionLine 
-        start={[-w, 0.12, -0.03]} 
-        end={[w, 0.12, -0.03]} 
-        label={width.toFixed(2)} 
-      />
+      {/* DIMENSIONS */}
+      <group ref={Dimensions} visible={showDims}>
+        {/* Width Label (Bottom Front) */}
+        <DimensionLine 
+          start={[-w, 0.12, -0.03]} 
+          end={[w, 0.12, -0.03]} 
+          label={width.toFixed(2)} 
+        />
+      </group>
 
       {/* CENTER PIECES (Stay in the middle) */}
-      <group visible={showProps}>
-        {/* <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
-        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  /> */}
-      </group>
+      {/* <group visible={showProps}>
+        <mesh geometry={nodes.L_Medieval_chair.geometry} material={materials['chair']}  />
+        <mesh geometry={nodes.R_Medieval_chair.geometry} material={materials['chair']}  />
+      </group> */}
     </group>
   )
 }
