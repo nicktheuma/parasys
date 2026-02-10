@@ -1,5 +1,5 @@
 import { useControls } from 'leva'
-import { useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
@@ -7,7 +7,12 @@ import { useGLTF } from '@react-three/drei'
 export function Experience() {
   // Ensure this matches your actual filename in /public
   const { nodes, materials } = useGLTF('/furniture_6.glb') 
-  const startDims = new THREE.Vector3(0.151748,2,2);
+  const startDims = new THREE.Vector3(0.162,2,2);
+  const Seat_startDims = new THREE.Vector3(0.148,2,2);
+  const Back_startDims = new THREE.Vector3(0.14,2,2);
+  const Ornament1_startDims = new THREE.Vector3(0.036,2,2);
+  const Ornament2_startDims = new THREE.Vector3(0.0294,2,2);
+
   
   const consoleRef = useRef()
   const leftGroupRef = useRef()
@@ -27,13 +32,22 @@ export function Experience() {
   })
 
   useFrame(() => {
+    // const box = new THREE.Box3().setFromObject(C_BackRef)
+    // const size = new THREE.Vector3()
+    // box.getSize(size)
+    // console.log(size.x)
+
     // 1. Scale the main console body
-    const width_factor = width / startDims.x;
-    consoleRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor, 0.1)
-    C_OrnamentRef1.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor*5, 0.1)
-    C_OrnamentRef2.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor*7, 0.1)
-    C_SeatRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor*1.2, 0.1)
-    C_BackRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width_factor*1.4, 0.1)
+    const Seat_width_factor = (width-0.014) / Seat_startDims.x;
+    const Back_width_factor = (width-0.022) / Back_startDims.x;
+    const Ornament1_width_factor = (width-0.125) / Ornament1_startDims.x;
+    const Ornament2_width_factor = (width-0.13) / Ornament2_startDims.x;
+
+    C_OrnamentRef1.current.scale.x = THREE.MathUtils.lerp(C_OrnamentRef1.current.scale.x, Ornament1_width_factor, 0.1)
+    C_OrnamentRef2.current.scale.x = THREE.MathUtils.lerp(C_OrnamentRef2.current.scale.x, Ornament2_width_factor, 0.1)
+    C_SeatRef.current.scale.x = THREE.MathUtils.lerp(C_SeatRef.current.scale.x, Seat_width_factor, 0.1)
+    C_BackRef.current.scale.x = THREE.MathUtils.lerp(C_BackRef.current.scale.x, Back_width_factor, 0.1)
+    // console.log(C_BackRef.current.scale.x, Back_width_factor)
     
     // 2. Move the accessories on the left and right sides
     const sideOffset = (width-startDims.x)/2
@@ -44,10 +58,8 @@ export function Experience() {
   return (
     <group dispose={null}>
       {/* THE MAIN PIECE */}
-      <group ref={consoleRef}> 
-        <mesh ref={C_OrnamentRef1} geometry={nodes.COrnament_Medieval_chair.geometry} material={material} />
-        <mesh ref={C_OrnamentRef2} geometry={nodes.COrnament_Medieval_chair_001.geometry} material={material} />
-      </group>
+      <mesh ref={C_OrnamentRef1} geometry={nodes.COrnament_Medieval_chair.geometry} material={material} />
+      <mesh ref={C_OrnamentRef2} geometry={nodes.COrnament_Medieval_chair_001.geometry} material={material} />
       <mesh ref={C_SeatRef} geometry={nodes.CSeat_Medieval_chair.geometry} material={material} />
       <mesh ref={C_BackRef} geometry={nodes.CBack_Medieval_chair.geometry} material={material} />
 
