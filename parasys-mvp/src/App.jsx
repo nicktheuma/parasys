@@ -1,17 +1,21 @@
 import { Canvas } from '@react-three/fiber'
-import { Stage, OrbitControls, PerspectiveCamera } from '@react-three/drei'
+import { Stage, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
 import { Suspense } from 'react'
 import { Experience } from './Experience'
-import { Environment } from '@react-three/drei'
 
 function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#efefef' }}>
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas shadows gl={{ antialias: false }} dpr={[1, 1.5]} camera={{ position: [4, -1, 8], fov: 35 }}>
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 1.5, 4]} fov={45} />
           {/* Stage handles professional lighting and shadows automatically */}
-          <Stage intensity={0.5} environment="studio" shadows="contact" adjustCamera={false} contactShadow={{ blur: 2, opacity: 0 }}>
+          <Stage 
+              intensity={0.5}
+              preset="rembrandt"
+              shadows={{ type: 'contact',  color:'black', blur: 2.5, opacity: 0.3, offset:0.01, bias:-0.0001, normalBias:0, size:2048}}
+              adjustCamera={1}
+              environment="studio">
              <Experience />
           </Stage>
           <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
