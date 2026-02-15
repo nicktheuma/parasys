@@ -10,27 +10,55 @@ export function Experience() {
   const leftGroupRef = useRef()
   const rightGroupRef = useRef()
   const Dimensions = useRef()
-  const Sheet = useRef()
+  const Bounding = useRef()
+  const Top = useRef()
+  const Bottom = useRef()
+  const Left = useRef()
+  const Right = useRef()
 
+  const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
   const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_PaintedMetal = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
 
-  const startDims = new THREE.Vector3(1, 1, 1);
-  const maxDims = new THREE.Vector3(2,2,2);
+  const startDims = new THREE.Vector3(0.6, 0.3, 0.1);
+  const maxDims = new THREE.Vector3(1, 0.5, 0.35);
+  const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
 
   const dimensionMargin = 0.1;
 
-  const { width, material, showProps, showDims } = useControls({
+  const { width, height, depth, material, showProps, showDims, showDevTools } = useControls({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
+    height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
+    depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal } },
     // showProps: true,
-    showDims: true
+    showDims: true,
+    showDevTools: true
   })
 
   useFrame(() => {
-    if (Sheet.current) {
-      Sheet.current.scale.x = THREE.MathUtils.lerp(Sheet.current.scale.x, width / startDims.x, 0.1)
+    if (Bounding.current) {
+      Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
+      Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
+      Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
+      
+      Top.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
+      Top.current.rotation.set(Math.PI / 2, 0, 0);
+      Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
+
+      Bottom.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
+      Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
+      Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
+
+      Left.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
+      Left.current.rotation.set(0, Math.PI / 2, 0);
+      Left.current.position.set(-(width / 2) + (materialThickness / 2), 0, 0);
+
+      Right.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
+      Right.current.rotation.set(0, -Math.PI / 2, 0);
+      Right.current.position.set((width / 2) - (materialThickness / 2), 0, 0);
     }
+
     // Move the accessories on the left and right sides
     // const sideOffset = (width-startDims.x)/2
     // leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
@@ -40,8 +68,14 @@ export function Experience() {
   return (
     <group dispose={null}>
       {/* PARAMETRIC LOGIC */}
+      {/* THE BOUNDING BOX */}
+      <mesh ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
+
       {/* THE MAIN PIECE */}
-      <mesh ref={Sheet} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Left} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Right} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
 
       {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
       <group ref={leftGroupRef}>
