@@ -3,7 +3,7 @@ import { useControls } from 'leva'
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
-import { HeightDimensionLine, WidthDimensionLine, DepthDimensionLine } from './SceneManager'
+import { PlaneDimensionLine } from './DimensionManager'
 import { GenerateSimpleNoiseTexture, GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 export function Experience() {
@@ -17,6 +17,7 @@ export function Experience() {
   const Back = useRef()
 
   const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
+  const mat_Wireframe = new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 2})
   const mat_MATCAP = new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'})
   const mat_PBR = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
@@ -24,7 +25,7 @@ export function Experience() {
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
-  const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
+  const materialThickness = 0.002;
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -33,7 +34,7 @@ export function Experience() {
     dividers: { value: 1, min: 0, max: 4, step: 1 },
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP } },
+    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
     showDevTools: false,
     x1: { value: 0.00, min: 0.001, max: 10, step: 0.001 },
@@ -114,37 +115,36 @@ export function Experience() {
 
       <group name="DimensionsGroup" ref={Dimensions} visible={showDims}>
         {/* Width Label - OVERALL*/}
-        <WidthDimensionLine 
+        <PlaneDimensionLine 
           start={[-width/2, height / 2, -depth / 2]} 
           end={[width/2, height / 2, -depth / 2]} 
           label={width}
-          setWidth={(v) => setControls({ width: v })}
-          centerGap={0.05}
-          dimensionMargin={0.05}
-          anchorGap={0.01}
-          fontSize={0.02}
+          setDimension={(v) => setControls({ width: v })}
+          dimensionGap={0.025}
+          anchorGap={0.005}
+          fontSize={0.01}
         />
 
         {/* Height Label - OVERALL*/}
-        <HeightDimensionLine 
+        <PlaneDimensionLine 
           start={[width/2, -height / 2, -depth / 2]} 
           end={[width/2, height / 2, -depth / 2]} 
-          label={height.toFixed(2)}
-          centerGap={0.05}
-          dimensionMargin={0.05}
-          anchorGap={0.01}
-          fontSize={0.02}
+          label={height}
+          setDimension={(v) => setControls({ height: v })}
+          dimensionGap={0.025}
+          anchorGap={0.005}
+          fontSize={0.01}
         />
 
         {/* Depth Label - OVERALL*/}
-        <DepthDimensionLine 
+        <PlaneDimensionLine 
           start={[width/2, -height / 2, depth / 2]} 
           end={[width/2, -height / 2, -depth / 2]} 
-          label={depth.toFixed(2)}
-          centerGap={0.05}
-          dimensionMargin={0.05}
-          anchorGap={0.01}
-          fontSize={0.02}
+          label={depth}
+          setDimension={(v) => setControls({ depth: v })}
+          dimensionGap={0.025}
+          anchorGap={0.005}
+          fontSize={0.01}
         />
       </group>
     </group>
