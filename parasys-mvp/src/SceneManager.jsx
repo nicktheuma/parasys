@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Line, Text, Billboard } from '@react-three/drei'
 
-const DimensionColor = '#ff0000';
+const DimensionColor = '#3c00ff';
 
 export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorGap = 0.02, dimensionGap=0.05,fontSize = 0.05 }) {
   // Calculate the center point for the label
