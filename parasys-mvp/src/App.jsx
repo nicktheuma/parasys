@@ -51,7 +51,7 @@ function App() {
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#ebebeb' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--background-color)' }}>
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
         <SceneSync />
         <Suspense fallback={null}>

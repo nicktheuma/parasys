@@ -7,6 +7,13 @@
   --leva-colors-accent1: #ffffff;
   --leva-colors-accent2: #ffffff33;
   --leva-colors-accent3: #ffffff45;
+  /* Global app colors */
+  --background-color: #ebebeb;
+  --dimension-color: #d0d0d0;
+  --interaction-color: #060606;
+  --button-bg: #00000012;
+  --button-text: #ffffff;
+  --button-border: #ffffff;
 }
 
 #root {
@@ -60,10 +67,10 @@
   bottom: 20px;
   right: 20px;
   z-index: 1000 !important;
-  background-color: #00000012;
+  background-color: var(--button-bg);
   font-size: 1rem;
-  color: #ffffff;
-  border: 1px solid #ffffff;
+  color: var(--button-text);
+  border: 1px solid var(--button-border);
   border-radius: 5px;
   padding: 10px 15px;
   cursor: pointer;
@@ -73,8 +80,8 @@
 /* Hover effect */
 .button:hover {
   background-color: #ffffff45;
-  color: #000000;
-  border: 1px solid #000000;
+  color: var(--interaction-color);
+  border: 1px solid var(--interaction-color);
   transform: scale(1.01);
   /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
 }

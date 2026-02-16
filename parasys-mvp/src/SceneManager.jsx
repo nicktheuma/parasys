@@ -3,8 +3,19 @@ import { Line, Text, Billboard, Html } from '@react-three/drei'
 import React, { useRef, useState, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 
-const DimensionColor = '#d0d0d0';
-const DimensionHoverColor = '#0800ff';
+// Hook to read CSS color variables from :root
+function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
+  const [dimColor, setDimColor] = useState(defaultDim)
+  const [hoverColor, setHoverColor] = useState(defaultHover)
+  useEffect(() => {
+    const s = getComputedStyle(document.documentElement)
+    const dc = s.getPropertyValue('--dimension-color')
+    const hc = s.getPropertyValue('--interaction-color')
+    if (dc) setDimColor(dc.trim())
+    if (hc) setHoverColor(hc.trim())
+  }, [])
+  return { dimColor, hoverColor }
+}
 
 export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorGap = 0.02, dimensionGap=0.05,fontSize = 0.05, setWidth, min = 0.05, max = 2, step = 0.01 }) {
   // Calculate the center point for the label
@@ -29,6 +40,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
   const [inputValue, setInputValue] = useState(label.toFixed(2))
   const inputRef = useRef(null)
   const { controls } = useThree()
+  const { dimColor, hoverColor } = useCssColors()
 
   const onPointerDown = (e) => {
     if (!setWidth) return
@@ -139,8 +151,8 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
   return (
     <group>
       {/* The Main Dimension Line */}
-      <Line points={[s, center_L]} color={hovered ? DimensionHoverColor : DimensionColor} lineWidth={1} dashed={false} />
-      <Line points={[center_R, e]} color={hovered ? DimensionHoverColor : DimensionColor} lineWidth={1} dashed={false} />
+      <Line points={[s, center_L]} color={hovered ? hoverColor : dimColor} lineWidth={1} dashed={false} />
+      <Line points={[center_R, e]} color={hovered ? hoverColor : dimColor} lineWidth={1} dashed={false} />
 
       {/* Left Extension (Witness) Line */}
       <Line 
@@ -148,7 +160,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
           [s.x, s.y, s.z], 
           [s.x, s.y -  (dimensionGap - anchorGap), s.z] // Small tick downwards
         ]} 
-        color={hovered ? DimensionHoverColor : DimensionColor}
+          color={hovered ? hoverColor : dimColor}
         lineWidth={1} 
       />
       
@@ -158,7 +170,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
           [e.x, e.y, e.z], 
           [e.x, e.y - (dimensionGap - anchorGap), e.z] 
         ]} 
-        color={hovered ? DimensionHoverColor : DimensionColor} 
+          color={hovered ? hoverColor : dimColor} 
         lineWidth={1} 
       />
       
@@ -197,10 +209,10 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
                   padding: '4px 8px',
                   fontSize: '14px',
                   border: '1px solid #ff0000',
-                  borderColor: DimensionHoverColor,
+                            borderColor: hoverColor,
                   borderRadius: '4px',
                   backgroundColor: '#ffffff15',
-                  color: DimensionHoverColor,
+                  color: hoverColor,
                   textAlign: 'center',
                   fontFamily: 'inherit',
                   outline: 'none',
@@ -208,9 +220,9 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
               />
             </Html>
           ) : (
-            <Text className="dimension-label"
+              <Text className="dimension-label"
               fontSize={fontSize}
-              color={hovered ? DimensionHoverColor : DimensionColor}
+              color={hovered ? hoverColor : dimColor}
               anchorX="center"
               anchorY="middle"
             >
@@ -236,11 +248,13 @@ export function HeightDimensionLine({ start, end, label, centerGap = 0.1, anchor
   const center_L = [center[0], center[1] - (centerGap/2), center[2]]
   const center_R = [center[0], center[1] + (centerGap/2), center[2]]
 
+  const { dimColor } = useCssColors()
+
   return (
     <group>
       {/* The Main Dimension Line */}
-      <Line points={[s, center_L]} color={DimensionColor} lineWidth={1} dashed={false} />
-      <Line points={[center_R, e]} color={DimensionColor} lineWidth={1} dashed={false} />
+      <Line points={[s, center_L]} color={dimColor} lineWidth={1} dashed={false} />
+      <Line points={[center_R, e]} color={dimColor} lineWidth={1} dashed={false} />
 
       {/* Left Extension (Witness) Line */}
       <Line 
@@ -248,7 +262,7 @@ export function HeightDimensionLine({ start, end, label, centerGap = 0.1, anchor
           [s.x, s.y, s.z], 
           [s.x - (dimensionGap - anchorGap), s.y, s.z] // Small tick downwards
         ]} 
-        color={DimensionColor} 
+        color={dimColor} 
         lineWidth={1} 
       />
       
@@ -258,15 +272,15 @@ export function HeightDimensionLine({ start, end, label, centerGap = 0.1, anchor
           [e.x, e.y, e.z], 
           [e.x - (dimensionGap - anchorGap), e.y, e.z] 
         ]} 
-        color={DimensionColor} 
+        color={dimColor} 
         lineWidth={1} 
       />
       
       {/* The Label - Using Billboard so it always faces us */}
       <Billboard position={[s.x, 0, s.z]}>
-          <Text
+            <Text
             fontSize={fontSize}
-            color={DimensionColor}
+            color={dimColor}
             anchorX="center"
             anchorY="middle"
           >
@@ -290,11 +304,13 @@ export function DepthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
   const center_L = [center[0], center[1], center[2] + (centerGap/2)]
   const center_R = [center[0], center[1], center[2] - (centerGap/2)]
 
+  const { dimColor } = useCssColors()
+
   return (
     <group>
       {/* The Main Dimension Line */}
-      <Line points={[s, center_L]} color={DimensionColor} lineWidth={1} dashed={false} />
-      <Line points={[center_R, e]} color={DimensionColor} lineWidth={1} dashed={false} />
+      <Line points={[s, center_L]} color={dimColor} lineWidth={1} dashed={false} />
+      <Line points={[center_R, e]} color={dimColor} lineWidth={1} dashed={false} />
 
       {/* Left Extension (Witness) Line */}
       <Line 
@@ -302,7 +318,7 @@ export function DepthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
           [s.x, s.y, s.z], 
           [s.x - (dimensionGap - anchorGap), s.y, s.z] // Small tick downwards
         ]} 
-        color={DimensionColor} 
+        color={dimColor} 
         lineWidth={1} 
       />
       
@@ -312,15 +328,15 @@ export function DepthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
           [e.x, e.y, e.z], 
           [e.x - (dimensionGap - anchorGap), e.y, e.z] 
         ]} 
-        color={DimensionColor} 
+        color={dimColor} 
         lineWidth={1} 
       />
       
       {/* The Label - Using Billboard so it always faces us */}
       <Billboard position={[s.x, s.y, 0]}>
-          <Text
+            <Text
             fontSize={fontSize}
-            color={DimensionColor}
+            color={dimColor}
             anchorX="center"
             anchorY="middle"
           >
