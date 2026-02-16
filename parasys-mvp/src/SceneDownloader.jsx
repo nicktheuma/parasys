@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
 // Helper function to trigger the browser download for binary files

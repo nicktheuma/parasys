@@ -26,7 +26,7 @@ export function Experience() {
   const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
   const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
   
-  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = useControls({
+  const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
@@ -40,7 +40,9 @@ export function Experience() {
     y1: { value: 0.95, min: 0.001, max: 10, step: 0.001 },
     x2: { value: 0.52, min: 0.1, max: 10, step: 0.01 },
     y2: { value: 0.1, min: 0.1, max: 10, step: 0.01 }
-  })
+  }))
+
+  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
 
   const noiseCanvas = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
   const noiseTexture = new THREE.CanvasTexture(noiseCanvas)
@@ -115,7 +117,8 @@ export function Experience() {
         <WidthDimensionLine 
           start={[-width/2, height / 2, -depth / 2]} 
           end={[width/2, height / 2, -depth / 2]} 
-          label={width.toFixed(2)}
+          label={width}
+          setWidth={(v) => setControls({ width: v })}
           centerGap={0.05}
           dimensionMargin={0.05}
           anchorGap={0.01}
