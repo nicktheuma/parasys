@@ -42,7 +42,10 @@ export function Experience() {
     y2: { value: 0.1, min: 0.1, max: 10, step: 0.01 }
   })
 
-  const noiseTexture = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
+  const noiseCanvas = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
+  const noiseTexture = new THREE.CanvasTexture(noiseCanvas)
+  noiseTexture.magFilter = THREE.LinearFilter
+  noiseTexture.minFilter = THREE.LinearMipmapLinearFilter
   // mat_PBR.map = noiseTexture;
   mat_PBR.roughnessMap = noiseTexture;
   // mat_PBR.normalMap = noiseTexture;
@@ -72,38 +75,42 @@ export function Experience() {
 
   return (
     <group dispose={null}>
-    {/* PARAMETRIC LOGIC */}
-      {/* THE BOUNDING BOX */}
-      <mesh ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
+      <group name="DevToolGroup">
+        {/* THE BOUNDING BOX */}
+        <mesh  ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
+      </group>
+    
+      <group name="FurnitureGroup">
+        {/* PARAMETRIC LOGIC */}
 
-      {/* THE MAIN PIECE */}
-      <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
-      <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
-      <mesh ref={Back} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+        {/* THE MAIN PIECE */}
+        <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+        <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+        <mesh ref={Back} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
 
-      {/* DIVIDERS */}
-      {Array.from({ length: (dividers + 2) }).map((_, i) => {
-        const widthAdjusted = width - materialThickness - (edgeOffset * 2);
-        const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
-        return (
-          <mesh
-            key={`divider-${i}`}
-            position={[x, 0, -(slotOffset/2)]}
-            rotation={[0, -Math.PI / 2, 0]}
-            geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)}
-            material={material}
-            scale={[
-              ((depth - slotOffset) / startDims.x),
-              (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
-              materialThickness / startDims.z
-            ]}
-          />
-        )
-      })}
+        {/* DIVIDERS */}
+        {Array.from({ length: (dividers + 2) }).map((_, i) => {
+          const widthAdjusted = width - materialThickness - (edgeOffset * 2);
+          const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
+          return (
+            <mesh
+              key={`divider-${i}`}
+              position={[x, 0, -(slotOffset/2)]}
+              rotation={[0, -Math.PI / 2, 0]}
+              geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)}
+              material={material}
+              scale={[
+                ((depth - slotOffset) / startDims.x),
+                (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
+                materialThickness / startDims.z
+              ]}
+            />
+          )
+        })}
 
-      {/* DIMENSIONS */}
+      </group>
 
-      <group ref={Dimensions} visible={showDims}>
+      <group name="DimensionsGroup" ref={Dimensions} visible={showDims}>
         {/* Width Label - OVERALL*/}
         <WidthDimensionLine 
           start={[-width/2, height / 2, -depth / 2]} 

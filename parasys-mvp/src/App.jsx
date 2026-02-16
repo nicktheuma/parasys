@@ -1,12 +1,43 @@
 import { Canvas } from '@react-three/fiber'
 import { Stage, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Experience } from './Experience'
+import { useThree } from '@react-three/fiber';
+import { downloadScene } from './SceneDownloader';
+import { useSceneStore } from './useSceneStore';
+import './App.css'
+
+// Component to sync scene to store
+const SceneSync = () => {
+  const { scene } = useThree();
+  const setScene = useSceneStore((state) => state.setScene);
+  
+  useEffect(() => {
+    setScene(scene);
+  }, [scene, setScene]);
+  
+  return null;
+};
+
+// Button rendered outside Canvas
+const DownloadButton = () => {
+  const scene = useSceneStore((state) => state.scene);
+
+  return (
+    <button 
+      onClick={() => downloadScene(scene)}
+      className="button"
+    >
+      Download 3D Model (.glb)
+    </button>
+  );
+};
 
 function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#efefef' }}>
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
+        <SceneSync />
         <Suspense fallback={null}>
           <PerspectiveCamera fov={45} />
           {/* Stage handles professional lighting and shadows automatically */}
@@ -35,7 +66,7 @@ function App() {
             />
           </EffectComposer> */}
       </Canvas>
+      <DownloadButton />
     </div>
-  )
-}
+  )}  
 export default App

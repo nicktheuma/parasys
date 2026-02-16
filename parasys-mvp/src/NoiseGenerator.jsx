@@ -59,8 +59,5 @@ export function GeneratePerlinNoiseTexture(width = 512, height = 512, x1 = 0.01,
   
   ctx.putImageData(imageData, 0, 0)
   
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.magFilter = THREE.LinearFilter
-  texture.minFilter = THREE.LinearMipmapLinearFilter
-  return texture
+  return canvas
 }
