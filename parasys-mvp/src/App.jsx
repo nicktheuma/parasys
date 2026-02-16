@@ -35,7 +35,7 @@ const DownloadButton = () => {
 
 function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#efefef' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#ebebeb' }}>
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
         <SceneSync />
         <Suspense fallback={null}>
@@ -53,7 +53,7 @@ function App() {
           <Environment 
             files='monochrome_studio_02_1k.hdr' 
             blur={0.6} // Blurs the background so focus stays on the furniture
-            background
+            // background
           />
         </Suspense>
           {/* <EffectComposer>

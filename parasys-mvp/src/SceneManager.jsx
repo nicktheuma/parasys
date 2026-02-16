@@ -3,8 +3,8 @@ import { Line, Text, Billboard, Html } from '@react-three/drei'
 import React, { useRef, useState, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 
-const DimensionColor = '#3c00ff';
-const DimensionHoverColor = '#ff0000';
+const DimensionColor = '#d0d0d0';
+const DimensionHoverColor = '#0800ff';
 
 export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorGap = 0.02, dimensionGap=0.05,fontSize = 0.05, setWidth, min = 0.05, max = 2, step = 0.01 }) {
   // Calculate the center point for the label
