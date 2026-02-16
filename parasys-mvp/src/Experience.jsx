@@ -23,14 +23,15 @@ export function Experience() {
   // Memoize materials to avoid recreating them every render
   const materials = useMemo(() => ({
     mat_Dev: new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3}),
-    mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 2}),
+    mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
+    mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
   }), [])
 
-  const { mat_Dev, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -85,10 +86,6 @@ export function Experience() {
       Top.current.rotation.set(Math.PI / 2, 0, 0);
       Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
 
-      // Bottom.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
-      // Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
-      // Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
-
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Back.current.rotation.set(-Math.PI, 0, 0);
       Back.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
@@ -99,7 +96,7 @@ export function Experience() {
     <group dispose={null}>
       <group name="DevToolGroup">
         {/* THE BOUNDING BOX */}
-        <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev} />
+        <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev_Wireframe} />
       </group>
     
       <group name="FurnitureGroup">
