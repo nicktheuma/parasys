@@ -8,7 +8,7 @@ function App() {
     <div style={{ width: '100vw', height: '100vh', background: '#efefef' }}>
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
         <Suspense fallback={null}>
-          <PerspectiveCamera fov={30} />
+          <PerspectiveCamera fov={45} />
           {/* Stage handles professional lighting and shadows automatically */}
           <Stage 
               intensity={1}

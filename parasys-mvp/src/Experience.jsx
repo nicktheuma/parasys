@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
 import { HeightDimensionLine, WidthDimensionLine, DepthDimensionLine } from './SceneManager'
+import { GenerateSimpleNoiseTexture, GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 export function Experience() {
   
@@ -16,24 +17,37 @@ export function Experience() {
   const Back = useRef()
 
   const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
+  const mat_MATCAP = new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'})
+  const mat_PBR = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
   const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
-  const mat_PaintedMetal = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.8, metalness: 0.1})
+  const mat_PaintedMetal = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
 
-  const startDims = new THREE.Vector3(0.6, 0.3, 0.1);
-  const maxDims = new THREE.Vector3(1, 0.5, 0.35);
+  const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
+  const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
   const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
   
-  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools } = useControls({
+  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = useControls({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
-    dividers: { value: 1, min: 0, max: 100, step: 1 },
+    dividers: { value: 1, min: 0, max: 4, step: 1 },
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
-    slotOffset: { value: 0.01, min: 0.015, max: 0.1, step: 0.001 },
-    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal } },
+    slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
+    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP } },
     showDims: true,
-    showDevTools: false
+    showDevTools: false,
+    x1: { value: 0.00, min: 0.001, max: 10, step: 0.001 },
+    y1: { value: 0.95, min: 0.001, max: 10, step: 0.001 },
+    x2: { value: 0.52, min: 0.1, max: 10, step: 0.01 },
+    y2: { value: 0.1, min: 0.1, max: 10, step: 0.01 }
   })
+
+  const noiseTexture = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
+  // mat_PBR.map = noiseTexture;
+  mat_PBR.roughnessMap = noiseTexture;
+  // mat_PBR.normalMap = noiseTexture;
+  // mat_PBR.displacementMap = noiseTexture;
+  // mat_PBR.displacementScale = 0.1;
 
   useFrame(() => {
     {/* PARAMETRIC LOGIC */}
