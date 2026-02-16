@@ -1,82 +1,164 @@
-import { useControls } from 'leva'
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useGLTF } from '@react-three/drei'
+import { useControls } from 'leva'
+import { useRef, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
+
+import { HeightDimensionLine, WidthDimensionLine, DepthDimensionLine } from './SceneManager'
+import { GenerateSimpleNoiseTexture, GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 export function Experience() {
-  const { width, material, showProps } = useControls({
-    width: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
-    material: { options: { Default: '#999999', Wood: '#5d4037', Modern: '#222222', Alabaster: '#f5f5f5' } },
-    showProps: true,
-    // showGrid: false,
-  })
-
-  // Ensure this matches your actual filename in /public
-  const { nodes, materials } = useGLTF('/console_2.glb') 
   
-  const consoleRef = useRef()
   const leftGroupRef = useRef()
   const rightGroupRef = useRef()
+  const Dimensions = useRef()
+  const Bounding = useRef()
+  const Top = useRef()
+  const Bottom = useRef()
+  const Back = useRef()
+
+  const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
+  const mat_MATCAP = new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'})
+  const mat_PBR = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
+  const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
+  const mat_PaintedMetal = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
+
+  const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
+  const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
+  const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
+  
+  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = useControls({
+    width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
+    height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
+    depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
+    dividers: { value: 1, min: 0, max: 4, step: 1 },
+    edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
+    slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
+    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP } },
+    showDims: true,
+    showDevTools: false,
+    x1: { value: 0.00, min: 0.001, max: 10, step: 0.001 },
+    y1: { value: 0.95, min: 0.001, max: 10, step: 0.001 },
+    x2: { value: 0.52, min: 0.1, max: 10, step: 0.01 },
+    y2: { value: 0.1, min: 0.1, max: 10, step: 0.01 }
+  })
+
+  const noiseTexture = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
+  // mat_PBR.map = noiseTexture;
+  mat_PBR.roughnessMap = noiseTexture;
+  // mat_PBR.normalMap = noiseTexture;
+  // mat_PBR.displacementMap = noiseTexture;
+  // mat_PBR.displacementScale = 0.1;
 
   useFrame(() => {
-    // 1. Scale the main console body
-    consoleRef.current.scale.x = THREE.MathUtils.lerp(consoleRef.current.scale.x, width, 0.1)
-    
-    // 2. Move the accessories on the left and right sides
-    const sideOffset = width / 2
-    leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
-    rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
+    {/* PARAMETRIC LOGIC */}
+    if (Bounding.current) {
+      Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
+      Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
+      Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
+      
+      Top.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
+      Top.current.rotation.set(Math.PI / 2, 0, 0);
+      Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
+
+      Bottom.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
+      Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
+      Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
+
+      Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
+      Back.current.rotation.set(0, 0, Math.PI);
+      Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
+    }
   })
 
   return (
     <group dispose={null}>
-      {/* <gridHelper args={[100, 100]} visible={showGrid}/> */}
+    {/* PARAMETRIC LOGIC */}
+      {/* THE BOUNDING BOX */}
+      <mesh ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
+
       {/* THE MAIN PIECE */}
-      {/* <mesh ref={consoleRef} geometry={nodes.CONSOLE001.geometry} material={materials['WOOD MATERIAL']} envMapIntensity={2.5} roughness={0.4} metalness={0.1} color={'#ffffff'} /> */}
-      <mesh ref={consoleRef} geometry={nodes.Plane011.geometry}>
-        <meshStandardMaterial color={material} roughness={0.4} />
-      </mesh>
-      
-      {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
-      <group ref={leftGroupRef} visible={showProps}>
-        <mesh geometry={nodes.BOOKS003.geometry} material={materials['PAPER MATERIAL']} />
-        <mesh geometry={nodes.BOOKS004.geometry} material={materials['BOOK COVER MATERIAL.002']}  />
-        <mesh geometry={nodes.Circle003_2.geometry}><meshStandardMaterial color={'#ffffff'} roughness={0} emissive={'#ff0000'} emissiveIntensity={1.5} /></mesh>
-        <mesh geometry={nodes.Circle003_3.geometry} material={materials['WHITE PANEL.001']}  />
-      </group>
+      <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Back} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
 
-      {/* RIGHT SIDE ACCESSORIES (Stay on the right edge) */}
-      <group ref={rightGroupRef} visible={showProps}>
-        {/* <mesh geometry={nodes.LAMP005.geometry} material={materials['FABRIC MATERIAL']} />  */}
-        <mesh geometry={nodes.BOOKS009.geometry} material={materials['BOOK COVER MATERIAL.004']} />
-        <mesh geometry={nodes.GOBLETS.geometry} material={materials['METAL MATERIAL.001']}  />
-        {/* <mesh geometry={nodes.DOOR_HANDLES.geometry} material={materials['METAL MATERIAL.002']}  /> */}
-      </group>
+      {/* DIVIDERS */}
+      {Array.from({ length: (dividers + 2) }).map((_, i) => {
+        const widthAdjusted = width - materialThickness - (edgeOffset * 2);
+        const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
+        return (
+          <mesh
+            key={`divider-${i}`}
+            position={[x, 0, -(slotOffset/2)]}
+            rotation={[0, -Math.PI / 2, 0]}
+            geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)}
+            material={material}
+            scale={[
+              ((depth - slotOffset) / startDims.x),
+              (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
+              materialThickness / startDims.z
+            ]}
+          />
+        )
+      })}
 
-      {/* CENTER PIECES (Stay in the middle) */}
-      <group visible={showProps}>
-        <mesh geometry={nodes.BOWL.geometry} material={materials['MARBLE MATERIAL.02']}  />
-        <mesh geometry={nodes.HOLDER.geometry} material={materials['WOOD MATERIAL.001']}  />
-        {/* <mesh geometry={nodes.PAINTING004.geometry} material={materials['PANITING MATERIAL']} /> */}
-        <mesh geometry={nodes.BOOKS003.geometry} material={materials['BOOK COVER MATERIAL.005']}  />
+      {/* DIMENSIONS */}
+
+      <group ref={Dimensions} visible={showDims}>
+        {/* Width Label - OVERALL*/}
+        <WidthDimensionLine 
+          start={[-width/2, height / 2, -depth / 2]} 
+          end={[width/2, height / 2, -depth / 2]} 
+          label={width.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
+        />
+
+        {/* Height Label - OVERALL*/}
+        <HeightDimensionLine 
+          start={[width/2, -height / 2, -depth / 2]} 
+          end={[width/2, height / 2, -depth / 2]} 
+          label={height.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
+        />
+
+        {/* Depth Label - OVERALL*/}
+        <DepthDimensionLine 
+          start={[width/2, -height / 2, depth / 2]} 
+          end={[width/2, -height / 2, -depth / 2]} 
+          label={depth.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
+        />
       </group>
     </group>
   )
 }
 
+//NOTES
 
-// NOTES
+    // console.log(leftGroupRef.current.position);
+    // print("test"); //INTERESTING: PRINTS SCREENSHOT OF PAGE
 
-        {/* <mesh geometry={nodes.LAMP005.geometry}>
-            <meshStandardMaterial 
-                {...materials['FABRIC MATERIAL']} // This spreads all the maps (map, normal, etc.)
-                roughness={0.6}   // Fine-tune the "Blender look" here
-                metalness={0.1}
-                envMapIntensity={1.5} // Boosts the "Luxury" reflections
-            />
-        </mesh> */}
+    // Move the accessories on the left and right sides
+    // const sideOffset = (width-startDims.x)/2
+    // leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
+    // rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
 
-        {/* <mesh geometry={nodes.LAMP003.geometry} material={materials['GLASS MATERIAL']}/> */}
-            {/* <meshStandardMaterial {...materials['GLASS MATERIAL']} roughness={0.4} />   
-        </mesh> */}
+      {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
+      // <group ref={leftGroupRef}>
+      // </group>
+
+      {/* RIGHT SIDE ACCESSORIES (Stay on the right edge) */}
+      // <group ref={rightGroupRef}>
+      // </group>
+
+      {/* CENTER PIECES (Stay in the middle) */}
+      // <group visible={showProps}>
+      // </group>
