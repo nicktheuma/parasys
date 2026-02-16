@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { Line, Text, Billboard, Html } from '@react-three/drei'
 import React, { useRef, useState, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
-import { CrossMarker } from './CrossMarker'
 
 // Hook to read CSS color variables from :root
 function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
@@ -18,7 +17,7 @@ function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
   return { dimColor, hoverColor }
 }
 
-export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchorGap = 0.01, dimensionGap=0.03, fontSize = 0.02, setDimension, min = 0.05, max = 2, step = 0.01 }) {
+export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchorGap = 0.01, dimensionGap=0.03, fontSize = 0.02, setDimension, min = 0.05, max = 2, step = 0.001 }) {
   // Determine plane of the dimension line based on start and end points
   const vectorDiff = new THREE.Vector3(end[0] - start[0], end[1] - start[1], end[2] - start[2]);
   const dimensionGapVector = new THREE.Vector3(0, 0, 0);
@@ -87,9 +86,9 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
       const screenDx = moveEvent.clientX - startX.current
       totalMovement.current = Math.abs(screenDx)  // Track total movement
       const worldDx = screenDx * 0.01  // Scale screen pixels to world units
-      const newWidth = startWidth.current + worldDx * 2
-      const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
-      if (snapped !== label) setDimension(snapped)
+      const newWidth = startWidth.current + worldDx * 0.1
+      // const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
+    //   if (snapped !== label) setDimension(snapped)
     }
 
     const handleGlobalUp = (upEvent) => {
@@ -120,7 +119,7 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
     const screenDx = clientX - startX.current
     totalMovement.current = Math.abs(screenDx)  // Track total movement
     const worldDx = screenDx * 0.01  // Scale screen pixels to world units
-    const newWidth = startWidth.current + worldDx * 2
+    const newWidth = startWidth.current + worldDx * 0.1
     const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
     if (snapped !== label) setDimension(snapped)
   }
@@ -169,7 +168,7 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
     const onEditMouseMove = (e) => {
       const dx = Math.abs(e.clientX - editStart.current.x)
       const dy = Math.abs((e.clientY || 0) - editStart.current.y)
-      if (dx > 5 || dy > 5) {
+      if (dx > 30 || dy > 30) {
         setIsEditing(false)
       }
     }
