@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
 import { DimensionLine } from './SceneManager'
@@ -15,6 +15,7 @@ export function Experience() {
   const Bottom = useRef()
   const Left = useRef()
   const Right = useRef()
+  const Divider = useRef()
 
   const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
   const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
@@ -23,18 +24,27 @@ export function Experience() {
   const startDims = new THREE.Vector3(0.6, 0.3, 0.1);
   const maxDims = new THREE.Vector3(1, 0.5, 0.35);
   const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
+  const dividerCount = 1;
 
-  const dimensionMargin = 0.1;
-
-  const { width, height, depth, material, showProps, showDims, showDevTools } = useControls({
+  const { width, height, depth, dividers, material, showProps, showDims, showDevTools } = useControls({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
+    dividers: { value: 1, min: 0, max: 5, step: 1 },
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal } },
-    // showProps: true,
+    // showProps: false,
     showDims: true,
-    showDevTools: true
+    showDevTools: false
   })
+
+    // // If 'count' goes from 5 to 3, React automatically removes 2 meshes.
+    // return (
+    //   <group>
+    //     {items.map((mesh, i) => (
+    //       <primitive key={i} object={mesh} />
+    //     ))}
+    //   </group>
+    // );
 
   useFrame(() => {
     if (Bounding.current) {
@@ -57,12 +67,12 @@ export function Experience() {
       Right.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Right.current.rotation.set(0, -Math.PI / 2, 0);
       Right.current.position.set((width / 2) - (materialThickness / 2), 0, 0);
-    }
 
     // Move the accessories on the left and right sides
     // const sideOffset = (width-startDims.x)/2
     // leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
     // rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
+    }
   })
 
   return (
@@ -76,6 +86,25 @@ export function Experience() {
       <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
       <mesh ref={Left} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
       <mesh ref={Right} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+
+      {/* DIVIDERS */}
+      {Array.from({ length: (dividers + 1) }).map((_, i) => {
+        const x = -(width / 2) + (width / Math.max(1, (dividers + 1))) * (i)
+        return (
+          <mesh
+            key={`divider-${i}`}
+            position={[x, 0, 0]}
+            rotation={[0, -Math.PI / 2, 0]}
+            geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)}
+            material={material}
+            scale={[
+              depth / startDims.x,
+              (height - materialThickness * 2) / startDims.y,
+              materialThickness / startDims.z
+            ]}
+          />
+        )
+      })}
 
       {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
       <group ref={leftGroupRef}>
@@ -93,9 +122,13 @@ export function Experience() {
       <group ref={Dimensions} visible={showDims}>
         {/* Width Label */}
         <DimensionLine 
-          start={[-width/2, startDims.y / 2 + dimensionMargin, startDims.z / 2]} 
-          end={[width/2, startDims.y / 2 + dimensionMargin, startDims.z / 2]} 
-          label={width.toFixed(2)} 
+          start={[-width/2, height / 2, depth / 2]} 
+          end={[width/2, height / 2, depth / 2]} 
+          label={width.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
         />
       </group>
     </group>
