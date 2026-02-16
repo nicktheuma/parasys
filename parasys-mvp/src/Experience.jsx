@@ -8,8 +8,8 @@ import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 export function Experience() {
   
-  const leftGroupRef = useRef()
-  const rightGroupRef = useRef()
+  // const leftGroupRef = useRef()
+  // const rightGroupRef = useRef()
   const Dimensions = useRef()
   const Bounding = useRef()
   const Top = useRef()
@@ -37,6 +37,7 @@ export function Experience() {
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
     dividers: { value: 1, min: 0, max: 4, step: 1 },
+    shelves: { value: 1, min: 0, max: 4, step: 1 },
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
@@ -48,9 +49,9 @@ export function Experience() {
     y2: { value: 0.1, min: 0.1, max: 10, step: 0.1 }
   }))
 
-  const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
 
-  // Memoise noise texture with proper dependency array (reduced resolution for perf)
+  // Memo-ise noise texture with proper dependency array (reduced resolution for perf)
   const noiseTexture = useMemo(() => {
     const noiseCanvas = GeneratePerlinNoiseTexture(256, 256, x1, y1, x2, y2)
     const tex = new THREE.CanvasTexture(noiseCanvas)
@@ -64,7 +65,7 @@ export function Experience() {
     if (mat_PBR) mat_PBR.roughnessMap = noiseTexture
   }, [noiseTexture, mat_PBR])
 
-  // Memoize geometries to avoid recreating them every render
+  // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
     boxMain: new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z),
   }), [])
@@ -84,13 +85,13 @@ export function Experience() {
       Top.current.rotation.set(Math.PI / 2, 0, 0);
       Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
 
-      Bottom.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
-      Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
-      Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
+      // Bottom.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
+      // Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
+      // Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
 
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
-      Back.current.rotation.set(0, 0, Math.PI);
-      Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
+      Back.current.rotation.set(-Math.PI, 0, 0);
+      Back.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
     }
   })
 
@@ -105,17 +106,17 @@ export function Experience() {
         {/* PARAMETRIC LOGIC */}
 
         {/* THE MAIN PIECE */}
-        <mesh ref={Top} geometry={boxMain} material={material} />
-        <mesh ref={Bottom} geometry={boxMain} material={material} />
-        <mesh ref={Back} geometry={boxMain} material={material} />
+        {/* <mesh ref={Top} geometry={boxMain} material={material} /> */}
+        {/* <mesh ref={Bottom} geometry={boxMain} material={material} /> */}
+        {/* <mesh ref={Back} geometry={boxMain} material={material} /> */}
 
-        {/* DIVIDERS */}
+        {/* HORIZONTAL SHEETS XY */}
         {Array.from({ length: (dividers + 2) }).map((_, i) => {
           const widthAdjusted = width - materialThickness - (edgeOffset * 2);
           const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
           return (
             <mesh
-              key={`divider-${i}`}
+              key={`xy-sheet-${i}`}
               position={[x, 0, -(slotOffset/2)]}
               rotation={[0, -Math.PI / 2, 0]}
               geometry={boxMain}
@@ -124,6 +125,25 @@ export function Experience() {
                 ((depth - slotOffset) / startDims.x),
                 (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
                 materialThickness / startDims.z
+              ]}
+            />
+          )
+        })}
+
+        {/* VERTICAL SHEETS YZ */}
+        {Array.from({ length: (shelves + 2) }).map((_, i) => {
+          const x = (height / Math.max(1, (shelves + 1))) * (i)
+          return (
+            <mesh
+              key={`yz-sheet-${i}`}
+              position={[0, (height / 2) - x, 0]}
+              rotation={[0, 0, 0]}
+              geometry={boxMain}
+              material={material}
+              scale={[
+                width / startDims.x,
+                materialThickness / startDims.y,
+                depth / startDims.z
               ]}
             />
           )
