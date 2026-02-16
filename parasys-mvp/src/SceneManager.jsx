@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { Line, Text, Billboard } from '@react-three/drei'
-import React, { useRef, useState } from 'react'
+import { Line, Text, Billboard, Html } from '@react-three/drei'
+import React, { useRef, useState, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 
 const DimensionColor = '#3c00ff';
@@ -22,7 +22,11 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
   const dragging = useRef(false)
   const startX = useRef(0)
   const startWidth = useRef(label)
+  const totalMovement = useRef(0)  // Track total pixel movement to detect click vs drag
   const [hovered, setHovered] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [inputValue, setInputValue] = useState(label.toFixed(2))
+  const inputRef = useRef(null)
   const { controls } = useThree()
 
   const onPointerDown = (e) => {
@@ -32,12 +36,14 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
     try { e.target.setPointerCapture(e.pointerId) } catch {}
     startX.current = e.nativeEvent?.clientX || e.clientX || 0  // Use screen coordinates
     startWidth.current = label
+    totalMovement.current = 0  // Reset movement tracking
     if (controls) controls.enabled = false
 
     // Attach document-level listeners for drag-away behavior
     const handleGlobalMove = (moveEvent) => {
       if (!dragging.current || !setWidth) return
       const screenDx = moveEvent.clientX - startX.current
+      totalMovement.current = Math.abs(screenDx)  // Track total movement
       const worldDx = screenDx * 0.01  // Scale screen pixels to world units
       const newWidth = startWidth.current + worldDx * 2
       const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
@@ -49,6 +55,12 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
       if (controls) controls.enabled = true
       document.removeEventListener('mousemove', handleGlobalMove)
       document.removeEventListener('mouseup', handleGlobalUp)
+
+      // If movement was minimal, treat as click and enable editing
+      if (totalMovement.current < 5) {
+        setIsEditing(true)
+        setInputValue(label.toFixed(2))
+      }
     }
 
     document.addEventListener('mousemove', handleGlobalMove)
@@ -63,6 +75,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
     // Use screen coordinates for consistency with document listener
     const clientX = e.nativeEvent?.clientX || e.clientX || 0
     const screenDx = clientX - startX.current
+    totalMovement.current = Math.abs(screenDx)  // Track total movement
     const worldDx = screenDx * 0.01  // Scale screen pixels to world units
     const newWidth = startWidth.current + worldDx * 2
     const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
@@ -76,6 +89,36 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
     try { e.target.releasePointerCapture(e.pointerId) } catch {}
     if (controls) controls.enabled = true
   }
+
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value)
+  }
+
+  const applyInputValue = () => {
+    if (!setWidth) return
+    const numValue = parseFloat(inputValue)
+    if (!isNaN(numValue)) {
+      const clamped = Math.min(max, Math.max(min, numValue))
+      const snapped = Math.round(clamped / step) * step
+      setWidth(snapped)
+    }
+    setIsEditing(false)
+  }
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      applyInputValue()
+    } else if (e.key === 'Escape') {
+      setIsEditing(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
 
   return (
     <group>
@@ -118,14 +161,46 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
             <meshBasicMaterial transparent opacity={0} />
           </mesh>
 
-          <Text className="dimension-label"
-            fontSize={fontSize}
-            color={hovered ? DimensionHoverColor : DimensionColor}
-            anchorX="center"
-            anchorY="middle"
-          >
-            {(label * 1).toFixed(2)}m
-          </Text>
+          {isEditing ? (
+            <Html position={[center[0] - (Math.abs(center_R[0] - center_L[0]))/2, center[1] - (Math.abs(center_R[0] - center_L[0]))*13/16, center[2]]} scale={0.001} distanceFactor={1}>
+              <input
+                ref={inputRef}
+                type="number"
+                value={inputValue}
+                onChange={handleInputChange}
+                onBlur={applyInputValue}
+                onKeyDown={handleInputKeyDown}
+                step={step}
+                min={min}
+                max={max}
+                style={{
+                  anchorX: 'center',
+                  anchorY: 'middle',
+                  width: Math.abs(center_R[0] - center_L[0])/1.5 * 1000, // Scale up for HTML input
+                  height: '20px',
+                  padding: '4px 8px',
+                  fontSize: '14px',
+                  border: '1px solid #ff0000',
+                  borderColor: DimensionHoverColor,
+                  borderRadius: '4px',
+                  backgroundColor: '#ffffff15',
+                  color: DimensionHoverColor,
+                  textAlign: 'center',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              />
+            </Html>
+          ) : (
+            <Text className="dimension-label"
+              fontSize={fontSize}
+              color={hovered ? DimensionHoverColor : DimensionColor}
+              anchorX="center"
+              anchorY="middle"
+            >
+              {(label * 1).toFixed(2)}m
+            </Text>
+          )}
         </group>
       </Billboard>
     </group>
