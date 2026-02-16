@@ -61,6 +61,7 @@
   right: 20px;
   z-index: 1000 !important;
   background-color: #00000012;
+  font-size: 1rem;
   color: #ffffff;
   border: 1px solid #ffffff;
   border-radius: 5px;
@@ -74,8 +75,8 @@
   background-color: #ffffff45;
   color: #000000;
   border: 1px solid #000000;
-  transform: scale(1.02);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transform: scale(1.01);
+  /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
 }
 
 /* Leva panel container */

@@ -28,7 +28,7 @@ const DownloadButton = () => {
       onClick={() => downloadScene(scene)}
       className="button"
     >
-      Download 3D Model (.glb)
+      Download 3D Model
     </button>
   );
 };
@@ -59,7 +59,7 @@ function App() {
           {/* <EffectComposer>
             <DepthOfField 
               focusDistance={0.02} 
-              focalLength={0.02} 
+              focalLength={0.02} remove
               bokehScale={2} 
               height={2000}
               width={2000}
