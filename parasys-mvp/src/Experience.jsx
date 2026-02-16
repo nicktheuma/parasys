@@ -3,7 +3,7 @@ import { useControls } from 'leva'
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
-import { DimensionLine } from './SceneManager'
+import { HeightDimensionLine, WidthDimensionLine, DepthDimensionLine } from './SceneManager'
 
 export function Experience() {
   
@@ -30,21 +30,12 @@ export function Experience() {
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
-    dividers: { value: 1, min: 0, max: 5, step: 1 },
+    dividers: { value: 1, min: 0, max: 100, step: 1 },
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal } },
     // showProps: false,
     showDims: true,
     showDevTools: false
   })
-
-    // // If 'count' goes from 5 to 3, React automatically removes 2 meshes.
-    // return (
-    //   <group>
-    //     {items.map((mesh, i) => (
-    //       <primitive key={i} object={mesh} />
-    //     ))}
-    //   </group>
-    // );
 
   useFrame(() => {
     if (Bounding.current) {
@@ -77,7 +68,7 @@ export function Experience() {
 
   return (
     <group dispose={null}>
-      {/* PARAMETRIC LOGIC */}
+    {/* PARAMETRIC LOGIC */}
       {/* THE BOUNDING BOX */}
       <mesh ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
 
@@ -121,10 +112,32 @@ export function Experience() {
       {/* DIMENSIONS */}
       <group ref={Dimensions} visible={showDims}>
         {/* Width Label */}
-        <DimensionLine 
-          start={[-width/2, height / 2, depth / 2]} 
-          end={[width/2, height / 2, depth / 2]} 
+        <WidthDimensionLine 
+          start={[-width/2, height / 2, -depth / 2]} 
+          end={[width/2, height / 2, -depth / 2]} 
           label={width.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
+        />
+
+        {/* Height Label */}
+        <HeightDimensionLine 
+          start={[width/2, -height / 2, -depth / 2]} 
+          end={[width/2, height / 2, -depth / 2]} 
+          label={height.toFixed(2)}
+          centerGap={0.05}
+          dimensionMargin={0.05}
+          anchorGap={0.01}
+          fontSize={0.02}
+        />
+
+        {/* Depth Label */}
+        <DepthDimensionLine 
+          start={[width/2, -height / 2, depth / 2]} 
+          end={[width/2, -height / 2, -depth / 2]} 
+          label={depth.toFixed(2)}
           centerGap={0.05}
           dimensionMargin={0.05}
           anchorGap={0.01}
