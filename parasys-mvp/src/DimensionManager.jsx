@@ -119,7 +119,7 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
     const screenDx = clientX - startX.current
     totalMovement.current = Math.abs(screenDx)  // Track total movement
     const worldDx = screenDx * 0.01  // Scale screen pixels to world units
-    const newWidth = startWidth.current + worldDx * 0.1
+    const newWidth = startWidth.current + worldDx * 0.1 //Adjust for dragging sensitivity
     const snapped = Math.min(max, Math.max(min, Math.round(newWidth / step) * step))
     if (snapped !== label) setDimension(snapped)
   }

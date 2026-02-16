@@ -1,8 +1,8 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Stage, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
 import { Suspense, useEffect, useState } from 'react'
+// import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
 import { Experience } from './Experience'
-import { useThree } from '@react-three/fiber';
 import { downloadScene } from './SceneDownloader';
 import { useSceneStore } from './useSceneStore';
 import { Leva } from 'leva'
@@ -60,7 +60,7 @@ function App() {
           <Stage 
               intensity={1}
               preset="rembrandt"
-              shadows={{ type: 'contact',  color:'black', blur: 2.5, opacity: 1, offset:0, bias:-0.0001, normalBias:0, size:2048}}
+              shadows={{ type:'contact',  color:'black', blur: 2.5, opacity: 1, offset:0, bias:-0.0001, normalBias:0, size:2048}}
               adjustCamera={1}
               environment={null}>
              <Experience />

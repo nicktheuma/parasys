@@ -4,7 +4,7 @@ import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
 import { PlaneDimensionLine } from './DimensionManager'
-import { GenerateSimpleNoiseTexture, GeneratePerlinNoiseTexture } from './NoiseGenerator'
+import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 export function Experience() {
   
