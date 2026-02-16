@@ -15,6 +15,7 @@ export function Experience() {
   const Bottom = useRef()
   const Left = useRef()
   const Right = useRef()
+  const Back = useRef()
   const Divider = useRef()
 
   const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
@@ -24,13 +25,13 @@ export function Experience() {
   const startDims = new THREE.Vector3(0.6, 0.3, 0.1);
   const maxDims = new THREE.Vector3(1, 0.5, 0.35);
   const materialThickness = 0.002; // ex. 2mm Stainless Steel Sheet
-  const dividerCount = 1;
-
-  const { width, height, depth, dividers, material, showProps, showDims, showDevTools } = useControls({
+  
+  const { width, height, depth, dividers, edgeOffset, material, showProps, showDims, showDevTools } = useControls({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
     dividers: { value: 1, min: 0, max: 100, step: 1 },
+    edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal } },
     // showProps: false,
     showDims: true,
@@ -51,13 +52,17 @@ export function Experience() {
       Bottom.current.rotation.set(-Math.PI / 2, 0, 0);
       Bottom.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
 
-      Left.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
-      Left.current.rotation.set(0, Math.PI / 2, 0);
-      Left.current.position.set(-(width / 2) + (materialThickness / 2), 0, 0);
+      Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
+      Back.current.rotation.set(0, 0, Math.PI);
+      Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
+
+      // Left.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
+      // // Left.current.rotation.set(0, Math.PI / 2, 0);
+      // Left.current.position.set(-(width / 2) + (materialThickness / 2) + edgeOffset, 0, 0);
 
       Right.current.scale.set(depth/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Right.current.rotation.set(0, -Math.PI / 2, 0);
-      Right.current.position.set((width / 2) - (materialThickness / 2), 0, 0);
+      Right.current.position.set((width / 2) - (materialThickness / 2) - edgeOffset, 0, 0);
 
     // Move the accessories on the left and right sides
     // const sideOffset = (width-startDims.x)/2
@@ -75,12 +80,14 @@ export function Experience() {
       {/* THE MAIN PIECE */}
       <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
       <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
-      <mesh ref={Left} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      <mesh ref={Back} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+      {/* <mesh ref={Left} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} /> */}
       <mesh ref={Right} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
 
       {/* DIVIDERS */}
       {Array.from({ length: (dividers + 1) }).map((_, i) => {
-        const x = -(width / 2) + (width / Math.max(1, (dividers + 1))) * (i)
+        const widthAdjusted = width - materialThickness - (edgeOffset * 2);
+        const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
         return (
           <mesh
             key={`divider-${i}`}
