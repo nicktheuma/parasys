@@ -51,7 +51,7 @@ function App() {
           </Stage>
           <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
           <Environment 
-            files='monochrome_studio_02_4k.hdr' 
+            files='monochrome_studio_02_1k.hdr' 
             blur={0.6} // Blurs the background so focus stays on the furniture
             background
           />
