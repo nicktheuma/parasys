@@ -16,16 +16,21 @@ export function Experience() {
   const Bottom = useRef()
   const Back = useRef()
 
-  const mat_Dev = new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3})
-  const mat_Wireframe = new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 2})
-  const mat_MATCAP = new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'})
-  const mat_PBR = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
-  const mat_Chrome = new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1})
-  const mat_PaintedMetal = new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
-
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
   const materialThickness = 0.002;
+
+  // Memoize materials to avoid recreating them every render
+  const materials = useMemo(() => ({
+    mat_Dev: new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3}),
+    mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 2}),
+    mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
+    mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
+    mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
+    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
+  }), [])
+
+  const { mat_Dev, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -37,31 +42,44 @@ export function Experience() {
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
     showDevTools: false,
-    x1: { value: 0.00, min: 0.001, max: 10, step: 0.001 },
-    y1: { value: 0.95, min: 0.001, max: 10, step: 0.001 },
-    x2: { value: 0.52, min: 0.1, max: 10, step: 0.01 },
-    y2: { value: 0.1, min: 0.1, max: 10, step: 0.01 }
+    x1: { value: 0.00, min: 0.001, max: 10, step: 0.1 },
+    y1: { value: 0.95, min: 0.001, max: 10, step: 0.1 },
+    x2: { value: 0.52, min: 0.1, max: 10, step: 0.1 },
+    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1 }
   }))
 
   const { width, height, depth, dividers, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
 
-  const noiseCanvas = useMemo(() => GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2))
-  const noiseTexture = new THREE.CanvasTexture(noiseCanvas)
-  noiseTexture.magFilter = THREE.LinearFilter
-  noiseTexture.minFilter = THREE.LinearMipmapLinearFilter
-  // mat_PBR.map = noiseTexture;
-  mat_PBR.roughnessMap = noiseTexture;
-  // mat_PBR.normalMap = noiseTexture;
-  // mat_PBR.displacementMap = noiseTexture;
-  // mat_PBR.displacementScale = 0.1;
+  // Memoise noise texture with proper dependency array (reduced resolution for perf)
+  const noiseTexture = useMemo(() => {
+    const noiseCanvas = GeneratePerlinNoiseTexture(256, 256, x1, y1, x2, y2)
+    const tex = new THREE.CanvasTexture(noiseCanvas)
+    tex.magFilter = THREE.LinearFilter
+    tex.minFilter = THREE.LinearMipmapLinearFilter
+    return tex
+  }, [x1, y1, x2, y2])
+
+  // Update mat_PBR roughness map when texture changes
+  useMemo(() => {
+    if (mat_PBR) mat_PBR.roughnessMap = noiseTexture
+  }, [noiseTexture, mat_PBR])
+
+  // Memoize geometries to avoid recreating them every render
+  const geometries = useMemo(() => ({
+    boxMain: new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z),
+  }), [])
+
+  const { boxMain } = geometries
 
   useFrame(() => {
     {/* PARAMETRIC LOGIC */}
-    if (Bounding.current) {
+    if (Bounding.current && showDevTools===true) {
       Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
       Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
       Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
-      
+    }
+    
+    if (Top.current && Bottom.current && Back.current) {
       Top.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
       Top.current.rotation.set(Math.PI / 2, 0, 0);
       Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
@@ -80,16 +98,16 @@ export function Experience() {
     <group dispose={null}>
       <group name="DevToolGroup">
         {/* THE BOUNDING BOX */}
-        <mesh  ref={Bounding} visible={showDevTools} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={mat_Dev} />
+        <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev} />
       </group>
     
       <group name="FurnitureGroup">
         {/* PARAMETRIC LOGIC */}
 
         {/* THE MAIN PIECE */}
-        <mesh ref={Top} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
-        <mesh ref={Bottom} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
-        <mesh ref={Back} geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)} material={material} />
+        <mesh ref={Top} geometry={boxMain} material={material} />
+        <mesh ref={Bottom} geometry={boxMain} material={material} />
+        <mesh ref={Back} geometry={boxMain} material={material} />
 
         {/* DIVIDERS */}
         {Array.from({ length: (dividers + 2) }).map((_, i) => {
@@ -100,7 +118,7 @@ export function Experience() {
               key={`divider-${i}`}
               position={[x, 0, -(slotOffset/2)]}
               rotation={[0, -Math.PI / 2, 0]}
-              geometry={new THREE.BoxGeometry(startDims.x, startDims.y, startDims.z)}
+              geometry={boxMain}
               material={material}
               scale={[
                 ((depth - slotOffset) / startDims.x),
