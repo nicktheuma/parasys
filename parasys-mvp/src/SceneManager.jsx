@@ -23,6 +23,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
   const startX = useRef(0)
   const startWidth = useRef(label)
   const totalMovement = useRef(0)  // Track total pixel movement to detect click vs drag
+  const editStart = useRef({ x: 0, y: 0 })
   const [hovered, setHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(label.toFixed(2))
@@ -50,7 +51,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
       if (snapped !== label) setWidth(snapped)
     }
 
-    const handleGlobalUp = () => {
+    const handleGlobalUp = (upEvent) => {
       dragging.current = false
       if (controls) controls.enabled = true
       document.removeEventListener('mousemove', handleGlobalMove)
@@ -60,6 +61,7 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
       if (totalMovement.current < 5) {
         setIsEditing(true)
         setInputValue(label.toFixed(2))
+        editStart.current = { x: upEvent?.clientX || startX.current, y: upEvent?.clientY || 0 }
       }
     }
 
@@ -118,6 +120,20 @@ export function WidthDimensionLine({ start, end, label, centerGap = 0.1, anchorG
       inputRef.current.focus()
       inputRef.current.select()
     }
+  }, [isEditing])
+
+  // While editing, hide input if the mouse is moved after entering edit mode
+  React.useEffect(() => {
+    if (!isEditing) return
+    const onEditMouseMove = (e) => {
+      const dx = Math.abs(e.clientX - editStart.current.x)
+      const dy = Math.abs((e.clientY || 0) - editStart.current.y)
+      if (dx > 5 || dy > 5) {
+        setIsEditing(false)
+      }
+    }
+    document.addEventListener('mousemove', onEditMouseMove)
+    return () => document.removeEventListener('mousemove', onEditMouseMove)
   }, [isEditing])
 
   return (

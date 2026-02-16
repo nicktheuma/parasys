@@ -1,10 +1,11 @@
 import { Canvas } from '@react-three/fiber'
 import { Stage, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Experience } from './Experience'
 import { useThree } from '@react-three/fiber';
 import { downloadScene } from './SceneDownloader';
 import { useSceneStore } from './useSceneStore';
+import { Leva } from 'leva'
 import './App.css'
 
 // Component to sync scene to store
@@ -34,6 +35,21 @@ const DownloadButton = () => {
 };
 
 function App() {
+  const [levaVisible, setLevaVisible] = useState(true)
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (!e.key) return
+      if (e.key.toLowerCase() !== 'p') return
+      const active = document.activeElement
+      const tag = active?.tagName || ''
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable) return
+      setLevaVisible(v => !v)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#ebebeb' }}>
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
@@ -67,6 +83,7 @@ function App() {
           </EffectComposer> */}
       </Canvas>
       <DownloadButton />
+      <Leva hidden={levaVisible} />
     </div>
   )}  
 export default App
