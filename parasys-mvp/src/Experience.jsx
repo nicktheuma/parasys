@@ -257,6 +257,7 @@ export function Experience() {
         penumbra={0.5}
         decay={0.6}
         distance={0.5}
+        color={"#fee7c2"}
       />
       {/* <CrossMarker position={lightTarget} color="red" /> */}
     </group>
