@@ -78,6 +78,7 @@ function App() {
         <SceneSync /> 
         <Suspense fallback={null}>
           {/* Stage handles professional lighting and shadows automatically */}
+            {/* PERPECTIVE CAMERA & ORBIT CONTROLS handled in Experience */}
             <Stage 
                 intensity={1}
                 preset="rembrandt"

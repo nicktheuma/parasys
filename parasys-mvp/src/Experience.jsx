@@ -1,13 +1,14 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef, useMemo, useLayoutEffect } from 'react'
+import { useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, useHelper } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 import { Props_1 } from './Props_1'
 import { CrossMarker } from './CrossMarker'
+import { SpotLightHelper } from 'three'
 
 export function Experience() {
   
@@ -19,6 +20,7 @@ export function Experience() {
   const FurnitureGroup = useRef()
   const CameraRef = useRef() // This will be for the PerspectiveCamera
   const OrbitRef = useRef() // This will be for the OrbitControls
+  const lightRef = useRef()
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 1, 0.3);
@@ -32,9 +34,9 @@ export function Experience() {
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
-    mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
+    mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
-    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.5, metalness: 0.5})
+    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.35, metalness: 0.5})
   }), [])
 
   const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
@@ -47,7 +49,7 @@ export function Experience() {
     dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    material: { options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
+    material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
     showProps: false,
     showDevTools: false,
@@ -55,9 +57,27 @@ export function Experience() {
     y1: { value: 0.95, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
     x2: { value: 0.52, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    lightPos: [0.14,0.19,0.17],
+    lightTarget: [-0.2210000000000003,-0.7,-0.007999999999999612],
+    intensity: { value: 0.3, min: 0, max: 10 }
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity } = controls
+
+  useEffect(() => {
+    if (lightRef.current) {
+      // Point the light's target at the mesh
+      // lightRef.current.target = Bounding.current.position
+      lightRef.current.position.set(lightPos[0], lightPos[1], lightPos[2])
+      lightRef.current.target.position.set(lightTarget[0], lightTarget[1], lightTarget[2])
+      lightRef.current.intensity = intensity * 100
+      lightRef.current.updateMatrixWorld()
+      lightRef.current.target.updateMatrixWorld()
+      // console.log("Light Position:", lightRef.current.position);
+    }
+  }, [])
+
+  // useHelper(lightRef, THREE.SpotLightHelper, '#ff000043')
 
   // Memo-ise noise texture with proper dependency array (reduced resolution for perf)
   const noiseTexture = useMemo(() => {
@@ -72,6 +92,11 @@ export function Experience() {
   useMemo(() => {
     if (mat_PBR) mat_PBR.roughnessMap = noiseTexture
   }, [noiseTexture, mat_PBR])
+  
+  // Update mat_PaintedMetal roughness map when texture changes
+  useMemo(() => {
+    if (mat_PaintedMetal) mat_PaintedMetal.roughnessMap = noiseTexture
+  }, [noiseTexture, mat_PaintedMetal])
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -86,8 +111,8 @@ export function Experience() {
       const origin = new THREE.Vector3()
       Bounding.current.getWorldPosition(origin)
 
-      console.log("Target Position:", origin);
-      OrbitRef.current.object.position.set(origin.x, origin.y, origin.z + 5)
+      // console.log("Target Position:", origin);
+      OrbitRef.current.object.position.set(origin.x, origin.y, origin.z)
       OrbitRef.current.target.set(origin.x, origin.y, origin.z)
       OrbitRef.current.update()
     }
@@ -166,7 +191,6 @@ export function Experience() {
             />
           )
         })}
-
       </group>
 
       <group name="DimensionsGroup" ref={Dimensions} visible={showDims}>
@@ -216,6 +240,25 @@ export function Experience() {
           // cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
         />
       </group>
+
+      {/* <directionalLight 
+        ref={lightRef} 
+        position={lightPos} 
+        target-position={lightTarget}
+        // rotation={[10,0.1,0]}
+        intensity={intensity * 1000} 
+      /> */}
+      <spotLight 
+        ref={lightRef} 
+        position={lightPos} 
+        target-position={lightTarget}
+        intensity={intensity * 100}
+        angle={Math.PI / 8}
+        penumbra={0.5}
+        decay={0.6}
+        distance={0.5}
+      />
+      {/* <CrossMarker position={lightTarget} color="red" /> */}
     </group>
   )
 }
