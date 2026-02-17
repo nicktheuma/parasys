@@ -59,10 +59,13 @@ export function Experience() {
     y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     lightPos: [0.14,0.19,0.17],
     lightTarget: [-0.2210000000000003,-0.7,-0.007999999999999612],
-    intensity: { value: 0.3, min: 0, max: 10 }
+    intensity: { value: 0.3, min: 0, max: 10 },
+    mapSize: { value: 1024, options: [512, 1024, 2048] }, // Higher = Sharper
+    near: { value: 1, min: 0.1, max: 10 },
+    far: { value: 20, min: 10, max: 100 },
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far } = controls
 
   useEffect(() => {
     if (lightRef.current) {
@@ -158,6 +161,8 @@ export function Experience() {
           const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
           return (
             <mesh
+              castShadow={true}
+              receiveShadow={true}
               key={`xy-sheet-${i}`}
               position={[x, 0, -(slotOffset/2)]}
               rotation={[0, -Math.PI / 2, 0]}
@@ -178,6 +183,8 @@ export function Experience() {
           const x = (AdjustedHeight / Math.max(1, (shelves + 1))) * (i)
           return (
             <mesh
+              castShadow={true}
+              receiveShadow={true}  
               key={`yz-sheet-${i}`}
               position={[0, (AdjustedHeight / 2) - x, 0]}
               rotation={[0, 0, 0]}
@@ -249,6 +256,10 @@ export function Experience() {
         intensity={intensity * 1000} 
       /> */}
       <spotLight 
+        castShadow={true}
+        shadow-mapSize={[mapSize, mapSize]}
+        shadow-camera-near={near}
+        shadow-camera-far={far}
         ref={lightRef} 
         position={lightPos} 
         target-position={lightTarget}
