@@ -84,7 +84,8 @@ function App() {
                 preset="rembrandt"
                 shadows={{ type:'contact',  color:'black', blur: 2.5, opacity: 1, offset:0, bias:-0.0001, normalBias:0, size:2048}}
                 adjustCamera={0}
-                environment={null}>
+                environment={null}
+                >
               <Experience />
               <SceneInspector />
             </Stage>

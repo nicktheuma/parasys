@@ -36,7 +36,7 @@ export function Experience() {
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
-    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.35, metalness: 0.5})
+    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.85, metalness: 0.2})
   }), [])
 
   const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
@@ -53,10 +53,10 @@ export function Experience() {
     showDims: true,
     showProps: true,
     showDevTools: false,
-    x1: { value: 0.00, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
-    y1: { value: 0.95, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    x2: { value: 0.52, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    x1: { value: 0.5, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
+    y1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    x2: { value: 4.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    y2: { value: 8.6, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     lightPos: [0.14,0.19,0.17],
     lightTarget: [-0.2210000000000003,-0.7,-0.007999999999999612],
     intensity: { value: 0.3, min: 0, max: 10 },
@@ -139,7 +139,7 @@ export function Experience() {
   return (
     <group dispose={null}>
       <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
-      <PerspectiveCamera ref={CameraRef} fov={45}/>
+      <PerspectiveCamera ref={CameraRef} fov={45} near={0.01} far={100}/>
 
       <group name="DevToolGroup">
         {/* THE BOUNDING BOX */}
