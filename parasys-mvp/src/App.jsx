@@ -55,7 +55,7 @@ function App() {
       <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
         <SceneSync />
         <Suspense fallback={null}>
-          <PerspectiveCamera fov={45} />
+          <PerspectiveCamera fov={45}/>
           {/* Stage handles professional lighting and shadows automatically */}
           <Stage 
               intensity={1}

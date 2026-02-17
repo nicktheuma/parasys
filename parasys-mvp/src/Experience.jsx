@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useMemo, useEffect } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
+import { Props_1 } from './Props_1'
 
 export function Experience() {
   
@@ -12,15 +13,14 @@ export function Experience() {
   // const rightGroupRef = useRef()
   const Dimensions = useRef()
   const Bounding = useRef()
-  const Top = useRef()
-  const Bottom = useRef()
   const Back = useRef()
+  const FurnitureGroup = useRef()
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
   const materialThickness = 0.002;
-  const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
-  let desired_Dividers = 0;
+  // const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
+  // let desired_Dividers = 0;
 
   // Memoize materials to avoid recreating them every render
   const materials = useMemo(() => ({
@@ -43,13 +43,14 @@ export function Experience() {
     dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
+    material: { options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
+    showProps: false,
     showDevTools: false,
     x1: { value: 0.00, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
     y1: { value: 0.95, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
     x2: { value: 0.52, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  }
+    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
   }))
 
   const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
@@ -82,24 +83,11 @@ export function Experience() {
       Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
       Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
     }
-    // NEGATING ATTRIBUTES TO AVOID UNBUILDABLE SCENARIOS
-    // if ((width / dividers) < MinMax_span.x ){
-    //   desired_Dividers = dividers
-    //   setControls({ dividers: Math.min(desired_Dividers, Math.floor(width / MinMax_span.x)) })
-    // }
-    // if ((width / dividers) > MinMax_span.y ){
-    //   desired_Dividers = dividers
-    //   setControls({ dividers: Math.max(desired_Dividers, Math.floor(width / MinMax_span.y)) })
-    // }
     
-    if (Top.current && Bottom.current && Back.current) {
-      Top.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
-      Top.current.rotation.set(Math.PI / 2, 0, 0);
-      Top.current.position.set(0, (height / 2) - (materialThickness / 2), 0);
-
+    if (Back.current) {
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Back.current.rotation.set(-Math.PI, 0, 0);
-      Back.current.position.set(0, -(height / 2) + (materialThickness / 2), 0);
+      Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
     }
   })
 
@@ -110,15 +98,15 @@ export function Experience() {
         <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev_Wireframe} />
       </group>
     
-      <group name="FurnitureGroup">
+      <group name="FurnitureGroup" ref={FurnitureGroup}>
         {/* PARAMETRIC LOGIC */}
 
         {/* THE MAIN PIECE */}
         {/* <mesh ref={Top} geometry={boxMain} material={material} /> */}
         {/* <mesh ref={Bottom} geometry={boxMain} material={material} /> */}
-        {/* <mesh ref={Back} geometry={boxMain} material={material} /> */}
+        <mesh ref={Back} geometry={boxMain} material={material} />
 
-        {/* HORIZONTAL SHEETS XY */}
+        {/* VERTICAL SHEETS YZ */}
         {Array.from({ length: (dividers + 2) }).map((_, i) => {
           const widthAdjusted = width - materialThickness - (edgeOffset * 2);
           const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
@@ -138,13 +126,14 @@ export function Experience() {
           )
         })}
 
-        {/* VERTICAL SHEETS YZ */}
+        {/* HORIZONTAL SHEETS XY */}
         {Array.from({ length: (shelves + 2) }).map((_, i) => {
-          const x = (height / Math.max(1, (shelves + 1))) * (i)
+          const AdjustedHeight = height - materialThickness;
+          const x = (AdjustedHeight / Math.max(1, (shelves + 1))) * (i)
           return (
             <mesh
               key={`yz-sheet-${i}`}
-              position={[0, (height / 2) - x, 0]}
+              position={[0, (AdjustedHeight / 2) - x, 0]}
               rotation={[0, 0, 0]}
               geometry={boxMain}
               material={material}
@@ -191,6 +180,21 @@ export function Experience() {
           dimensionGap={0.025}
           anchorGap={0.005}
           fontSize={0.01}
+        />
+      </group>
+
+      {/* Props Instance */}
+      <group name="PropsGroup" visible={showProps} position={[0, 0, 0]} scale={0.1}>
+        <Props_1 
+          vasePos={[(width*10)/2 - 1, (height*10)/2, 0]}
+          cylinder004Pos={[-(width*10)/2 + 1, -(height*10)/2, 0]}
+          cylinder003Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
+          cylinder001Pos={[(width*10)/2 + 3, (height*10)/2, 0]}
+          cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
+          cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
+          cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
+          cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
+          cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
         />
       </group>
     </group>
