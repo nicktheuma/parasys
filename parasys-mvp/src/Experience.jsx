@@ -51,17 +51,18 @@ export function Experience() {
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
     material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
+    paintedMetal_Colour: { value: '#526982' },
     showDims: true,
     showProps: true,
     showDevTools: false,
-    paintedMetal_Colour: { value: '#526982' },
+    //DEV TOOLS
     x1: { value: 0.5, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
     y1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
     x2: { value: 5.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     y2: { value: 8.7, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    lightPos: { value: [0.14,0.19,0.17], render: get => get('showDevTools') },
+    lightPos: { value: [0.14,0.19,0.12], render: get => get('showDevTools') },
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
-    intensity: { value: 0.3, min: 0, max: 10 , render: get => get('showDevTools') },
+    intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
     mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
     near: { value: 0.1, min: 0.1, max: 10, render: get => get('showDevTools')  },
     far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
@@ -157,7 +158,7 @@ export function Experience() {
         {/* THE MAIN PIECE */}
         {/* <mesh ref={Top} geometry={boxMain} material={material} /> */}
         {/* <mesh ref={Bottom} geometry={boxMain} material={material} /> */}
-        <mesh ref={Back} geometry={boxMain} material={material} />
+        <mesh receiveShadow={true} ref={Back} geometry={boxMain} material={material} />
 
         {/* VERTICAL SHEETS YZ */}
         {Array.from({ length: (dividers + 2) }).map((_, i) => {
@@ -276,14 +277,16 @@ export function Experience() {
           shadow-mapSize={[mapSize, mapSize]}
           shadow-camera-near={near}
           shadow-camera-far={far}
+          shadow-bias={-0.0005}
+          shadow-normalBias={0.0005}
           ref={lightRef} 
           position={lightPos} 
           target-position={lightTarget}
           intensity={intensity * 100}
           angle={Math.PI / 8}
-          penumbra={0.5}
-          decay={0.6}
-          distance={0.5}
+          penumbra={1}
+          decay={2}
+          distance={2}
           color={"#fee7c2"}
         />
         <ContactShadows 
