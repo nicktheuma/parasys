@@ -24,7 +24,7 @@ export function Experience() {
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 1, 0.3);
-  const materialThickness = 0.002;
+  const materialThickness = 0.0012;
   // const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
   // let desired_Dividers = 0;
 
@@ -37,7 +37,7 @@ export function Experience() {
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
-    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.85, metalness: 0.2})
+    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 0.85, metalness: 0.2})
   }), [])
 
   const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
@@ -54,21 +54,22 @@ export function Experience() {
     showDims: true,
     showProps: true,
     showDevTools: false,
+    paintedMetal_Colour: { value: '#526982' },
     x1: { value: 0.5, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
     y1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
     x2: { value: 5.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     y2: { value: 8.7, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    lightPos: [0.14,0.19,0.17],
-    lightTarget: [-0.2210000000000003,-0.7,-0.007999999999999612],
-    intensity: { value: 0.3, min: 0, max: 10 },
-    mapSize: { value: 1024, options: [512, 1024, 2048] }, // Higher = Sharper
-    near: { value: 0.1, min: 0.1, max: 10 },
-    far: { value: 10, min: 0.1, max: 100 },
-    contactShadowPos: [0.086,-0.15,0],
-    wallSize: { value: 2, min: 0.01, max: 3 }
+    lightPos: { value: [0.14,0.19,0.17], render: get => get('showDevTools') },
+    lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
+    intensity: { value: 0.3, min: 0, max: 10 , render: get => get('showDevTools') },
+    mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
+    near: { value: 0.1, min: 0.1, max: 10, render: get => get('showDevTools')  },
+    far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
+    contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
+    wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  }
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize } = controls
 
   useEffect(() => {
     if (lightRef.current) {
@@ -101,8 +102,11 @@ export function Experience() {
   
   // Update mat_PaintedMetal roughness map when texture changes
   useMemo(() => {
-    if (mat_PaintedMetal) mat_PaintedMetal.roughnessMap = noiseTexture
-  }, [noiseTexture, mat_PaintedMetal])
+    if (mat_PaintedMetal) {
+      mat_PaintedMetal.roughnessMap = noiseTexture
+      mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
+    }
+  }, [noiseTexture, mat_PaintedMetal, controls.paintedMetal_Colour])
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -133,7 +137,7 @@ export function Experience() {
     }
     if (Back.current) {
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
-      Back.current.rotation.set(-Math.PI, 0, 0);
+      Back.current.rotation.set(0, 0, 0);
       Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
     }
   })
@@ -165,13 +169,18 @@ export function Experience() {
               receiveShadow={true}
               key={`xy-sheet-${i}`}
               position={[x, 0, -(slotOffset/2)]}
-              rotation={[0, -Math.PI / 2, 0]}
+              rotation={[0, 0, 0]}
               geometry={boxMain}
               material={material}
+              // scale={[
+              //   (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.z,
+              //   ((depth - slotOffset) / startDims.x),
+              //   materialThickness / startDims.y,
+              // ]}
               scale={[
-                ((depth - slotOffset) / startDims.x),
+                materialThickness / startDims.x,
                 (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
-                materialThickness / startDims.z
+                ((depth - slotOffset) / startDims.z),
               ]}
             />
           )
