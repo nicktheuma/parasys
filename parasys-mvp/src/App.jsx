@@ -74,7 +74,7 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'var(--background-color)' }}>
-      <Canvas shadows gl={{ antialias: true }} dpr={[1, 1]}>
+      <Canvas shadows={{ type: THREE.PCFSoftShadowMap }} gl={{ antialias: true }} dpr={[1, 1]}>
         <SceneSync /> 
         <Suspense fallback={null}>
           {/* Stage handles professional lighting and shadows automatically */}

@@ -34,12 +34,13 @@ export function Experience() {
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
+    mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#646a39', roughness: 0.85, metalness: 0.2})
   }), [])
 
-  const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -62,11 +63,12 @@ export function Experience() {
     intensity: { value: 0.3, min: 0, max: 10 },
     mapSize: { value: 1024, options: [512, 1024, 2048] }, // Higher = Sharper
     near: { value: 0.1, min: 0.1, max: 10 },
-    far: { value: 10, min: 10, max: 100 },
+    far: { value: 10, min: 0.1, max: 100 },
     contactShadowPos: [0.086,-0.15,0],
+    wallSize: { value: 2, min: 0.01, max: 3 }
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize } = controls
 
   useEffect(() => {
     if (lightRef.current) {
@@ -138,9 +140,6 @@ export function Experience() {
 
   return (
     <group dispose={null}>
-      <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
-      <PerspectiveCamera ref={CameraRef} fov={45} near={0.01} far={100}/>
-
       <group name="DevToolGroup">
         {/* THE BOUNDING BOX */}
         <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev_Wireframe} />
@@ -249,37 +248,44 @@ export function Experience() {
         />
       </group>
 
-      {/* <directionalLight 
-        ref={lightRef} 
-        position={lightPos} 
-        target-position={lightTarget}
-        // rotation={[10,0.1,0]}
-        intensity={intensity * 1000} 
-      /> */}
-      <spotLight 
-        castShadow={true}
-        shadow-mapSize={[mapSize, mapSize]}
-        shadow-camera-near={near}
-        shadow-camera-far={far}
-        ref={lightRef} 
-        position={lightPos} 
-        target-position={lightTarget}
-        intensity={intensity * 100}
-        angle={Math.PI / 8}
-        penumbra={0.5}
-        decay={0.6}
-        distance={0.5}
-        color={"#fee7c2"}
-      />
-      <ContactShadows 
-        // position={new THREE.Vector3(origin.x, origin.y, origin.z)}
-        position={new THREE.Vector3(contactShadowPos[0], contactShadowPos[1], contactShadowPos[2])}
-        opacity={0.2} 
-        scale={1} 
-        blur={3} 
-        far={10} 
-      />
-      {/* <CrossMarker position={lightTarget} color="red" /> */}
+      <group name="SceneGroup">
+        <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
+        <PerspectiveCamera ref={CameraRef} fov={45} near={0.01} far={100}/>
+        
+        {/* <mesh name="wall" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[0, 0, 0]} position={[0, contactShadowPos[1] + (wallSize/2), -depth/2]} receiveShadow={true} castShadow={false}/>
+        <mesh name="floor" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[-(Math.PI/2), 0, 0]} position={new THREE.Vector3(0, contactShadowPos[1]-0.001, (wallSize/2) - depth/2)} receiveShadow={true} castShadow={false}/> */}
+
+        {/* <directionalLight 
+          ref={lightRef} 
+          position={lightPos} 
+          target-position={lightTarget}
+          // rotation={[10,0.1,0]}
+          intensity={intensity * 1000} 
+        /> */}
+        <spotLight 
+          castShadow={true}
+          shadow-mapSize={[mapSize, mapSize]}
+          shadow-camera-near={near}
+          shadow-camera-far={far}
+          ref={lightRef} 
+          position={lightPos} 
+          target-position={lightTarget}
+          intensity={intensity * 100}
+          angle={Math.PI / 8}
+          penumbra={0.5}
+          decay={0.6}
+          distance={0.5}
+          color={"#fee7c2"}
+        />
+        <ContactShadows 
+          position={new THREE.Vector3(contactShadowPos[0], contactShadowPos[1], contactShadowPos[2])}
+          opacity={0.2} 
+          scale={1} 
+          blur={3} 
+          far={10} 
+        />
+        {/* <CrossMarker position={lightTarget} color="red" /> */}
+      </group>
     </group>
   )
 }
