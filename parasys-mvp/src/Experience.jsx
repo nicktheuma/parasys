@@ -32,7 +32,7 @@ export function Experience() {
   const materials = useMemo(() => ({
     mat_Dev: new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3}),
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
-    mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.1}),
+    mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.01}),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
@@ -64,7 +64,7 @@ export function Experience() {
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
     intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
     mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
-    near: { value: 0.1, min: 0.1, max: 10, render: get => get('showDevTools')  },
+    near: { value: 0.001, min: 0.1, max: 10, render: get => get('showDevTools')  },
     far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
     contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
     wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  }
@@ -259,8 +259,8 @@ export function Experience() {
       </group>
 
       <group name="SceneGroup">
-        <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
-        <PerspectiveCamera ref={CameraRef} fov={45} near={0.01} far={100}/>
+        <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} minDistance={0.05} near={0.001} far={100} fov={45} />
+        <PerspectiveCamera ref={CameraRef} fov={45} near={0.001} far={100}/>
         
         {/* <mesh name="wall" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[0, 0, 0]} position={[0, contactShadowPos[1] + (wallSize/2), -depth/2]} receiveShadow={true} castShadow={false}/>
         <mesh name="floor" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[-(Math.PI/2), 0, 0]} position={new THREE.Vector3(0, contactShadowPos[1]-0.001, (wallSize/2) - depth/2)} receiveShadow={true} castShadow={false}/> */}
@@ -277,6 +277,7 @@ export function Experience() {
           shadow-mapSize={[mapSize, mapSize]}
           shadow-camera-near={near}
           shadow-camera-far={far}
+          shadow-radius={60}
           shadow-bias={-0.0005}
           shadow-normalBias={0.0005}
           ref={lightRef} 
