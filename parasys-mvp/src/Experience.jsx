@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { useControls } from 'leva'
 import { useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera, useHelper } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, useHelper, ContactShadows } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
@@ -51,7 +51,7 @@ export function Experience() {
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
     material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
-    showProps: false,
+    showProps: true,
     showDevTools: false,
     x1: { value: 0.00, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
     y1: { value: 0.95, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
@@ -61,11 +61,12 @@ export function Experience() {
     lightTarget: [-0.2210000000000003,-0.7,-0.007999999999999612],
     intensity: { value: 0.3, min: 0, max: 10 },
     mapSize: { value: 1024, options: [512, 1024, 2048] }, // Higher = Sharper
-    near: { value: 1, min: 0.1, max: 10 },
-    far: { value: 20, min: 10, max: 100 },
+    near: { value: 0.1, min: 0.1, max: 10 },
+    far: { value: 10, min: 10, max: 100 },
+    contactShadowPos: [0.086,-0.15,0],
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos } = controls
 
   useEffect(() => {
     if (lightRef.current) {
@@ -269,6 +270,14 @@ export function Experience() {
         decay={0.6}
         distance={0.5}
         color={"#fee7c2"}
+      />
+      <ContactShadows 
+        // position={new THREE.Vector3(origin.x, origin.y, origin.z)}
+        position={new THREE.Vector3(contactShadowPos[0], contactShadowPos[1], contactShadowPos[2])}
+        opacity={0.2} 
+        scale={1} 
+        blur={3} 
+        far={10} 
       />
       {/* <CrossMarker position={lightTarget} color="red" /> */}
     </group>
