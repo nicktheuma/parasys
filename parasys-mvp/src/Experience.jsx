@@ -19,6 +19,8 @@ export function Experience() {
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
   const materialThickness = 0.002;
+  const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
+  let desired_Dividers = 0;
 
   // Memoize materials to avoid recreating them every render
   const materials = useMemo(() => ({
@@ -37,17 +39,17 @@ export function Experience() {
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
     height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
     depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
-    dividers: { value: 1, min: 0, max: 4, step: 1 },
     shelves: { value: 1, min: 0, max: 4, step: 1 },
+    dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
     material: { options: { Chrome: mat_Chrome, Painted: mat_PaintedMetal, PBR: mat_PBR, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
     showDims: true,
     showDevTools: false,
-    x1: { value: 0.00, min: 0.001, max: 10, step: 0.1 },
-    y1: { value: 0.95, min: 0.001, max: 10, step: 0.1 },
-    x2: { value: 0.52, min: 0.1, max: 10, step: 0.1 },
-    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1 }
+    x1: { value: 0.00, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
+    y1: { value: 0.95, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    x2: { value: 0.52, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    y2: { value: 0.1, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  }
   }))
 
   const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, x1, x2, y1, y2 } = controls
@@ -80,6 +82,15 @@ export function Experience() {
       Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
       Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
     }
+    // NEGATING ATTRIBUTES TO AVOID UNBUILDABLE SCENARIOS
+    // if ((width / dividers) < MinMax_span.x ){
+    //   desired_Dividers = dividers
+    //   setControls({ dividers: Math.min(desired_Dividers, Math.floor(width / MinMax_span.x)) })
+    // }
+    // if ((width / dividers) > MinMax_span.y ){
+    //   desired_Dividers = dividers
+    //   setControls({ dividers: Math.max(desired_Dividers, Math.floor(width / MinMax_span.y)) })
+    // }
     
     if (Top.current && Bottom.current && Back.current) {
       Top.current.scale.set(width/startDims.x, depth/startDims.y, materialThickness / startDims.z);
