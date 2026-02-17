@@ -272,7 +272,7 @@ export function Experience() {
           // rotation={[10,0.1,0]}
           intensity={intensity * 1000} 
         /> */}
-        <spotLight 
+        <spotLight //spotlight 1 main
           castShadow={true}
           shadow-mapSize={[mapSize, mapSize]}
           shadow-camera-near={near}

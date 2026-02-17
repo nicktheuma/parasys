@@ -80,7 +80,7 @@ function App() {
         dpr={[1, 1]}
         camera={{ fov: 45, near: 0.001, far: 10 }}
       >
-        <SceneSync /> 
+        {/* <SceneSync />  */}
         <Suspense fallback={null}>
           {/* Stage handles professional lighting and shadows automatically */}
             {/* PERPECTIVE CAMERA & ORBIT CONTROLS handled in Experience */}
