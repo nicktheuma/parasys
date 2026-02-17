@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef, useMemo, useEffect } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useRef, useMemo, useLayoutEffect } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 import { Props_1 } from './Props_1'
+import { CrossMarker } from './CrossMarker'
 
 export function Experience() {
   
@@ -15,9 +17,11 @@ export function Experience() {
   const Bounding = useRef()
   const Back = useRef()
   const FurnitureGroup = useRef()
+  const CameraRef = useRef() // This will be for the PerspectiveCamera
+  const OrbitRef = useRef() // This will be for the OrbitControls
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
-  const maxDims = new THREE.Vector3(1.2, 0.3, 0.2);
+  const maxDims = new THREE.Vector3(1.2, 1, 0.3);
   const materialThickness = 0.002;
   // const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
   // let desired_Dividers = 0;
@@ -76,6 +80,19 @@ export function Experience() {
 
   const { boxMain } = geometries
 
+  useLayoutEffect(() => {
+    if (Bounding.current && CameraRef.current && OrbitRef.current) {
+      // Get object world position
+      const origin = new THREE.Vector3()
+      Bounding.current.getWorldPosition(origin)
+
+      console.log("Target Position:", origin);
+      OrbitRef.current.object.position.set(origin.x, origin.y, origin.z + 5)
+      OrbitRef.current.target.set(origin.x, origin.y, origin.z)
+      OrbitRef.current.update()
+    }
+  }, [])
+
   useFrame(() => {
     {/* PARAMETRIC LOGIC */}
     if (Bounding.current && showDevTools===true) {
@@ -83,7 +100,6 @@ export function Experience() {
       Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
       Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
     }
-    
     if (Back.current) {
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Back.current.rotation.set(-Math.PI, 0, 0);
@@ -93,9 +109,14 @@ export function Experience() {
 
   return (
     <group dispose={null}>
+      <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
+      <PerspectiveCamera ref={CameraRef} fov={45}/>
+
       <group name="DevToolGroup">
         {/* THE BOUNDING BOX */}
         <mesh  ref={Bounding} visible={showDevTools} geometry={boxMain} material={mat_Dev_Wireframe} />
+        {/* <CrossMarker position={Bounding.current?.position || new THREE.Vector3()} /> */}
+        {/* <CrossMarker position={[0,0,0]}/> */}
       </group>
     
       <group name="FurnitureGroup" ref={FurnitureGroup}>
@@ -159,7 +180,6 @@ export function Experience() {
           anchorGap={0.005}
           fontSize={0.01}
         />
-
         {/* Height Label - OVERALL*/}
         <PlaneDimensionLine 
           start={[width/2, -height / 2, -depth / 2]} 
@@ -170,7 +190,6 @@ export function Experience() {
           anchorGap={0.005}
           fontSize={0.01}
         />
-
         {/* Depth Label - OVERALL*/}
         <PlaneDimensionLine 
           start={[width/2, -height / 2, depth / 2]} 
@@ -188,13 +207,13 @@ export function Experience() {
         <Props_1 
           vasePos={[(width*10)/2 - 1, (height*10)/2, 0]}
           cylinder004Pos={[-(width*10)/2 + 1, -(height*10)/2, 0]}
-          cylinder003Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
-          cylinder001Pos={[(width*10)/2 + 3, (height*10)/2, 0]}
-          cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
-          cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
-          cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
-          cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
-          cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
+          cylinder003Pos={[-(width*10)/2 + 1, -(height*10)/2 + materialThickness, 0]}
+          // cylinder001Pos={[-(width*10)/2 + 3, (height*10)/2, 0]}
+          // cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
+          // cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
+          // cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
+          // cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
+          // cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
         />
       </group>
     </group>
