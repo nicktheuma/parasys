@@ -37,7 +37,7 @@ export function Experience() {
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
-    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 0.85, metalness: 0.2})
+    mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 1, metalness: 0.2})
   }), [])
 
   const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
@@ -56,10 +56,10 @@ export function Experience() {
     showProps: true,
     showDevTools: false,
     //DEV TOOLS
-    x1: { value: 0.5, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
-    y1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    x2: { value: 5.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    y2: { value: 8.7, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    x1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
+    y1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    x2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    y2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     lightPos: { value: [0.14,0.19,0.12], render: get => get('showDevTools') },
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
     intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
@@ -89,7 +89,7 @@ export function Experience() {
 
   // Memo-ise noise texture with proper dependency array (reduced resolution for perf)
   const noiseTexture = useMemo(() => {
-    const noiseCanvas = GeneratePerlinNoiseTexture(256, 256, x1, y1, x2, y2)
+    const noiseCanvas = GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2)
     const tex = new THREE.CanvasTexture(noiseCanvas)
     tex.magFilter = THREE.LinearFilter
     tex.minFilter = THREE.LinearMipmapLinearFilter
@@ -105,6 +105,8 @@ export function Experience() {
   useMemo(() => {
     if (mat_PaintedMetal) {
       mat_PaintedMetal.roughnessMap = noiseTexture
+      // mat_PaintedMetal.normalMap = noiseTexture
+      mat_PaintedMetal.bumpMap = noiseTexture
       mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
     }
   }, [noiseTexture, mat_PaintedMetal, controls.paintedMetal_Colour])
