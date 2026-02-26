@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { useControls } from 'leva'
+import { useControls, button } from 'leva'
 import { useRef, useMemo, useLayoutEffect, useEffect, useState, lazy, Suspense } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, ContactShadows } from '@react-three/drei'
@@ -45,6 +45,34 @@ const SHELF_MIN = 0
 const SHELF_MAX = 4
 const PANEL_STATE_KEY = 'parasys:panel-state:v1'
 
+const DEFAULT_MATERIAL_DEV_SETTINGS = {
+  paintedMetal_Colour: '#526982',
+  pbr_roughness: 0.3,
+  pbr_metalness: 1,
+  pbr_bumpScale: 0.05,
+  pbr_noiseScale: 1,
+  pbr_noiseX1: 10,
+  pbr_noiseY1: 1,
+  pbr_noiseX2: 4.9,
+  pbr_noiseY2: 10,
+  chrome_roughness: 0.15,
+  chrome_metalness: 1,
+  chrome_bumpScale: 0.04,
+  chrome_noiseScale: 1,
+  chrome_noiseX1: 10,
+  chrome_noiseY1: 1,
+  chrome_noiseX2: 4.9,
+  chrome_noiseY2: 10,
+  painted_roughness: 1,
+  painted_metalness: 0.2,
+  painted_bumpScale: 0.08,
+  painted_noiseScale: 1,
+  painted_noiseX1: 10,
+  painted_noiseY1: 1,
+  painted_noiseX2: 4.9,
+  painted_noiseY2: 10,
+}
+
 const readStoredPanelState = () => {
   if (typeof window === 'undefined') return null
   try {
@@ -56,9 +84,10 @@ const readStoredPanelState = () => {
   }
 }
 
-export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null, publicShowDimensions = true }) {
+export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null, publicShowDimensions = true, onDevToolsVisibilityChange = () => {} }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
+  const [materialResetNonce, setMaterialResetNonce] = useState(0)
   const hasReportedInitialVisible = useRef(false)
   const lastInteractionAtRef = useRef(Date.now())
   const isUserInteractingRef = useRef(false)
@@ -151,12 +180,18 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     mat_UVDebug: new THREE.MeshBasicMaterial({ map: uvDebugTexture, color: '#ffffff' }),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
-    mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
+    mat_Brushed: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 1, metalness: 0.2})
   }), [uvDebugTexture])
 
-  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_UVDebug, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_UVDebug, mat_MATCAP, mat_Shadow,mat_Brushed, mat_Chrome, mat_PaintedMetal } = materials
+
+  const isDevMaterialVisible = (get, key) => {
+    const activeKey = get('activeMaterialKey')
+
+    return get('showDevTools') && activeKey === key
+  }
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -166,7 +201,8 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe, UVDebug: mat_UVDebug } },
+    activeMaterialKey: { value: selectedMaterialKey || 'Painted', options: ['Painted', 'Brushed', 'Chrome', 'MATCAP', 'Wireframe', 'UVDebug'], render: () => false },
+    material: { value: mat_PaintedMetal, options: { Brushed: mat_Brushed, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe, UVDebug: mat_UVDebug } },
     paintedMetal_Colour: { value: '#526982' },
     showDims: true,
     showProps: true,
@@ -176,6 +212,31 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     y1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
     x2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
     y2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
+    pbr_roughness: { value: 0.3, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_metalness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_bumpScale: { value: 0.05, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
+    pbr_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
+    chrome_roughness: { value: 0.15, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_metalness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_bumpScale: { value: 0.04, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
+    chrome_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
+    painted_roughness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_metalness: { value: 0.2, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_bumpScale: { value: 0.08, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
+    painted_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
+    resetMaterialPresets: button(() => setMaterialResetNonce((value) => value + 1), { render: get => get('showDevTools') }),
     lightPos: { value: [0.14,0.19,0.12], render: get => get('showDevTools') },
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
     intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
@@ -200,6 +261,29 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   }, [setControls])
 
   useEffect(() => {
+    if (!selectedMaterialKey) return
+
+    const selectedMaterialObject = {
+      Brushed: mat_Brushed,
+      PBR: mat_Brushed,
+      Chrome: mat_Chrome,
+      Painted: mat_PaintedMetal,
+      MATCAP: mat_MATCAP,
+      Wireframe: mat_Wireframe,
+      UVDebug: mat_UVDebug,
+    }[selectedMaterialKey]
+
+    setControls({
+      activeMaterialKey: selectedMaterialKey,
+      ...(selectedMaterialObject ? { material: selectedMaterialObject } : {}),
+    })
+  }, [selectedMaterialKey, setControls, mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
+
+  useEffect(() => {
+    onDevToolsVisibilityChange(Boolean(controls?.showDevTools))
+  }, [controls?.showDevTools, onDevToolsVisibilityChange])
+
+  useEffect(() => {
     if (!didHydrateControlsRef.current) return
     if (typeof window === 'undefined') return
 
@@ -218,6 +302,11 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       // ignore storage write failures
     }
   }, [controls])
+
+  useEffect(() => {
+    if (materialResetNonce === 0) return
+    setControls(DEFAULT_MATERIAL_DEV_SETTINGS)
+  }, [materialResetNonce, setControls])
 
   const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
 
@@ -379,42 +468,137 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     }
   }, [])
 
-  // Memo-ise noise texture with proper dependency array
+  const createNoiseTexture = (noiseParams) => {
+    if (!enhancedAssetsReady) return null
+
+    const noiseResolution = 1024
+    const noiseCanvas = GeneratePerlinNoiseTexture(
+      noiseResolution,
+      noiseResolution,
+      noiseParams.x1,
+      noiseParams.y1,
+      noiseParams.x2,
+      noiseParams.y2,
+    )
+
+    const texture = new THREE.CanvasTexture(noiseCanvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(noiseParams.scale, noiseParams.scale)
+    texture.magFilter = THREE.LinearFilter
+    texture.minFilter = THREE.LinearMipmapLinearFilter
+    texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
+    texture.needsUpdate = true
+    return texture
+  }
+
+  const pbrNoiseTexture = useMemo(() => {
+    return createNoiseTexture({
+      x1: controls.pbr_noiseX1,
+      y1: controls.pbr_noiseY1,
+      x2: controls.pbr_noiseX2,
+      y2: controls.pbr_noiseY2,
+      scale: controls.pbr_noiseScale,
+    })
+  }, [enhancedAssetsReady, gl, controls.pbr_noiseX1, controls.pbr_noiseY1, controls.pbr_noiseX2, controls.pbr_noiseY2, controls.pbr_noiseScale])
+
+  const chromeNoiseTexture = useMemo(() => {
+    return createNoiseTexture({
+      x1: controls.chrome_noiseX1,
+      y1: controls.chrome_noiseY1,
+      x2: controls.chrome_noiseX2,
+      y2: controls.chrome_noiseY2,
+      scale: controls.chrome_noiseScale,
+    })
+  }, [enhancedAssetsReady, gl, controls.chrome_noiseX1, controls.chrome_noiseY1, controls.chrome_noiseX2, controls.chrome_noiseY2, controls.chrome_noiseScale])
+
+  const paintedNoiseTexture = useMemo(() => {
+    return createNoiseTexture({
+      x1: controls.painted_noiseX1,
+      y1: controls.painted_noiseY1,
+      x2: controls.painted_noiseX2,
+      y2: controls.painted_noiseY2,
+      scale: controls.painted_noiseScale,
+    })
+  }, [enhancedAssetsReady, gl, controls.painted_noiseX1, controls.painted_noiseY1, controls.painted_noiseX2, controls.painted_noiseY2, controls.painted_noiseScale])
+
+  useEffect(() => {
+    if (pbrNoiseTexture) {
+      mat_Brushed.roughnessMap = pbrNoiseTexture
+      mat_Brushed.bumpMap = pbrNoiseTexture
+    }
+    mat_Brushed.roughness = controls.pbr_roughness
+    mat_Brushed.metalness = controls.pbr_metalness
+    mat_Brushed.bumpScale = controls.pbr_bumpScale
+    mat_Brushed.needsUpdate = true
+
+    return () => {
+      if (pbrNoiseTexture) pbrNoiseTexture.dispose()
+    }
+  }, [mat_Brushed, pbrNoiseTexture, controls.pbr_roughness, controls.pbr_metalness, controls.pbr_bumpScale])
+
+  useEffect(() => {
+    if (chromeNoiseTexture) {
+      mat_Chrome.roughnessMap = chromeNoiseTexture
+      mat_Chrome.bumpMap = chromeNoiseTexture
+    }
+    mat_Chrome.roughness = controls.chrome_roughness
+    mat_Chrome.metalness = controls.chrome_metalness
+    mat_Chrome.bumpScale = controls.chrome_bumpScale
+    mat_Chrome.needsUpdate = true
+
+    return () => {
+      if (chromeNoiseTexture) chromeNoiseTexture.dispose()
+    }
+  }, [mat_Chrome, chromeNoiseTexture, controls.chrome_roughness, controls.chrome_metalness, controls.chrome_bumpScale])
+
+  useEffect(() => {
+    if (paintedNoiseTexture) {
+      mat_PaintedMetal.roughnessMap = paintedNoiseTexture
+      mat_PaintedMetal.bumpMap = paintedNoiseTexture
+    }
+    mat_PaintedMetal.roughness = controls.painted_roughness
+    mat_PaintedMetal.metalness = controls.painted_metalness
+    mat_PaintedMetal.bumpScale = controls.painted_bumpScale
+    mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
+    mat_PaintedMetal.needsUpdate = true
+
+    return () => {
+      if (paintedNoiseTexture) paintedNoiseTexture.dispose()
+    }
+  }, [mat_PaintedMetal, paintedNoiseTexture, controls.painted_roughness, controls.painted_metalness, controls.painted_bumpScale, controls.paintedMetal_Colour])
+
+  // Legacy shared noise texture for quick global tweaking
   const noiseTexture = useMemo(() => {
     if (!enhancedAssetsReady) return null
 
     const noiseResolution = 1024
     const noiseCanvas = GeneratePerlinNoiseTexture(noiseResolution, noiseResolution, x1, y1, x2, y2)
     const tex = new THREE.CanvasTexture(noiseCanvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(1, 1)
     tex.magFilter = THREE.LinearFilter
     tex.minFilter = THREE.LinearMipmapLinearFilter
     tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
     return tex
   }, [enhancedAssetsReady, x1, y1, x2, y2, gl])
 
-  // Update mat_PBR roughness map when texture changes
-  useMemo(() => {
-    if (mat_PBR && noiseTexture) mat_PBR.roughnessMap = noiseTexture
-  }, [noiseTexture, mat_PBR])
-  
-  // Update mat_PaintedMetal roughness map when texture changes
-  useMemo(() => {
-    if (mat_PaintedMetal && noiseTexture) {
-      mat_PaintedMetal.roughnessMap = noiseTexture
-      // mat_PaintedMetal.normalMap = noiseTexture
-      mat_PaintedMetal.bumpMap = noiseTexture
-      mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
+  useEffect(() => {
+    return () => {
+      if (noiseTexture) noiseTexture.dispose()
     }
-  }, [noiseTexture, mat_PaintedMetal, controls.paintedMetal_Colour])
+  }, [noiseTexture])
 
   const publicMaterialMap = useMemo(() => ({
-    PBR: mat_PBR,
+    Brushed: mat_Brushed,
+    PBR: mat_Brushed,
     Chrome: mat_Chrome,
     Painted: mat_PaintedMetal,
     MATCAP: mat_MATCAP,
     Wireframe: mat_Wireframe,
     UVDebug: mat_UVDebug,
-  }), [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
+  }), [mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
 
   useEffect(() => {
     if (!mat_UVDebug) return
@@ -435,13 +619,13 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   const activeMaterial = selectedSceneMaterial || mat_Placeholder
 
   useEffect(() => {
-    ;[mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
+    ;[mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
       candidateMaterial.transparent = true
       candidateMaterial.depthWrite = false
       candidateMaterial.opacity = 0
       candidateMaterial.needsUpdate = true
     })
-  }, [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
+  }, [mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -577,7 +761,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     materialFadeRef.current = THREE.MathUtils.lerp(materialFadeRef.current, targetFade, fadeBlend)
     const materialFade = THREE.MathUtils.clamp(materialFadeRef.current, 0, 1)
 
-    ;[mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
+    ;[mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
       candidateMaterial.opacity = materialFade
       candidateMaterial.depthWrite = materialFade > 0.98
     })

@@ -75,14 +75,51 @@
   -webkit-backdrop-filter: blur(16px);
 }
 
-.material-row {
+.material-picker {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
   justify-items: center;
-  gap: 10px;
 }
 
-.material-tile,
+.material-bubble {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid #ffffff9a;
+  background: #ffffff2c;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.material-carousel {
+  width: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(76px, auto);
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.material-chip {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--interaction-color);
+  border-radius: 8px;
+  padding: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 76px;
+}
+
+.material-chip,
 .public-button {
   border: 1px solid transparent;
   background: transparent;
@@ -100,14 +137,6 @@
   gap: 8px;
 }
 
-.material-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 76px;
-}
-
 .material-thumb {
   width: 52px;
   height: 52px;
@@ -123,7 +152,8 @@
   line-height: 1;
 }
 
-.material-tile.is-active .material-thumb {
+.material-chip.is-active .material-thumb,
+.material-bubble .material-thumb {
   border-color: #ffffff;
   box-shadow: 0 0 0 2px #ffffff75, inset 0 1px 0 #ffffffb3;
 }
@@ -173,7 +203,8 @@
   letter-spacing: 0.01em;
 }
 
-.material-tile:hover .material-thumb,
+.material-chip:hover .material-thumb,
+.material-bubble:hover .material-thumb,
 .public-button:hover {
   background: #ffffff52;
 }
@@ -185,17 +216,11 @@
     border-radius: 12px;
   }
 
-  .material-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    justify-items: center;
-  }
-
   .download-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .material-tile {
+  .material-chip {
     width: 100%;
     max-width: 92px;
   }

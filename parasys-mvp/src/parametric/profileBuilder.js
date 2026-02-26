@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 
+const UV_REPEAT_PER_METER = 2
+
 const ensureClosedLoop = (points) => {
   if (points.length === 0) return points
   const firstPoint = points[0]
@@ -72,6 +74,48 @@ export const createExtrudedPanelGeometry = (panelSpec) => {
     curveSegments: 1,
   })
   geometry.center()
+  geometry.computeBoundingBox()
+
+  const positions = geometry.attributes.position
+  const normals = geometry.attributes.normal
+  const bounds = geometry.boundingBox
+
+  if (positions && normals && bounds) {
+    const uv = new Float32Array(positions.count * 2)
+    const minX = bounds.min.x
+    const minY = bounds.min.y
+    const minZ = bounds.min.z
+
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index)
+      const y = positions.getY(index)
+      const z = positions.getZ(index)
+      const nx = Math.abs(normals.getX(index))
+      const ny = Math.abs(normals.getY(index))
+      const nz = Math.abs(normals.getZ(index))
+
+      let u = 0
+      let v = 0
+
+      if (nz > 0.9) {
+        u = (x - minX) * UV_REPEAT_PER_METER
+        v = (y - minY) * UV_REPEAT_PER_METER
+      } else if (nx >= ny) {
+        u = (y - minY) * UV_REPEAT_PER_METER
+        v = (z - minZ) * UV_REPEAT_PER_METER
+      } else {
+        u = (x - minX) * UV_REPEAT_PER_METER
+        v = (z - minZ) * UV_REPEAT_PER_METER
+      }
+
+      uv[(index * 2)] = u
+      uv[(index * 2) + 1] = v
+    }
+
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    geometry.attributes.uv.needsUpdate = true
+  }
+
   return {
     geometry,
     vectorLoops: {

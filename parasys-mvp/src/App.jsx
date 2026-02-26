@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Stage, Environment } from '@react-three/drei'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 // import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
 import { Experience } from './Experience'
 import { downloadScene, downloadNestedPdf, downloadNestedDxf } from './SceneDownloader';
@@ -38,30 +38,56 @@ const SceneSync = () => {
 
 const MATERIAL_OPTIONS = [
   { key: 'Painted', label: 'Painted', thumbnailClass: 'material-thumb--painted' },
-  { key: 'PBR', label: 'PBR', thumbnailClass: 'material-thumb--pbr' },
+  { key: 'Brushed', label: 'Brushed', thumbnailClass: 'material-thumb--pbr' },
   { key: 'Chrome', label: 'Chrome', thumbnailClass: 'material-thumb--chrome' },
-  { key: 'MATCAP', label: 'Matcap', thumbnailClass: 'material-thumb--matcap' },
-  { key: 'Wireframe', label: 'Wireframe', thumbnailClass: 'material-thumb--wireframe' },
-  { key: 'UVDebug', label: 'UV Debug', thumbnailClass: 'material-thumb--uvdebug' },
+  { key: 'MATCAP', label: 'Matcap', thumbnailClass: 'material-thumb--matcap', devtoolsOnly: true },
+  { key: 'Wireframe', label: 'Wireframe', thumbnailClass: 'material-thumb--wireframe', devtoolsOnly: true },
+  { key: 'UVDebug', label: 'UV Debug', thumbnailClass: 'material-thumb--uvdebug', devtoolsOnly: true },
 ]
 
-const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, onToggleDimensions }) => {
+const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, onToggleDimensions, showDevTools }) => {
   const scene = useSceneStore((state) => state.scene);
+  const [showMaterialCarousel, setShowMaterialCarousel] = useState(false)
+  const visibleMaterialOptions = useMemo(
+    () => MATERIAL_OPTIONS.filter((option) => showDevTools || !option.devtoolsOnly),
+    [showDevTools],
+  )
+  const selectedMaterialOption = visibleMaterialOptions.find((option) => option.key === selectedMaterial) || visibleMaterialOptions[0]
+
+  const handleMaterialSelect = (materialKey) => {
+    onMaterialChange(materialKey)
+    setShowMaterialCarousel(false)
+  }
 
   return (
     <div className="public-controls" role="region" aria-label="Viewer controls">
-      <div className="material-row" role="group" aria-label="Material choices">
-        {MATERIAL_OPTIONS.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            onClick={() => onMaterialChange(option.key)}
-            className={`material-tile ${selectedMaterial === option.key ? 'is-active' : ''}`}
-          >
-            <span className={`material-thumb ${option.thumbnailClass}`} aria-hidden="true" />
-            <span className="material-label">{option.label}</span>
-          </button>
-        ))}
+      <div className="material-picker" role="group" aria-label="Material choices">
+        <button
+          type="button"
+          className="material-bubble"
+          aria-expanded={showMaterialCarousel}
+          aria-label={`Material picker, current: ${selectedMaterialOption?.label || selectedMaterial}`}
+          onClick={() => setShowMaterialCarousel((open) => !open)}
+        >
+          <span className={`material-thumb ${selectedMaterialOption?.thumbnailClass || 'material-thumb--painted'}`} aria-hidden="true" />
+        </button>
+
+        {showMaterialCarousel ? (
+          <div className="material-carousel" role="listbox" aria-label="Material options">
+            {visibleMaterialOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => handleMaterialSelect(option.key)}
+                className={`material-chip ${selectedMaterial === option.key ? 'is-active' : ''}`}
+                aria-selected={selectedMaterial === option.key}
+              >
+                <span className={`material-thumb ${option.thumbnailClass}`} aria-hidden="true" />
+                <span className="material-label">{option.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="download-row" role="group" aria-label="Download options">
         <button
@@ -117,8 +143,17 @@ function App() {
   const [isInitialObjectVisible, setIsInitialObjectVisible] = useState(false)
   const [selectedMaterial, setSelectedMaterial] = useState(storedUiState?.selectedMaterial ?? 'Painted')
   const [showDimensions, setShowDimensions] = useState(storedUiState?.showDimensions ?? true)
+  const [showDevTools, setShowDevTools] = useState(false)
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
   const dprRange = isMobile ? [1, 1.5] : [1, 2]
+
+  useEffect(() => {
+    if (showDevTools) return
+    const selectedOption = MATERIAL_OPTIONS.find((option) => option.key === selectedMaterial)
+    if (selectedOption?.devtoolsOnly) {
+      setSelectedMaterial('Painted')
+    }
+  }, [showDevTools, selectedMaterial])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -172,6 +207,7 @@ function App() {
               <Experience
                 selectedMaterialKey={selectedMaterial}
                 publicShowDimensions={showDimensions}
+                onDevToolsVisibilityChange={setShowDevTools}
                 onInitialObjectVisible={() => setIsInitialObjectVisible(true)}
               />
             </Stage>
@@ -195,6 +231,7 @@ function App() {
         selectedMaterial={selectedMaterial}
         onMaterialChange={setSelectedMaterial}
         showDimensions={showDimensions}
+        showDevTools={showDevTools}
         onToggleDimensions={() => setShowDimensions((value) => !value)}
       />
       <Leva hidden={levaVisible} />
