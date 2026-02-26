@@ -4,19 +4,21 @@ import { Stage, Environment } from '@react-three/drei'
 import { Suspense, useEffect, useState } from 'react'
 // import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
 import { Experience } from './Experience'
-import { downloadScene, downloadNestedSvg, downloadNestedPdf } from './SceneDownloader';
+import { downloadScene, downloadNestedPdf, downloadNestedDxf } from './SceneDownloader';
 import { useSceneStore } from './useSceneStore';
 import { Leva } from 'leva'
 import './App.css'
 
 // Component to sync scene to store
 const SceneSync = () => {
-  const { scene } = useThree();
+  const { scene, camera, gl } = useThree();
   const setScene = useSceneStore((state) => state.setScene);
+  const setRenderContext = useSceneStore((state) => state.setRenderContext);
   
   useEffect(() => {
     setScene(scene);
-  }, [scene, setScene]);
+    setRenderContext({ camera, renderer: gl });
+  }, [scene, camera, gl, setScene, setRenderContext]);
   
   return null;
 };
@@ -51,17 +53,17 @@ const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
       <div className="download-row" role="group" aria-label="Download options">
         <button
           type="button"
-          onClick={() => downloadNestedSvg(scene, selectedMaterial)}
-          className="public-button public-button--compact"
-        >
-          ⬇ SVG
-        </button>
-        <button
-          type="button"
-          onClick={() => downloadNestedPdf(scene, selectedMaterial)}
+          onClick={() => downloadNestedPdf(scene, selectedMaterial, { pdfPageFormat: 'A4' })}
           className="public-button public-button--compact"
         >
           ⬇ PDF
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadNestedDxf(scene, selectedMaterial)}
+          className="public-button public-button--compact"
+        >
+          ⬇ DXF
         </button>
         <button
           type="button"
@@ -113,7 +115,7 @@ function App() {
       <LoadingOverlay visible={!isInitialObjectVisible} />
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
         dpr={dprRange}
         camera={{ position: [0.35, 0.2, 0.35] }}
         near={0.002}

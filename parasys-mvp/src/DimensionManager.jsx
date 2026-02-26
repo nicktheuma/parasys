@@ -207,7 +207,7 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
       />
       
       {/* The Label - Using Billboard so it always faces us */}
-        <Billboard position={[center.x, center.y, center.z]} follow={true} lockX={false} lockY={false} lockZ={false}>
+        <Billboard name="DimensionBillboard" position={[center.x, center.y, center.z]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <group>
             <mesh
               position={[0, 0, 0]}
