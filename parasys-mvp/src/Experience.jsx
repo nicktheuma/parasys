@@ -13,6 +13,9 @@ export function Experience({ onInitialObjectVisible = () => {} }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
   const hasReportedInitialVisible = useRef(false)
+  const lastInteractionAtRef = useRef(Date.now())
+  const isUserInteractingRef = useRef(false)
+  const currentAutoRotateSpeedRef = useRef(0)
   
   // const leftGroupRef = useRef()
   // const rightGroupRef = useRef()
@@ -69,10 +72,13 @@ export function Experience({ onInitialObjectVisible = () => {} }) {
     near: { value: 0.001, min: 0, max: 10, render: get => get('showDevTools')  },
     far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
     contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
-    wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  }
+    wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  },
+    idleDelaySeconds: { value: 3, min: 0, max: 20, step: 0.5, render: get => get('showDevTools') },
+    idleRotateSpeed: { value: 0.15, min: 0.05, max: 3, step: 0.05, render: get => get('showDevTools') },
+    idleRampSeconds: { value: 5, min: 0.2, max: 12, step: 0.1, render: get => get('showDevTools') }
   }))
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
 
   useEffect(() => {
     if (lightRef.current) {
@@ -193,7 +199,58 @@ export function Experience({ onInitialObjectVisible = () => {} }) {
     }
   }, [])
 
-  useFrame(() => {
+  useEffect(() => {
+    if (!OrbitRef.current) return
+
+    const orbit = OrbitRef.current
+
+    const handleStart = () => {
+      isUserInteractingRef.current = true
+      lastInteractionAtRef.current = Date.now()
+    }
+
+    const handleEnd = () => {
+      isUserInteractingRef.current = false
+      lastInteractionAtRef.current = Date.now()
+    }
+
+    const handleChange = () => {
+      if (isUserInteractingRef.current) {
+        lastInteractionAtRef.current = Date.now()
+      }
+    }
+
+    orbit.addEventListener('start', handleStart)
+    orbit.addEventListener('end', handleEnd)
+    orbit.addEventListener('change', handleChange)
+
+    return () => {
+      orbit.removeEventListener('start', handleStart)
+      orbit.removeEventListener('end', handleEnd)
+      orbit.removeEventListener('change', handleChange)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    if (OrbitRef.current) {
+      const idleForMs = Date.now() - lastInteractionAtRef.current
+      const shouldAutoRotate = !isUserInteractingRef.current && idleForMs >= idleDelaySeconds * 1000
+      const targetSpeed = shouldAutoRotate ? idleRotateSpeed : 0
+      const rampSeconds = Math.max(0.2, idleRampSeconds)
+      const smoothingLambda = 4.6 / rampSeconds
+      const easingFactor = 1 - Math.exp(-delta * smoothingLambda)
+
+      currentAutoRotateSpeedRef.current = THREE.MathUtils.lerp(
+        currentAutoRotateSpeedRef.current,
+        targetSpeed,
+        easingFactor,
+      )
+
+      const hasIdleSpin = currentAutoRotateSpeedRef.current > 0.005
+      OrbitRef.current.autoRotate = hasIdleSpin
+      OrbitRef.current.autoRotateSpeed = currentAutoRotateSpeedRef.current
+    }
+
     {/* PARAMETRIC LOGIC */}
     if (Bounding.current && showDevTools===true) {
       Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
