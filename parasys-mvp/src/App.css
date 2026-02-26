@@ -70,7 +70,7 @@
 
 .material-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   justify-items: center;
   gap: 10px;
 }
@@ -85,6 +85,12 @@
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.download-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .material-tile {
@@ -139,12 +145,25 @@
   background-size: 10px 10px, 10px 10px, cover;
 }
 
+.material-thumb--uvdebug {
+  background-image:
+    linear-gradient(45deg, #111827 25%, #e5e7eb 25%, #e5e7eb 50%, #111827 50%, #111827 75%, #e5e7eb 75%, #e5e7eb 100%),
+    linear-gradient(0deg, transparent 0 95%, #1d4ed8 95% 100%),
+    linear-gradient(90deg, transparent 0 95%, #0f766e 95% 100%);
+  background-size: 14px 14px, 100% 100%, 100% 100%;
+}
+
 .public-button {
   width: 100%;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   border: 1px solid #ffffff8a;
   background: #ffffff1c;
-  padding: 8px 10px;
+  padding: 7px 8px;
+}
+
+.public-button--compact {
+  border-radius: 8px;
+  letter-spacing: 0.01em;
 }
 
 .material-tile:hover .material-thumb,
@@ -163,6 +182,10 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     justify-items: center;
+  }
+
+  .download-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .material-tile {

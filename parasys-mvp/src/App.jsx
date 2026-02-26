@@ -4,7 +4,7 @@ import { Stage, Environment } from '@react-three/drei'
 import { Suspense, useEffect, useState } from 'react'
 // import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
 import { Experience } from './Experience'
-import { downloadScene } from './SceneDownloader';
+import { downloadScene, downloadNestedSvg, downloadNestedPdf } from './SceneDownloader';
 import { useSceneStore } from './useSceneStore';
 import { Leva } from 'leva'
 import './App.css'
@@ -27,6 +27,7 @@ const MATERIAL_OPTIONS = [
   { key: 'Chrome', label: 'Chrome', thumbnailClass: 'material-thumb--chrome' },
   { key: 'MATCAP', label: 'Matcap', thumbnailClass: 'material-thumb--matcap' },
   { key: 'Wireframe', label: 'Wireframe', thumbnailClass: 'material-thumb--wireframe' },
+  { key: 'UVDebug', label: 'UV Debug', thumbnailClass: 'material-thumb--uvdebug' },
 ]
 
 const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
@@ -47,13 +48,29 @@ const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => downloadScene(scene)}
-        className="public-button"
-      >
-        Download 3D Model
-      </button>
+      <div className="download-row" role="group" aria-label="Download options">
+        <button
+          type="button"
+          onClick={() => downloadNestedSvg(scene)}
+          className="public-button public-button--compact"
+        >
+          ⬇ SVG
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadNestedPdf(scene)}
+          className="public-button public-button--compact"
+        >
+          ⬇ PDF
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadScene(scene)}
+          className="public-button public-button--compact"
+        >
+          ⬇ 3D
+        </button>
+      </div>
     </div>
   );
 };

@@ -1,4 +1,6 @@
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { buildNestedSvg } from './parametric/svgNestingExporter';
+import { buildNestedPdfBytes } from './parametric/pdfNestingExporter';
 
 // Helper function to trigger the browser download for binary files
 const saveArrayBuffer = (buffer, filename) => {
@@ -69,4 +71,50 @@ export const downloadScene = (scene) => {
     },
     options
   );
+};
+
+const extractPanelSpecsFromScene = (scene) => {
+  if (!scene) return [];
+  const furniture = scene.getObjectByName('FurnitureGroup');
+  if (!furniture) return [];
+
+  const panelSpecs = [];
+  furniture.traverse((child) => {
+    if (!child?.isMesh) return;
+    const userData = child.userData || {};
+    if (!userData.panelId || !userData.vectorLoops?.outerLoop) return;
+
+    panelSpecs.push({
+      id: userData.panelId,
+      kind: userData.panelKind || 'panel',
+      width: userData.panelWidth,
+      height: userData.panelHeight,
+      thickness: userData.panelThickness,
+      vectorLoops: userData.vectorLoops,
+    });
+  });
+
+  return panelSpecs;
+};
+
+export const downloadNestedSvg = (scene, options = {}) => {
+  const panelSpecs = extractPanelSpecsFromScene(scene);
+  if (panelSpecs.length === 0) {
+    console.warn('No panel specs found for nested SVG export.');
+    return;
+  }
+
+  const { svg } = buildNestedSvg(panelSpecs, options);
+  saveString(svg, 'nested_panels.svg');
+};
+
+export const downloadNestedPdf = async (scene, options = {}) => {
+  const panelSpecs = extractPanelSpecsFromScene(scene);
+  if (panelSpecs.length === 0) {
+    console.warn('No panel specs found for nested PDF export.');
+    return;
+  }
+
+  const { pdfBytes } = await buildNestedPdfBytes(panelSpecs, options);
+  saveArrayBuffer(pdfBytes, 'nested_panels.pdf');
 };

@@ -6,6 +6,8 @@ import { OrbitControls, ContactShadows } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
+import { generatePanelSpecs } from './parametric/panelSpecs'
+import { createExtrudedPanelGeometry } from './parametric/profileBuilder'
 
 const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
 
@@ -21,7 +23,6 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   // const rightGroupRef = useRef()
   const Dimensions = useRef()
   const Bounding = useRef()
-  const Back = useRef()
   const FurnitureGroup = useRef()
   const OrbitRef = useRef()
   const lightRef = useRef()
@@ -32,20 +33,77 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   // const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
   // let desired_Dividers = 0;
 
+  const uvDebugTexture = useMemo(() => {
+    if (typeof document === 'undefined') return null
+
+    const canvasSize = 1024
+    const tileSize = 64
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+
+    const context = canvas.getContext('2d')
+    if (!context) return null
+
+    for (let y = 0; y < canvasSize; y += tileSize) {
+      for (let x = 0; x < canvasSize; x += tileSize) {
+        const isDark = ((x / tileSize) + (y / tileSize)) % 2 === 0
+        context.fillStyle = isDark ? '#111827' : '#f3f4f6'
+        context.fillRect(x, y, tileSize, tileSize)
+      }
+    }
+
+    context.strokeStyle = '#2563eb'
+    context.lineWidth = 8
+    context.beginPath()
+    context.moveTo(0, 6)
+    context.lineTo(canvasSize, 6)
+    context.stroke()
+
+    context.strokeStyle = '#0f766e'
+    context.lineWidth = 8
+    context.beginPath()
+    context.moveTo(6, 0)
+    context.lineTo(6, canvasSize)
+    context.stroke()
+
+    context.fillStyle = '#dc2626'
+    context.beginPath()
+    context.arc(20, 20, 10, 0, Math.PI * 2)
+    context.fill()
+
+    context.fillStyle = '#111827'
+    context.font = 'bold 28px sans-serif'
+    context.fillText('U', canvasSize - 40, 40)
+    context.fillText('V', 16, canvasSize - 16)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(2, 2)
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.LinearMipmapLinearFilter
+    texture.generateMipmaps = true
+    texture.needsUpdate = true
+
+    return texture
+  }, [])
+
   // Memoize materials to avoid recreating them every render
   const materials = useMemo(() => ({
     mat_Dev: new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3}),
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_Placeholder: new THREE.MeshStandardMaterial( {map: null, color: '#c5ccd3', roughness: 0.9, metalness: 0.05}),
     mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.01}),
+    mat_UVDebug: new THREE.MeshBasicMaterial({ map: uvDebugTexture, color: '#ffffff' }),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_PBR: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 1, metalness: 0.2})
-  }), [])
+  }), [uvDebugTexture])
 
-  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_UVDebug, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -55,7 +113,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe } },
+    material: { value: mat_PaintedMetal, options: { PBR: mat_PBR, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe, UVDebug: mat_UVDebug } },
     paintedMetal_Colour: { value: '#526982' },
     showDims: true,
     showProps: true,
@@ -79,6 +137,32 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   }))
 
   const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
+
+  const panelSpecs = useMemo(() => (
+    generatePanelSpecs({
+      width,
+      height,
+      depth,
+      dividers,
+      shelves,
+      edgeOffset,
+      slotOffset,
+      materialThickness,
+    })
+  ), [width, height, depth, dividers, shelves, edgeOffset, slotOffset, materialThickness])
+
+  const panelMeshes = useMemo(() => (
+    panelSpecs.map((panelSpec) => ({
+      panelSpec,
+      ...createExtrudedPanelGeometry(panelSpec),
+    }))
+  ), [panelSpecs])
+
+  useEffect(() => {
+    return () => {
+      panelMeshes.forEach(({ geometry }) => geometry.dispose())
+    }
+  }, [panelMeshes])
 
   useEffect(() => {
     if (lightRef.current) {
@@ -151,7 +235,20 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     Painted: mat_PaintedMetal,
     MATCAP: mat_MATCAP,
     Wireframe: mat_Wireframe,
-  }), [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe])
+    UVDebug: mat_UVDebug,
+  }), [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
+
+  useEffect(() => {
+    if (!mat_UVDebug) return
+    mat_UVDebug.map = uvDebugTexture
+    mat_UVDebug.needsUpdate = true
+  }, [uvDebugTexture, mat_UVDebug])
+
+  useEffect(() => {
+    return () => {
+      if (uvDebugTexture) uvDebugTexture.dispose()
+    }
+  }, [uvDebugTexture])
 
   const selectedSceneMaterial = selectedMaterialKey
     ? publicMaterialMap[selectedMaterialKey] || material
@@ -165,6 +262,13 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   }), [])
 
   const { boxMain } = geometries
+
+  useEffect(() => {
+    if (!hasReportedInitialVisible.current && panelSpecs.length > 0) {
+      hasReportedInitialVisible.current = true
+      onInitialObjectVisible()
+    }
+  }, [panelSpecs, onInitialObjectVisible])
 
   useLayoutEffect(() => {
     let rafId = null
@@ -269,16 +373,6 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
       Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
     }
-    if (Back.current) {
-      Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
-      Back.current.rotation.set(0, 0, 0);
-      Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
-
-      if (!hasReportedInitialVisible.current) {
-        hasReportedInitialVisible.current = true
-        onInitialObjectVisible()
-      }
-    }
   })
 
   return (
@@ -293,59 +387,27 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       <group name="FurnitureGroup" ref={FurnitureGroup}>
         {/* PARAMETRIC LOGIC */}
 
-        {/* THE MAIN PIECE */}
-        {/* <mesh ref={Top} geometry={boxMain} material={material} /> */}
-        {/* <mesh ref={Bottom} geometry={boxMain} material={material} /> */}
-        <mesh receiveShadow={true} ref={Back} geometry={boxMain} material={activeMaterial} />
-
-        {/* VERTICAL SHEETS YZ */}
-        {Array.from({ length: (dividers + 2) }).map((_, i) => {
-          const widthAdjusted = width - materialThickness - (edgeOffset * 2);
-          const x = -(widthAdjusted / 2) + (widthAdjusted / Math.max(1, (dividers + 1))) * (i)
-          return (
-            <mesh
-              castShadow={true}
-              receiveShadow={true}
-              key={`xy-sheet-${i}`}
-              position={[x, 0, -(slotOffset/2)]}
-              rotation={[0, 0, 0]}
-              geometry={boxMain}
-              material={activeMaterial}
-              // scale={[
-              //   (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.z,
-              //   ((depth - slotOffset) / startDims.x),
-              //   materialThickness / startDims.y,
-              // ]}
-              scale={[
-                materialThickness / startDims.x,
-                (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.y,
-                ((depth - slotOffset) / startDims.z),
-              ]}
-            />
-          )
-        })}
-
-        {/* HORIZONTAL SHEETS XY */}
-        {Array.from({ length: (shelves + 2) }).map((_, i) => {
-          const AdjustedHeight = height - materialThickness;
-          const x = (AdjustedHeight / Math.max(1, (shelves + 1))) * (i)
-          return (
-            <mesh
-              castShadow={true}
-              receiveShadow={true}  
-              key={`yz-sheet-${i}`}
-              position={[0, (AdjustedHeight / 2) - x, 0]}
-              rotation={[0, 0, 0]}
-              geometry={boxMain}
-              material={activeMaterial}
-              scale={[
-                width / startDims.x,
-                materialThickness / startDims.y,
-                depth / startDims.z
-              ]}
-            />
-          )
-        })}
+        {panelMeshes.map(({ panelSpec, geometry, vectorLoops }) => (
+          <mesh
+            key={panelSpec.id}
+            name={`Panel_${panelSpec.id}`}
+            castShadow={true}
+            receiveShadow={true}
+            position={panelSpec.center}
+            rotation={panelSpec.rotation}
+            geometry={geometry}
+            material={activeMaterial}
+            userData={{
+              panelId: panelSpec.id,
+              panelKind: panelSpec.kind,
+              panelPlane: panelSpec.plane,
+              panelWidth: panelSpec.width,
+              panelHeight: panelSpec.height,
+              panelThickness: panelSpec.thickness,
+              vectorLoops,
+            }}
+          />
+        ))}
       </group>
 
       <group name="DimensionsGroup" ref={Dimensions} visible={showDims}>
