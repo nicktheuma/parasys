@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Line, Text, Billboard, Html } from '@react-three/drei'
 import React, { useRef, useState, useEffect } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 
 // Hook to read CSS color variables from :root
 function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
@@ -72,7 +72,7 @@ function useStepButtonSizing(
   }
 }
 
-export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchorGap = 0.01, dimensionGap=0.03, fontSize = 0.02, setDimension, min = 0.05, max = 2, step = 0.001 }) {
+export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchorGap = 0.01, dimensionGap=0.03, fontSize = 0.02, setDimension, min = 0.05, max = 2, step = 0.001, uiScale = 1, uiScaleMin = 0.45, uiScaleMax = 4.2 }) {
   // Determine plane of the dimension line based on start and end points
   const vectorDiff = new THREE.Vector3(end[0] - start[0], end[1] - start[1], end[2] - start[2]);
   const dimensionGapVector = new THREE.Vector3(0, 0, 0);
@@ -122,8 +122,19 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(label.toFixed(2))
   const inputRef = useRef(null)
-  const { controls } = useThree()
+  const billboardRef = useRef(null)
+  const tempWorldPos = useRef(new THREE.Vector3())
+  const { controls, camera } = useThree()
   const { dimColor, hoverColor } = useCssColors()
+
+  useFrame(() => {
+    if (!billboardRef.current) return
+    billboardRef.current.getWorldPosition(tempWorldPos.current)
+    const distance = camera.position.distanceTo(tempWorldPos.current)
+    const distanceScale = THREE.MathUtils.clamp(distance * 0.12, 0.7, 3)
+    const finalScale = THREE.MathUtils.clamp(distanceScale * uiScale, uiScaleMin, uiScaleMax)
+    billboardRef.current.scale.setScalar(finalScale)
+  })
 
   const onPointerDown = (e) => {
     if (!setDimension) return
@@ -262,7 +273,7 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
       />
       
       {/* The Label - Using Billboard so it always faces us */}
-        <Billboard name="DimensionBillboard" position={[center.x, center.y, center.z]} follow={true} lockX={false} lockY={false} lockZ={false}>
+        <Billboard ref={billboardRef} name="DimensionBillboard" position={[center.x, center.y, center.z]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <group>
             <mesh
               position={[0, 0, 0]}
@@ -327,14 +338,29 @@ export function BillboardStepButton({
   disabled = false,
   radius = null,
   fontSize = null,
+  uiScale = 1,
+  uiScaleMin = 0.45,
+  uiScaleMax = 5,
 }) {
   const [hovered, setHovered] = useState(false)
+  const billboardRef = useRef(null)
+  const tempWorldPos = useRef(new THREE.Vector3())
   const { dimColor, hoverColor } = useCssColors()
+  const { camera } = useThree()
   const cssSizing = useStepButtonSizing()
 
   const effectiveRadius = radius ?? cssSizing.radius
   const effectiveFontSize = fontSize ?? cssSizing.fontSize
   const ringInnerRadius = Math.max(0.0005, effectiveRadius - cssSizing.outlineWidth)
+
+  useFrame(() => {
+    if (!billboardRef.current || disabled) return
+    billboardRef.current.getWorldPosition(tempWorldPos.current)
+    const distance = camera.position.distanceTo(tempWorldPos.current)
+    const distanceScale = THREE.MathUtils.clamp(distance * 0.14, 0.75, 3.4)
+    const finalScale = THREE.MathUtils.clamp(distanceScale * uiScale, uiScaleMin, uiScaleMax)
+    billboardRef.current.scale.setScalar(finalScale)
+  })
 
   const handlePointerDown = (event) => {
     event.stopPropagation()
@@ -345,7 +371,7 @@ export function BillboardStepButton({
   if (disabled) return null
 
   return (
-    <Billboard position={position} follow={true} lockX={false} lockY={false} lockZ={false}>
+    <Billboard ref={billboardRef} position={position} follow={true} lockX={false} lockY={false} lockZ={false}>
       <group>
         <mesh>
           <ringGeometry args={[ringInnerRadius, effectiveRadius, 40]} />

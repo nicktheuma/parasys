@@ -1,12 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1');
+
 :root {
   /* Global app colors */
   --background-color: #ebebeb;
-  --dimension-color: #d0d0d0;
+  --dimension-color: #a7a7a7;
   --interaction-color: #060606;
   --button-bg: #00000012;
   --button-text: #ffffff;
   --button-border: #ffffff;
-  --step-button-radius: 0.006;
+  --step-button-radius: 0.008;
   --step-button-font-size: 0.008;
   --step-button-outline-width: 0.0004;
   --step-button-outline-opacity-idle: 0.1;
@@ -69,38 +71,85 @@
   gap: 10px;
   padding: 10px;
   border-radius: 14px;
-  background: #ffffff1f;
-  border: 1px solid #ffffff4d;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #ffffff00;
+  border: 0px solid #ffffff4d;
+  /* backdrop-filter: blur(16px); */
+  /* -webkit-backdrop-filter: blur(16px); */
 }
 
-.material-picker {
+.primary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: center;
+  gap: 12px;
+}
+
+.action-bubble {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid #aeaeaec3;
+  background: #ffffff00;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--interaction-color);
+  font-size: 1.35rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.action-bubble--icon {
+  font-size: 0;
+}
+
+.action-icon {
+  font-size: 1.65rem;
+  line-height: 1;
+  color: var(--dimension-color);
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  transition: color 0.2s ease, font-variation-settings 0.2s ease;
+}
+
+.action-bubble:hover,
+.action-bubble:focus-visible {
+  background: #ffffff00;
+  border-color: #000000;
+  border-width: 0caps 0.3px;
+  transform: translateY(-1px);
+}
+
+.action-bubble:hover .action-icon,
+.action-bubble:focus-visible .action-icon {
+  color: var(--interaction-color);
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+.nested-panel {
+  width: 100%;
   display: grid;
   gap: 8px;
   justify-items: center;
 }
 
-.material-bubble {
-  width: 64px;
-  height: 64px;
-  border-radius: 999px;
-  border: 1px solid #ffffff9a;
-  background: #ffffff2c;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  cursor: pointer;
-}
-
 .material-carousel {
-  width: 100%;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(76px, auto);
   gap: 8px;
   overflow-x: auto;
   padding: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.option-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(100%, 420px);
+  margin: 0 auto;
 }
 
 .material-chip {
@@ -129,12 +178,6 @@
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.download-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
 }
 
 .material-thumb {
@@ -203,8 +246,13 @@
   letter-spacing: 0.01em;
 }
 
+.public-button.is-active {
+  border-color: #ffffff;
+  background: #ffffff45;
+}
+
 .material-chip:hover .material-thumb,
-.material-bubble:hover .material-thumb,
+.action-bubble:hover .material-thumb,
 .public-button:hover {
   background: #ffffff52;
 }
@@ -216,8 +264,8 @@
     border-radius: 12px;
   }
 
-  .download-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .material-chip {

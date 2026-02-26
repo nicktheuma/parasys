@@ -236,13 +236,17 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     painted_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
     painted_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
     painted_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    resetMaterialPresets: button(() => setMaterialResetNonce((value) => value + 1), { render: get => get('showDevTools') }),
+    resetMaterialPresets: button(() => setMaterialResetNonce((value) => value + 1)),
     lightPos: { value: [0.14,0.19,0.12], render: get => get('showDevTools') },
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
     intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
     mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
     near: { value: 0.001, min: 0, max: 10, render: get => get('showDevTools')  },
     far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
+    ui3dDimsScaleMin: { value: 0.45, min: 0.1, max: 3, step: 0.01, render: get => get('showDevTools') },
+    ui3dDimsScaleMax: { value: 4.2, min: 0.2, max: 30, step: 0.01, render: get => get('showDevTools') },
+    ui3dButtonsScaleMin: { value: 0.45, min: 0.1, max: 3, step: 0.01, render: get => get('showDevTools') },
+    ui3dButtonsScaleMax: { value: 5, min: 0.2, max: 30, step: 0.01, render: get => get('showDevTools') },
     contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
     wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  },
     idleDelaySeconds: { value: 3, min: 0, max: 20, step: 0.5, render: get => get('showDevTools') },
@@ -308,7 +312,22 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     setControls(DEFAULT_MATERIAL_DEV_SETTINGS)
   }, [materialResetNonce, setControls])
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, ui3dDimsScaleMin, ui3dDimsScaleMax, ui3dButtonsScaleMin, ui3dButtonsScaleMax, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
+  const furnitureUiScale = useMemo(() => {
+    const maxFurnitureDimension = Math.max(width, height, depth)
+    return THREE.MathUtils.clamp(maxFurnitureDimension / 0.55, 0.75, 2.2)
+  }, [width, height, depth])
+  const uiScaleClampDims = useMemo(() => {
+    const minValue = Math.max(0.1, ui3dDimsScaleMin)
+    const maxValue = Math.max(minValue + 0.05, ui3dDimsScaleMax)
+    return { min: minValue, max: maxValue }
+  }, [ui3dDimsScaleMin, ui3dDimsScaleMax])
+
+  const uiScaleClampButtons = useMemo(() => {
+    const minValue = Math.max(0.1, ui3dButtonsScaleMin)
+    const maxValue = Math.max(minValue + 0.05, ui3dButtonsScaleMax)
+    return { min: minValue, max: maxValue }
+  }, [ui3dButtonsScaleMin, ui3dButtonsScaleMax])
 
   const panelSpecs = useMemo(() => (
     generatePanelSpecs({
@@ -372,12 +391,12 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       maxX = Math.max(maxX, center.x)
     })
 
-    const sideOffset = edgeOffset - 0.01
+    const sideOffset = 0
     const zOffset = 0
 
     return {
-      decrement: [minX - sideOffset, (height / 2) + 0.01, zOffset],
-      increment: [maxX + sideOffset, (height / 2) + 0.01, zOffset],
+      decrement: [minX - sideOffset, (height / 2) * 1.8, zOffset],
+      increment: [maxX + sideOffset, (height / 2) * 1.8, zOffset],
     }
   }, [panelSpecs, depth])
 
@@ -398,8 +417,8 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       maxY = Math.max(maxY, center.y)
     })
 
-    const xOffset = -width / 2 - 0.01
-    const yOffset = height / 4 - 0.04
+    const xOffset = -width / 2 - (0.02)
+    const yOffset = 0
     const zOffset = 0
 
     return {
@@ -865,28 +884,40 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
         ))}
       </group>
 
-      <group name="DimensionsGroup" ref={Dimensions} visible={showDims && publicShowDimensions}>
+      <group name="DimensionsGroup" ref={Dimensions} visible={publicShowDimensions}>
         <BillboardStepButton
           position={dividerControlAnchors.decrement}
           symbol="−"
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampButtons.min}
+          uiScaleMax={uiScaleClampButtons.max}
           disabled={dividers <= DIVIDER_MIN}
           onClick={() => setControls({ dividers: Math.max(DIVIDER_MIN, dividers - 1) })}
         />
         <BillboardStepButton
           position={dividerControlAnchors.increment}
           symbol="+"
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampButtons.min}
+          uiScaleMax={uiScaleClampButtons.max}
           disabled={dividers >= DIVIDER_MAX}
           onClick={() => setControls({ dividers: Math.min(DIVIDER_MAX, dividers + 1) })}
         />
         <BillboardStepButton
           position={shelfControlAnchors.decrement}
           symbol="−"
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampButtons.min}
+          uiScaleMax={uiScaleClampButtons.max}
           disabled={shelves <= SHELF_MIN}
           onClick={() => setControls({ shelves: Math.max(SHELF_MIN, shelves - 1) })}
         />
         <BillboardStepButton
           position={shelfControlAnchors.increment}
           symbol="+"
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampButtons.min}
+          uiScaleMax={uiScaleClampButtons.max}
           disabled={shelves >= SHELF_MAX}
           onClick={() => setControls({ shelves: Math.min(SHELF_MAX, shelves + 1) })}
         />
@@ -900,6 +931,9 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
           dimensionGap={0.025}
           anchorGap={0.005}
           fontSize={0.01}
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampDims.min}
+          uiScaleMax={uiScaleClampDims.max}
         />
         {/* Height Label - OVERALL*/}
         <PlaneDimensionLine 
@@ -910,6 +944,9 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
           dimensionGap={0.025}
           anchorGap={0.005}
           fontSize={0.01}
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampDims.min}
+          uiScaleMax={uiScaleClampDims.max}
         />
         {/* Depth Label - OVERALL*/}
         <PlaneDimensionLine 
@@ -920,6 +957,9 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
           dimensionGap={0.025}
           anchorGap={0.005}
           fontSize={0.01}
+          uiScale={furnitureUiScale}
+          uiScaleMin={uiScaleClampDims.min}
+          uiScaleMax={uiScaleClampDims.max}
         />
       </group>
 

@@ -47,7 +47,7 @@ const MATERIAL_OPTIONS = [
 
 const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, onToggleDimensions, showDevTools }) => {
   const scene = useSceneStore((state) => state.scene);
-  const [showMaterialCarousel, setShowMaterialCarousel] = useState(false)
+  const [openPanel, setOpenPanel] = useState(null)
   const visibleMaterialOptions = useMemo(
     () => MATERIAL_OPTIONS.filter((option) => showDevTools || !option.devtoolsOnly),
     [showDevTools],
@@ -56,24 +56,17 @@ const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, on
 
   const handleMaterialSelect = (materialKey) => {
     onMaterialChange(materialKey)
-    setShowMaterialCarousel(false)
+    setOpenPanel(null)
+  }
+
+  const togglePanel = (panelKey) => {
+    setOpenPanel((current) => (current === panelKey ? null : panelKey))
   }
 
   return (
     <div className="public-controls" role="region" aria-label="Viewer controls">
-      <div className="material-picker" role="group" aria-label="Material choices">
-        <button
-          type="button"
-          className="material-bubble"
-          aria-expanded={showMaterialCarousel}
-          aria-label={`Material picker, current: ${selectedMaterialOption?.label || selectedMaterial}`}
-          onClick={() => setShowMaterialCarousel((open) => !open)}
-        >
-          <span className={`material-thumb ${selectedMaterialOption?.thumbnailClass || 'material-thumb--painted'}`} aria-hidden="true" />
-        </button>
-
-        {showMaterialCarousel ? (
-          <div className="material-carousel" role="listbox" aria-label="Material options">
+      {openPanel === 'material' ? (
+        <div className="nested-panel material-carousel" role="listbox" aria-label="Material options">
             {visibleMaterialOptions.map((option) => (
               <button
                 key={option.key}
@@ -86,38 +79,51 @@ const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, on
                 <span className="material-label">{option.label}</span>
               </button>
             ))}
-          </div>
-        ) : null}
-      </div>
-      <div className="download-row" role="group" aria-label="Download options">
+        </div>
+      ) : null}
+
+      {openPanel === 'download' ? (
+        <div className="nested-panel option-grid" role="group" aria-label="Download options">
+          <button type="button" onClick={() => { downloadNestedPdf(scene, selectedMaterial, { pdfPageFormat: 'A4' }); setOpenPanel(null) }} className="public-button public-button--compact">PDF</button>
+          <button type="button" onClick={() => { downloadNestedDxf(scene, selectedMaterial); setOpenPanel(null) }} className="public-button public-button--compact">DXF</button>
+          <button type="button" onClick={() => { downloadScene(scene); setOpenPanel(null) }} className="public-button public-button--compact">3D</button>
+        </div>
+      ) : null}
+
+      <div className="primary-actions" role="group" aria-label="Primary controls">
         <button
           type="button"
-          onClick={() => downloadNestedPdf(scene, selectedMaterial, { pdfPageFormat: 'A4' })}
-          className="public-button public-button--compact"
+          className="action-bubble action-bubble--icon"
+          aria-expanded={openPanel === 'download'}
+          aria-label="Download options"
+          onClick={() => togglePanel('download')}
         >
-          ⬇ PDF
+          <span className="material-symbols-outlined action-icon" aria-hidden="true">download</span>
         </button>
+
         <button
           type="button"
-          onClick={() => downloadNestedDxf(scene, selectedMaterial)}
-          className="public-button public-button--compact"
+          className="action-bubble"
+          aria-expanded={openPanel === 'material'}
+          aria-label={`Material picker, current: ${selectedMaterialOption?.label || selectedMaterial}`}
+          onClick={() => togglePanel('material')}
         >
-          ⬇ DXF
+          <span className={`material-thumb ${selectedMaterialOption?.thumbnailClass || 'material-thumb--painted'}`} aria-hidden="true" />
         </button>
+
         <button
           type="button"
-          onClick={() => downloadScene(scene)}
-          className="public-button public-button--compact"
-        >
-          ⬇ 3D
-        </button>
-        <button
-          type="button"
-          onClick={onToggleDimensions}
+          className="action-bubble action-bubble--icon"
           aria-pressed={showDimensions}
-          className="public-button public-button--compact"
+          aria-label={showDimensions ? 'Hide dimensions' : 'Show dimensions'}
+          onClick={() => {
+            onToggleDimensions()
+            setOpenPanel(null)
+          }}
         >
-          {showDimensions ? '👁 Dims On' : '🚫 Dims Off'}
+          <span className="material-symbols-outlined action-icon" aria-hidden="true">
+            {showDimensions ? 'visibility' : 'visibility_off'}
+          </span>
         </button>
       </div>
     </div>
