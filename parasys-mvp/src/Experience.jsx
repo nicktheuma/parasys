@@ -4,7 +4,7 @@ import { useRef, useMemo, useLayoutEffect, useEffect, useState, lazy, Suspense }
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, ContactShadows } from '@react-three/drei'
 
-import { PlaneDimensionLine } from './DimensionManager'
+import { PlaneDimensionLine, BillboardStepButton } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 import { generatePanelSpecs } from './parametric/panelSpecs'
 import { createExtrudedPanelGeometry } from './parametric/profileBuilder'
@@ -12,6 +12,7 @@ import { createExtrudedPanelGeometry } from './parametric/profileBuilder'
 const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
 
 const easeOutCubic = (t) => 1 - ((1 - t) ** 3)
+const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2
 const easeOutBack = (t) => {
   const c1 = 1.70158
   const c3 = c1 + 1
@@ -38,7 +39,24 @@ const toVector3 = (value) => {
   return new THREE.Vector3()
 }
 
-export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null }) {
+const DIVIDER_MIN = 0
+const DIVIDER_MAX = 4
+const SHELF_MIN = 0
+const SHELF_MAX = 4
+const PANEL_STATE_KEY = 'parasys:panel-state:v1'
+
+const readStoredPanelState = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(PANEL_STATE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null, publicShowDimensions = true }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
   const hasReportedInitialVisible = useRef(false)
@@ -57,6 +75,10 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   const panelMeshTargetsRef = useRef(new Map())
   const introProgressRef = useRef(0)
   const materialFadeRef = useRef(0)
+  const structureTransitionRef = useRef(1)
+  const hasSeenCountsRef = useRef(false)
+  const structureAnimatedKindsRef = useRef(new Set())
+  const lastCountsRef = useRef({ dividers: 1, shelves: 1 })
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 1, 0.3);
@@ -167,6 +189,36 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     idleRampSeconds: { value: 5, min: 0.2, max: 12, step: 0.1, render: get => get('showDevTools') }
   }))
 
+  const didHydrateControlsRef = useRef(false)
+
+  useEffect(() => {
+    if (didHydrateControlsRef.current) return
+    didHydrateControlsRef.current = true
+    const savedState = readStoredPanelState()
+    if (!savedState || typeof savedState !== 'object') return
+    setControls(savedState)
+  }, [setControls])
+
+  useEffect(() => {
+    if (!didHydrateControlsRef.current) return
+    if (typeof window === 'undefined') return
+
+    const serializableControls = Object.fromEntries(
+      Object.entries(controls).filter(([, value]) => (
+        typeof value === 'number' ||
+        typeof value === 'string' ||
+        typeof value === 'boolean' ||
+        Array.isArray(value)
+      )),
+    )
+
+    try {
+      window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(serializableControls))
+    } catch {
+      // ignore storage write failures
+    }
+  }, [controls])
+
   const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
 
   const panelSpecs = useMemo(() => (
@@ -213,6 +265,76 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       explodeDistance: Math.max(0.08, maxRadius * 0.55),
     }
   }, [panelSpecs])
+
+  const dividerControlAnchors = useMemo(() => {
+    const dividerPanels = panelSpecs.filter((panelSpec) => panelSpec.kind === 'vertical')
+    if (dividerPanels.length === 0) {
+      return {
+        decrement: [-width/2, 0, -depth/2],
+        increment: [width/2, 0, depth/2],
+      }
+    }
+
+    let minX = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    dividerPanels.forEach((panelSpec) => {
+      const center = toVector3(panelSpec.center)
+      minX = Math.min(minX, center.x)
+      maxX = Math.max(maxX, center.x)
+    })
+
+    const sideOffset = edgeOffset - 0.01
+    const zOffset = 0
+
+    return {
+      decrement: [minX - sideOffset, (height / 2) + 0.01, zOffset],
+      increment: [maxX + sideOffset, (height / 2) + 0.01, zOffset],
+    }
+  }, [panelSpecs, depth])
+
+  const shelfControlAnchors = useMemo(() => {
+    const shelfPanels = panelSpecs.filter((panelSpec) => panelSpec.kind === 'shelf')
+    if (shelfPanels.length === 0) {
+      return {
+        decrement: [0, -height/2, 0],
+        increment: [0, height/2, 0],
+      }
+    }
+
+    let minY = Number.POSITIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    shelfPanels.forEach((panelSpec) => {
+      const center = toVector3(panelSpec.center)
+      minY = Math.min(minY, center.y)
+      maxY = Math.max(maxY, center.y)
+    })
+
+    const xOffset = -width / 2 - 0.01
+    const yOffset = height / 4 - 0.04
+    const zOffset = 0
+
+    return {
+      decrement: [xOffset, minY - yOffset, zOffset],
+      increment: [xOffset, maxY + yOffset, zOffset],
+    }
+  }, [panelSpecs, width, depth])
+
+  useEffect(() => {
+    if (!hasSeenCountsRef.current) {
+      hasSeenCountsRef.current = true
+      lastCountsRef.current = { dividers, shelves }
+      return
+    }
+    const changedKinds = new Set()
+    if (dividers !== lastCountsRef.current.dividers) changedKinds.add('vertical')
+    if (shelves !== lastCountsRef.current.shelves) changedKinds.add('shelf')
+
+    structureAnimatedKindsRef.current = changedKinds
+    if (changedKinds.size > 0) {
+      structureTransitionRef.current = 0
+    }
+    lastCountsRef.current = { dividers, shelves }
+  }, [dividers, shelves])
 
   useEffect(() => {
     return () => {
@@ -439,6 +561,17 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     const positionT = easeOutCubic(introT)
     const scaleT = THREE.MathUtils.clamp(easeOutBack(introT), 0, 1.12)
 
+    const structureBlend = 1 - Math.exp(-delta * 2.6)
+    structureTransitionRef.current = THREE.MathUtils.lerp(
+      structureTransitionRef.current,
+      1,
+      structureBlend,
+    )
+    const structureT = THREE.MathUtils.clamp(easeInOutSine(structureTransitionRef.current), 0, 1)
+    if (structureTransitionRef.current > 0.995) {
+      structureAnimatedKindsRef.current.clear()
+    }
+
     const targetFade = enhancedAssetsReady ? 1 : 0
     const fadeBlend = 1 - Math.exp(-delta * 3.2)
     materialFadeRef.current = THREE.MathUtils.lerp(materialFadeRef.current, targetFade, fadeBlend)
@@ -454,7 +587,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       const targetMeta = panelMeshTargetsRef.current.get(panelId)
       if (!mesh || !targetMeta) return
 
-      const { targetPosition, seed } = targetMeta
+      const { targetPosition, seed, kind } = targetMeta
       const direction = targetPosition.clone().sub(layoutCenter)
       if (direction.lengthSq() < 1e-6) {
         direction.set(
@@ -466,8 +599,30 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       direction.normalize()
       const startPosition = targetPosition.clone().add(direction.multiplyScalar(explodeDistance))
 
-      mesh.position.lerpVectors(startPosition, targetPosition, positionT)
-      mesh.scale.setScalar(THREE.MathUtils.clamp(scaleT, 0.001, 1.06))
+      if (introT < 0.995) {
+        mesh.position.lerpVectors(startPosition, targetPosition, positionT)
+        mesh.scale.setScalar(THREE.MathUtils.clamp(scaleT, 0.001, 1.06))
+        return
+      }
+
+      if (kind === 'vertical' || kind === 'shelf') {
+        const shouldAnimateKind = structureAnimatedKindsRef.current.has(kind)
+        if (shouldAnimateKind) {
+          const countChangeStart = targetPosition.clone()
+          if (kind === 'vertical') {
+            countChangeStart.x = THREE.MathUtils.lerp(targetPosition.x, layoutCenter.x, 0.22)
+          } else {
+            countChangeStart.y = THREE.MathUtils.lerp(targetPosition.y, layoutCenter.y, 0.22)
+          }
+
+          mesh.position.lerpVectors(countChangeStart, targetPosition, structureT)
+          mesh.scale.setScalar(THREE.MathUtils.lerp(0.9, 1, structureT))
+          return
+        }
+      }
+
+      mesh.position.copy(targetPosition)
+      mesh.scale.setScalar(1)
     })
 
     {/* PARAMETRIC LOGIC */}
@@ -499,6 +654,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
                 panelMeshTargetsRef.current.set(panelSpec.id, {
                   targetPosition: toVector3(panelSpec.center),
                   seed: panelIdSeed(panelSpec.id),
+                  kind: panelSpec.kind,
                 })
               } else {
                 panelMeshRefs.current.delete(panelSpec.id)
@@ -525,7 +681,32 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
         ))}
       </group>
 
-      <group name="DimensionsGroup" ref={Dimensions} visible={showDims}>
+      <group name="DimensionsGroup" ref={Dimensions} visible={showDims && publicShowDimensions}>
+        <BillboardStepButton
+          position={dividerControlAnchors.decrement}
+          symbol="−"
+          disabled={dividers <= DIVIDER_MIN}
+          onClick={() => setControls({ dividers: Math.max(DIVIDER_MIN, dividers - 1) })}
+        />
+        <BillboardStepButton
+          position={dividerControlAnchors.increment}
+          symbol="+"
+          disabled={dividers >= DIVIDER_MAX}
+          onClick={() => setControls({ dividers: Math.min(DIVIDER_MAX, dividers + 1) })}
+        />
+        <BillboardStepButton
+          position={shelfControlAnchors.decrement}
+          symbol="−"
+          disabled={shelves <= SHELF_MIN}
+          onClick={() => setControls({ shelves: Math.max(SHELF_MIN, shelves - 1) })}
+        />
+        <BillboardStepButton
+          position={shelfControlAnchors.increment}
+          symbol="+"
+          disabled={shelves >= SHELF_MAX}
+          onClick={() => setControls({ shelves: Math.min(SHELF_MAX, shelves + 1) })}
+        />
+
         {/* Width Label - OVERALL*/}
         <PlaneDimensionLine 
           start={[-width/2, height / 2, -depth / 2]} 

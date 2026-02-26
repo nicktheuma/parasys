@@ -6,6 +6,13 @@
   --button-bg: #00000012;
   --button-text: #ffffff;
   --button-border: #ffffff;
+  --step-button-radius: 0.006;
+  --step-button-font-size: 0.008;
+  --step-button-outline-width: 0.0004;
+  --step-button-outline-opacity-idle: 0.1;
+  --step-button-outline-opacity-hover: 1;
+  --step-button-fill-opacity-idle: 0.1;
+  --step-button-fill-opacity-hover: 0.3;
 }
 
 #root {
@@ -80,7 +87,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--interaction-color);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 4px;
   font-size: 1rem;
   cursor: pointer;
@@ -89,7 +96,7 @@
 
 .download-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -185,7 +192,7 @@
   }
 
   .download-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .material-tile {

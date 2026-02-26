@@ -9,6 +9,19 @@ import { useSceneStore } from './useSceneStore';
 import { Leva } from 'leva'
 import './App.css'
 
+const APP_UI_STATE_KEY = 'parasys:ui-state:v1'
+
+const readStoredUiState = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(APP_UI_STATE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 // Component to sync scene to store
 const SceneSync = () => {
   const { scene, camera, gl } = useThree();
@@ -32,7 +45,7 @@ const MATERIAL_OPTIONS = [
   { key: 'UVDebug', label: 'UV Debug', thumbnailClass: 'material-thumb--uvdebug' },
 ]
 
-const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
+const PublicControls = ({ selectedMaterial, onMaterialChange, showDimensions, onToggleDimensions }) => {
   const scene = useSceneStore((state) => state.scene);
 
   return (
@@ -72,6 +85,14 @@ const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
         >
           ⬇ 3D
         </button>
+        <button
+          type="button"
+          onClick={onToggleDimensions}
+          aria-pressed={showDimensions}
+          className="public-button public-button--compact"
+        >
+          {showDimensions ? '👁 Dims On' : '🚫 Dims Off'}
+        </button>
       </div>
     </div>
   );
@@ -91,11 +112,27 @@ const LoadingOverlay = ({ visible }) => {
 }
 
 function App() {
-  const [levaVisible, setLevaVisible] = useState(true)
+  const storedUiState = readStoredUiState()
+  const [levaVisible, setLevaVisible] = useState(storedUiState?.levaVisible ?? true)
   const [isInitialObjectVisible, setIsInitialObjectVisible] = useState(false)
-  const [selectedMaterial, setSelectedMaterial] = useState('Painted')
+  const [selectedMaterial, setSelectedMaterial] = useState(storedUiState?.selectedMaterial ?? 'Painted')
+  const [showDimensions, setShowDimensions] = useState(storedUiState?.showDimensions ?? true)
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
   const dprRange = isMobile ? [1, 1.5] : [1, 2]
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const payload = {
+      levaVisible,
+      selectedMaterial,
+      showDimensions,
+    }
+    try {
+      window.localStorage.setItem(APP_UI_STATE_KEY, JSON.stringify(payload))
+    } catch {
+      // ignore storage write failures
+    }
+  }, [levaVisible, selectedMaterial, showDimensions])
   
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -134,6 +171,7 @@ function App() {
                 >
               <Experience
                 selectedMaterialKey={selectedMaterial}
+                publicShowDimensions={showDimensions}
                 onInitialObjectVisible={() => setIsInitialObjectVisible(true)}
               />
             </Stage>
@@ -153,7 +191,12 @@ function App() {
             />
           </EffectComposer> */}
       </Canvas>
-      <PublicControls selectedMaterial={selectedMaterial} onMaterialChange={setSelectedMaterial} />
+      <PublicControls
+        selectedMaterial={selectedMaterial}
+        onMaterialChange={setSelectedMaterial}
+        showDimensions={showDimensions}
+        onToggleDimensions={() => setShowDimensions((value) => !value)}
+      />
       <Leva hidden={levaVisible} />
     </div>
   )}  

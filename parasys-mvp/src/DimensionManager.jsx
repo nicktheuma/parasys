@@ -17,6 +17,61 @@ function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
   return { dimColor, hoverColor }
 }
 
+function useStepButtonSizing(
+  defaultRadius = 0.003,
+  defaultFontSize = 0.003,
+  defaultOutlineWidth = 0.0004,
+  defaultOutlineOpacityIdle = 0.1,
+  defaultOutlineOpacityHover = 1,
+  defaultFillOpacityIdle = 0.1,
+  defaultFillOpacityHover = 1,
+) {
+  const [radius, setRadius] = useState(defaultRadius)
+  const [fontSize, setFontSize] = useState(defaultFontSize)
+  const [outlineWidth, setOutlineWidth] = useState(defaultOutlineWidth)
+  const [outlineOpacityIdle, setOutlineOpacityIdle] = useState(defaultOutlineOpacityIdle)
+  const [outlineOpacityHover, setOutlineOpacityHover] = useState(defaultOutlineOpacityHover)
+  const [fillOpacityIdle, setFillOpacityIdle] = useState(defaultFillOpacityIdle)
+  const [fillOpacityHover, setFillOpacityHover] = useState(defaultFillOpacityHover)
+
+  useEffect(() => {
+    const rootStyles = getComputedStyle(document.documentElement)
+    const radiusVar = rootStyles.getPropertyValue('--step-button-radius').trim()
+    const fontVar = rootStyles.getPropertyValue('--step-button-font-size').trim()
+    const outlineWidthVar = rootStyles.getPropertyValue('--step-button-outline-width').trim()
+    const outlineOpacityIdleVar = rootStyles.getPropertyValue('--step-button-outline-opacity-idle').trim()
+    const outlineOpacityHoverVar = rootStyles.getPropertyValue('--step-button-outline-opacity-hover').trim()
+    const fillOpacityIdleVar = rootStyles.getPropertyValue('--step-button-fill-opacity-idle').trim()
+    const fillOpacityHoverVar = rootStyles.getPropertyValue('--step-button-fill-opacity-hover').trim()
+
+    const parsedRadius = Number.parseFloat(radiusVar)
+    const parsedFont = Number.parseFloat(fontVar)
+    const parsedOutlineWidth = Number.parseFloat(outlineWidthVar)
+    const parsedOutlineOpacityIdle = Number.parseFloat(outlineOpacityIdleVar)
+    const parsedOutlineOpacityHover = Number.parseFloat(outlineOpacityHoverVar)
+    const parsedFillOpacityIdle = Number.parseFloat(fillOpacityIdleVar)
+    const parsedFillOpacityHover = Number.parseFloat(fillOpacityHoverVar)
+
+    if (!Number.isNaN(parsedRadius) && parsedRadius > 0) setRadius(parsedRadius)
+    if (!Number.isNaN(parsedFont) && parsedFont > 0) setFontSize(parsedFont)
+    if (!Number.isNaN(parsedOutlineWidth) && parsedOutlineWidth > 0) setOutlineWidth(parsedOutlineWidth)
+    if (!Number.isNaN(parsedOutlineOpacityIdle) && parsedOutlineOpacityIdle >= 0) setOutlineOpacityIdle(parsedOutlineOpacityIdle)
+    if (!Number.isNaN(parsedOutlineOpacityHover) && parsedOutlineOpacityHover >= 0) setOutlineOpacityHover(parsedOutlineOpacityHover)
+    if (!Number.isNaN(parsedFillOpacityIdle) && parsedFillOpacityIdle >= 0) setFillOpacityIdle(parsedFillOpacityIdle)
+    if (!Number.isNaN(parsedFillOpacityHover) && parsedFillOpacityHover >= 0) setFillOpacityHover(parsedFillOpacityHover)
+  }, [])
+
+  return {
+    radius,
+    fontSize,
+    outlineWidth,
+    outlineOpacityIdle,
+    outlineOpacityHover,
+    fillOpacityIdle,
+    fillOpacityHover,
+  }
+}
+
 export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchorGap = 0.01, dimensionGap=0.03, fontSize = 0.02, setDimension, min = 0.05, max = 2, step = 0.001 }) {
   // Determine plane of the dimension line based on start and end points
   const vectorDiff = new THREE.Vector3(end[0] - start[0], end[1] - start[1], end[2] - start[2]);
@@ -262,5 +317,67 @@ export function PlaneDimensionLine({ start, end, label, centerGap = 0.02, anchor
           </group>
         </Billboard>
     </group>
+  )
+}
+
+export function BillboardStepButton({
+  position = [0, 0, 0],
+  symbol = '+',
+  onClick,
+  disabled = false,
+  radius = null,
+  fontSize = null,
+}) {
+  const [hovered, setHovered] = useState(false)
+  const { dimColor, hoverColor } = useCssColors()
+  const cssSizing = useStepButtonSizing()
+
+  const effectiveRadius = radius ?? cssSizing.radius
+  const effectiveFontSize = fontSize ?? cssSizing.fontSize
+  const ringInnerRadius = Math.max(0.0005, effectiveRadius - cssSizing.outlineWidth)
+
+  const handlePointerDown = (event) => {
+    event.stopPropagation()
+    if (disabled || !onClick) return
+    onClick()
+  }
+
+  if (disabled) return null
+
+  return (
+    <Billboard position={position} follow={true} lockX={false} lockY={false} lockZ={false}>
+      <group>
+        <mesh>
+          <ringGeometry args={[ringInnerRadius, effectiveRadius, 40]} />
+          <meshBasicMaterial
+            color="#000000"
+            transparent
+            opacity={hovered ? cssSizing.outlineOpacityHover : cssSizing.outlineOpacityIdle}
+          />
+        </mesh>
+
+        <mesh
+          onPointerDown={handlePointerDown}
+          onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }}
+          onPointerOut={(event) => { event.stopPropagation(); setHovered(false) }}
+        >
+          <circleGeometry args={[effectiveRadius, 40]} />
+          <meshBasicMaterial
+            color={disabled ? '#9ca3af' : '#e7e7e7'}
+            transparent
+            opacity={hovered && !disabled ? cssSizing.fillOpacityHover : cssSizing.fillOpacityIdle}
+          />
+        </mesh>
+
+        <Text
+          fontSize={effectiveFontSize}
+          color={hovered ? '#000000' : dimColor}
+          anchorX="center"
+          anchorY="middle"
+        >
+          {symbol}
+        </Text>
+      </group>
+    </Billboard>
   )
 }
