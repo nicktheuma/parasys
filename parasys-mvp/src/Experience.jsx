@@ -11,6 +11,33 @@ import { createExtrudedPanelGeometry } from './parametric/profileBuilder'
 
 const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
 
+const easeOutCubic = (t) => 1 - ((1 - t) ** 3)
+const easeOutBack = (t) => {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+  return 1 + (c3 * ((t - 1) ** 3)) + (c1 * ((t - 1) ** 2))
+}
+
+const panelIdSeed = (panelId = '') => {
+  let hash = 0
+  for (let index = 0; index < panelId.length; index += 1) {
+    hash = ((hash << 5) - hash) + panelId.charCodeAt(index)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+const toVector3 = (value) => {
+  if (value?.isVector3) return value.clone()
+  if (Array.isArray(value)) {
+    return new THREE.Vector3(value[0] || 0, value[1] || 0, value[2] || 0)
+  }
+  if (value && typeof value === 'object') {
+    return new THREE.Vector3(value.x || 0, value.y || 0, value.z || 0)
+  }
+  return new THREE.Vector3()
+}
+
 export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
@@ -26,6 +53,10 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   const FurnitureGroup = useRef()
   const OrbitRef = useRef()
   const lightRef = useRef()
+  const panelMeshRefs = useRef(new Map())
+  const panelMeshTargetsRef = useRef(new Map())
+  const introProgressRef = useRef(0)
+  const materialFadeRef = useRef(0)
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
   const maxDims = new THREE.Vector3(1.2, 1, 0.3);
@@ -158,6 +189,31 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     }))
   ), [panelSpecs])
 
+  const panelLayoutMetrics = useMemo(() => {
+    if (panelSpecs.length === 0) {
+      return {
+        center: new THREE.Vector3(),
+        explodeDistance: 0.12,
+      }
+    }
+
+    const center = panelSpecs.reduce((accumulator, panelSpec) => {
+      return accumulator.add(toVector3(panelSpec.center))
+    }, new THREE.Vector3()).multiplyScalar(1 / panelSpecs.length)
+
+    let maxRadius = 0
+    panelSpecs.forEach((panelSpec) => {
+      const panelCenter = toVector3(panelSpec.center)
+      const radius = panelCenter.distanceTo(center) + (Math.max(panelSpec.width, panelSpec.height) * 0.5)
+      if (radius > maxRadius) maxRadius = radius
+    })
+
+    return {
+      center,
+      explodeDistance: Math.max(0.08, maxRadius * 0.55),
+    }
+  }, [panelSpecs])
+
   useEffect(() => {
     return () => {
       panelMeshes.forEach(({ geometry }) => geometry.dispose())
@@ -254,7 +310,16 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     ? publicMaterialMap[selectedMaterialKey] || material
     : material
 
-  const activeMaterial = enhancedAssetsReady ? selectedSceneMaterial : mat_Placeholder
+  const activeMaterial = selectedSceneMaterial || mat_Placeholder
+
+  useEffect(() => {
+    ;[mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
+      candidateMaterial.transparent = true
+      candidateMaterial.depthWrite = false
+      candidateMaterial.opacity = 0
+      candidateMaterial.needsUpdate = true
+    })
+  }, [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -367,6 +432,44 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
       OrbitRef.current.autoRotateSpeed = currentAutoRotateSpeedRef.current
     }
 
+    const introCap = enhancedAssetsReady ? 1 : 0.86
+    const introBlend = 1 - Math.exp(-delta * 2.6)
+    introProgressRef.current = THREE.MathUtils.lerp(introProgressRef.current, introCap, introBlend)
+    const introT = THREE.MathUtils.clamp(introProgressRef.current, 0, 1)
+    const positionT = easeOutCubic(introT)
+    const scaleT = THREE.MathUtils.clamp(easeOutBack(introT), 0, 1.12)
+
+    const targetFade = enhancedAssetsReady ? 1 : 0
+    const fadeBlend = 1 - Math.exp(-delta * 3.2)
+    materialFadeRef.current = THREE.MathUtils.lerp(materialFadeRef.current, targetFade, fadeBlend)
+    const materialFade = THREE.MathUtils.clamp(materialFadeRef.current, 0, 1)
+
+    ;[mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
+      candidateMaterial.opacity = materialFade
+      candidateMaterial.depthWrite = materialFade > 0.98
+    })
+
+    const { center: layoutCenter, explodeDistance } = panelLayoutMetrics
+    panelMeshRefs.current.forEach((mesh, panelId) => {
+      const targetMeta = panelMeshTargetsRef.current.get(panelId)
+      if (!mesh || !targetMeta) return
+
+      const { targetPosition, seed } = targetMeta
+      const direction = targetPosition.clone().sub(layoutCenter)
+      if (direction.lengthSq() < 1e-6) {
+        direction.set(
+          THREE.MathUtils.mapLinear((seed % 97), 0, 96, -0.55, 0.55),
+          THREE.MathUtils.mapLinear((seed % 89), 0, 88, -0.25, 0.4),
+          THREE.MathUtils.mapLinear((seed % 83), 0, 82, -0.55, 0.55),
+        )
+      }
+      direction.normalize()
+      const startPosition = targetPosition.clone().add(direction.multiplyScalar(explodeDistance))
+
+      mesh.position.lerpVectors(startPosition, targetPosition, positionT)
+      mesh.scale.setScalar(THREE.MathUtils.clamp(scaleT, 0.001, 1.06))
+    })
+
     {/* PARAMETRIC LOGIC */}
     if (Bounding.current && showDevTools===true) {
       Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
@@ -390,6 +493,18 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
         {panelMeshes.map(({ panelSpec, geometry, vectorLoops }) => (
           <mesh
             key={panelSpec.id}
+            ref={(node) => {
+              if (node) {
+                panelMeshRefs.current.set(panelSpec.id, node)
+                panelMeshTargetsRef.current.set(panelSpec.id, {
+                  targetPosition: toVector3(panelSpec.center),
+                  seed: panelIdSeed(panelSpec.id),
+                })
+              } else {
+                panelMeshRefs.current.delete(panelSpec.id)
+                panelMeshTargetsRef.current.delete(panelSpec.id)
+              }
+            }}
             name={`Panel_${panelSpec.id}`}
             castShadow={true}
             receiveShadow={true}
