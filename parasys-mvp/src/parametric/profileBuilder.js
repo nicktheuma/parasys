@@ -47,12 +47,90 @@ const makeHolePathFromRect = ({ centerX, centerY, width, height }) => {
   return { path, loop }
 }
 
-export const buildPanelProfile = (panelSpec) => {
+const worldPointToPanelProfile = (panelSpec, worldPoint) => {
+  const [centerX, centerY, centerZ] = panelSpec.center
+  const localX = worldPoint.x - centerX
+  const localY = worldPoint.y - centerY
+  const localZ = worldPoint.z - centerZ
+
+  switch (panelSpec.plane) {
+    case 'YZ':
+      return [localZ, localY]
+    case 'XZ':
+      return [localX, localZ]
+    case 'XY':
+    default:
+      return [localX, localY]
+  }
+}
+
+const cutoutFitsPanel = (panelSpec, cutout, epsilon = 0.00005) => {
+  const halfPanelWidth = panelSpec.width / 2
+  const halfPanelHeight = panelSpec.height / 2
+  const halfCutoutWidth = cutout.width / 2
+  const halfCutoutHeight = cutout.height / 2
+
+  if (cutout.width <= 0 || cutout.height <= 0) return false
+
+  const minX = cutout.centerX - halfCutoutWidth
+  const maxX = cutout.centerX + halfCutoutWidth
+  const minY = cutout.centerY - halfCutoutHeight
+  const maxY = cutout.centerY + halfCutoutHeight
+
+  return (
+    minX > (-halfPanelWidth + epsilon) &&
+    maxX < (halfPanelWidth - epsilon) &&
+    minY > (-halfPanelHeight + epsilon) &&
+    maxY < (halfPanelHeight - epsilon)
+  )
+}
+
+const buildInterlockSlots = (panelSpec, allPanelSpecs = [], interlockSlots = {}) => {
+  if (!interlockSlots.enabled) return []
+  if (panelSpec.kind !== 'vertical' && panelSpec.kind !== 'shelf') return []
+
+  const clearance = Math.max(0, interlockSlots.clearance ?? 0)
+  const lengthFactor = Math.max(1, interlockSlots.lengthFactor ?? 1.6)
+  const slotShort = Math.max(0.0001, panelSpec.thickness + clearance)
+  const slotLong = Math.max(slotShort, (panelSpec.thickness * lengthFactor) + clearance)
+
+  const counterpartKind = panelSpec.kind === 'vertical' ? 'shelf' : 'vertical'
+  const counterparts = allPanelSpecs.filter((candidate) => candidate.kind === counterpartKind)
+  const slotCutouts = []
+
+  counterparts.forEach((counterpart) => {
+    const intersectionPoint = new THREE.Vector3(
+      panelSpec.kind === 'vertical' ? panelSpec.center[0] : counterpart.center[0],
+      panelSpec.kind === 'vertical' ? counterpart.center[1] : panelSpec.center[1],
+      (panelSpec.center[2] + counterpart.center[2]) * 0.5,
+    )
+
+    const [centerX, centerY] = worldPointToPanelProfile(panelSpec, intersectionPoint)
+    const cutout = panelSpec.kind === 'vertical'
+      ? { centerX, centerY, width: slotLong, height: slotShort }
+      : { centerX, centerY, width: slotShort, height: slotLong }
+
+    if (cutoutFitsPanel(panelSpec, cutout)) {
+      slotCutouts.push(cutout)
+    }
+  })
+
+  return slotCutouts
+}
+
+export const buildPanelProfile = (panelSpec, profileOptions = {}) => {
   const outerLoop = buildClosedRectangleLoop(panelSpec.width, panelSpec.height)
   const shape = makeShapeFromLoop(outerLoop)
   const holeLoops = []
+  const explicitCutouts = panelSpec.cutouts || []
+  const autoInterlockCutouts = buildInterlockSlots(
+    panelSpec,
+    profileOptions.allPanelSpecs,
+    profileOptions.interlockSlots,
+  )
+  const allCutouts = [...explicitCutouts, ...autoInterlockCutouts]
 
-  panelSpec.cutouts.forEach((cutout) => {
+  allCutouts.forEach((cutout) => {
     const { path, loop } = makeHolePathFromRect(cutout)
     shape.holes.push(path)
     holeLoops.push(loop)
@@ -65,8 +143,8 @@ export const buildPanelProfile = (panelSpec) => {
   }
 }
 
-export const createExtrudedPanelGeometry = (panelSpec, bevelOptions = {}) => {
-  const { shape, outerLoop, holeLoops } = buildPanelProfile(panelSpec)
+export const createExtrudedPanelGeometry = (panelSpec, bevelOptions = {}, profileOptions = {}) => {
+  const { shape, outerLoop, holeLoops } = buildPanelProfile(panelSpec, profileOptions)
   const maxBevelFromThickness = Math.max(0, (panelSpec.thickness * 0.5) - 0.00001)
   const bevelEnabled = Boolean(bevelOptions.enabled)
   const bevelSize = THREE.MathUtils.clamp(bevelOptions.size ?? 0.0002, 0, maxBevelFromThickness)

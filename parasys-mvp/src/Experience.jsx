@@ -1,23 +1,32 @@
 import * as THREE from 'three'
-import { useControls, button } from 'leva'
-import { useRef, useMemo, useLayoutEffect, useEffect, useState, lazy, Suspense } from 'react'
+import { useControls } from 'leva'
+import { useRef, useMemo, useEffect, useState, lazy } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, ContactShadows } from '@react-three/drei'
 
-import { PlaneDimensionLine, BillboardStepButton } from './DimensionManager'
-import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
-import { generatePanelSpecs } from './parametric/panelSpecs'
-import { createExtrudedPanelGeometry } from './parametric/profileBuilder'
+import { FurniturePanels } from './experience/components/FurniturePanels'
+import { DimensionsOverlay } from './experience/components/DimensionsOverlay'
+import { PropsGroup } from './experience/components/PropsGroup'
+import { SceneGroup } from './experience/components/SceneGroup'
+import {
+  DIVIDER_MIN,
+  DIVIDER_MAX,
+  SHELF_MIN,
+  SHELF_MAX,
+  START_DIMS,
+  MAX_DIMS,
+  MATERIAL_THICKNESS,
+  DEFAULT_MATERIAL_DEV_SETTINGS,
+} from './experience/state/constants'
+import { createControlsSchema } from './experience/state/createControlsSchema'
+import { readStoredPanelState, persistPanelState } from './experience/state/panelStateStorage'
+import { usePanelLayout } from './experience/hooks/usePanelLayout'
+import { useConfiguredActiveMaterial } from './experience/hooks/useConfiguredActiveMaterial'
+import { useOrbitAutoRotate } from './experience/hooks/useOrbitAutoRotate'
+import { useFurnitureAnimation } from './experience/hooks/useFurnitureAnimation'
+import { useFitCameraOnLoad } from './experience/hooks/useFitCameraOnLoad'
+import { useSceneLightSetup } from './experience/hooks/useSceneLightSetup'
 
 const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
-
-const easeOutCubic = (t) => 1 - ((1 - t) ** 3)
-const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2
-const easeOutBack = (t) => {
-  const c1 = 1.70158
-  const c3 = c1 + 1
-  return 1 + (c3 * ((t - 1) ** 3)) + (c1 * ((t - 1) ** 2))
-}
 
 const panelIdSeed = (panelId = '') => {
   let hash = 0
@@ -28,148 +37,22 @@ const panelIdSeed = (panelId = '') => {
   return Math.abs(hash)
 }
 
-const toVector3 = (value) => {
-  if (value?.isVector3) return value.clone()
-  if (Array.isArray(value)) {
-    return new THREE.Vector3(value[0] || 0, value[1] || 0, value[2] || 0)
-  }
-  if (value && typeof value === 'object') {
-    return new THREE.Vector3(value.x || 0, value.y || 0, value.z || 0)
-  }
-  return new THREE.Vector3()
-}
-
-const DIVIDER_MIN = 0
-const DIVIDER_MAX = 4
-const SHELF_MIN = 0
-const SHELF_MAX = 4
-const PANEL_STATE_KEY = 'parasys:panel-state:v1'
-
-const DEFAULT_MATERIAL_DEV_SETTINGS = {
-  paintedMetal_Colour: '#526982',
-  pbr_roughness: 0.3,
-  pbr_metalness: 1,
-  pbr_bumpScale: 0.05,
-  pbr_noiseScale: 1,
-  pbr_noiseX1: 10,
-  pbr_noiseY1: 1,
-  pbr_noiseX2: 4.9,
-  pbr_noiseY2: 10,
-  chrome_roughness: 0.15,
-  chrome_metalness: 1,
-  chrome_bumpScale: 0.04,
-  chrome_noiseScale: 1,
-  chrome_noiseX1: 10,
-  chrome_noiseY1: 1,
-  chrome_noiseX2: 4.9,
-  chrome_noiseY2: 10,
-  painted_roughness: 1,
-  painted_metalness: 0.2,
-  painted_bumpScale: 0.08,
-  painted_noiseScale: 1,
-  painted_noiseX1: 10,
-  painted_noiseY1: 1,
-  painted_noiseX2: 4.9,
-  painted_noiseY2: 10,
-}
-
-const readStoredPanelState = () => {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(PANEL_STATE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
-
 export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null, publicShowDimensions = true, onDevToolsVisibilityChange = () => {} }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
   const [materialResetNonce, setMaterialResetNonce] = useState(0)
   const hasReportedInitialVisible = useRef(false)
-  const lastInteractionAtRef = useRef(Date.now())
-  const isUserInteractingRef = useRef(false)
-  const currentAutoRotateSpeedRef = useRef(0)
   
-  // const leftGroupRef = useRef()
-  // const rightGroupRef = useRef()
-  const Dimensions = useRef()
   const Bounding = useRef()
   const FurnitureGroup = useRef()
   const OrbitRef = useRef()
   const lightRef = useRef()
   const panelMeshRefs = useRef(new Map())
   const panelMeshTargetsRef = useRef(new Map())
-  const introProgressRef = useRef(0)
-  const materialFadeRef = useRef(0)
-  const structureTransitionRef = useRef(1)
-  const hasSeenCountsRef = useRef(false)
-  const structureAnimatedKindsRef = useRef(new Set())
-  const lastCountsRef = useRef({ dividers: 1, shelves: 1 })
 
-  const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
-  const maxDims = new THREE.Vector3(1.2, 1, 0.3);
-  const materialThickness = 0.0012;
-  // const MinMax_span = new THREE.Vector2(0.15, 0.6); // Minimum & maximum distance between dividers/shelves to avoid unbuildable scenarios
-  // let desired_Dividers = 0;
-
-  const uvDebugTexture = useMemo(() => {
-    if (typeof document === 'undefined') return null
-
-    const canvasSize = 1024
-    const tileSize = 64
-    const canvas = document.createElement('canvas')
-    canvas.width = canvasSize
-    canvas.height = canvasSize
-
-    const context = canvas.getContext('2d')
-    if (!context) return null
-
-    for (let y = 0; y < canvasSize; y += tileSize) {
-      for (let x = 0; x < canvasSize; x += tileSize) {
-        const isDark = ((x / tileSize) + (y / tileSize)) % 2 === 0
-        context.fillStyle = isDark ? '#111827' : '#f3f4f6'
-        context.fillRect(x, y, tileSize, tileSize)
-      }
-    }
-
-    context.strokeStyle = '#2563eb'
-    context.lineWidth = 8
-    context.beginPath()
-    context.moveTo(0, 6)
-    context.lineTo(canvasSize, 6)
-    context.stroke()
-
-    context.strokeStyle = '#0f766e'
-    context.lineWidth = 8
-    context.beginPath()
-    context.moveTo(6, 0)
-    context.lineTo(6, canvasSize)
-    context.stroke()
-
-    context.fillStyle = '#dc2626'
-    context.beginPath()
-    context.arc(20, 20, 10, 0, Math.PI * 2)
-    context.fill()
-
-    context.fillStyle = '#111827'
-    context.font = 'bold 28px sans-serif'
-    context.fillText('U', canvasSize - 40, 40)
-    context.fillText('V', 16, canvasSize - 16)
-
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(2, 2)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.LinearMipmapLinearFilter
-    texture.generateMipmaps = true
-    texture.needsUpdate = true
-
-    return texture
-  }, [])
+  const startDims = new THREE.Vector3(START_DIMS.x, START_DIMS.y, START_DIMS.z)
+  const maxDims = new THREE.Vector3(MAX_DIMS.x, MAX_DIMS.y, MAX_DIMS.z)
+  const materialThickness = MATERIAL_THICKNESS
 
   // Memoize materials to avoid recreating them every render
   const materials = useMemo(() => ({
@@ -177,15 +60,14 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
     mat_Placeholder: new THREE.MeshStandardMaterial( {map: null, color: '#c5ccd3', roughness: 0.9, metalness: 0.05}),
     mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.01}),
-    mat_UVDebug: new THREE.MeshBasicMaterial({ map: uvDebugTexture, color: '#ffffff' }),
+    mat_UVDebug: new THREE.MeshBasicMaterial({ map: null, color: '#ffffff' }),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
-    mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
     mat_Brushed: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.3, metalness: 1}),
     mat_Chrome: new THREE.MeshStandardMaterial( {map: null, color: '#ffffff', roughness: 0.15, metalness: 1}),
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 1, metalness: 0.2})
-  }), [uvDebugTexture])
+  }), [])
 
-  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_UVDebug, mat_MATCAP, mat_Shadow,mat_Brushed, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_UVDebug, mat_MATCAP, mat_Brushed, mat_Chrome, mat_PaintedMetal } = materials
 
   const isDevMaterialVisible = (get, key) => {
     const activeKey = get('activeMaterialKey')
@@ -193,69 +75,20 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     return get('showDevTools') && activeKey === key
   }
   
-  const [controls, setControls] = useControls(() => ({
-    width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
-    height: { value: startDims.y, min: startDims.y, max: maxDims.y, step: 0.01},
-    depth: { value: startDims.z, min: startDims.z, max: maxDims.z, step: 0.01},
-    shelves: { value: 1, min: 0, max: 4, step: 1 },
-    dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
-    edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
-    slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
-    bevelEnabled: { value: false },
-    bevelSize: { value: 0.0002, min: 0, max: 0.0008, step: 0.00001, render: get => get('bevelEnabled') },
-    bevelThickness: { value: 0.0002, min: 0, max: 0.0008, step: 0.00001, render: get => get('bevelEnabled') },
-    bevelSegments: { value: 2, min: 1, max: 8, step: 1, render: get => get('bevelEnabled') },
-    activeMaterialKey: { value: selectedMaterialKey || 'Painted', options: ['Painted', 'Brushed', 'Chrome', 'MATCAP', 'Wireframe', 'UVDebug'], render: () => false },
-    material: { value: mat_PaintedMetal, options: { Brushed: mat_Brushed, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe, UVDebug: mat_UVDebug } },
-    paintedMetal_Colour: { value: '#526982' },
-    showDims: true,
-    showProps: true,
-    showDevTools: false,
-    //DEV TOOLS
-    x1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools') },
-    y1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    x2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    y2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => get('showDevTools')  },
-    pbr_roughness: { value: 0.3, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_metalness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_bumpScale: { value: 0.05, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
-    pbr_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Brushed') },
-    chrome_roughness: { value: 0.15, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_metalness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_bumpScale: { value: 0.04, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
-    chrome_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Chrome') },
-    painted_roughness: { value: 1, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_metalness: { value: 0.2, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_bumpScale: { value: 0.08, min: 0, max: 1, step: 0.01, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_noiseScale: { value: 1, min: 0.1, max: 8, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_noiseX1: { value: 10, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_noiseY1: { value: 1, min: 0.001, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_noiseX2: { value: 4.9, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    painted_noiseY2: { value: 10, min: 0.1, max: 10, step: 0.1, render: get => isDevMaterialVisible(get, 'Painted') },
-    resetMaterialPresets: button(() => setMaterialResetNonce((value) => value + 1)),
-    lightPos: { value: [0.14,0.19,0.12], render: get => get('showDevTools') },
-    lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
-    intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
-    mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
-    near: { value: 0.001, min: 0, max: 10, render: get => get('showDevTools')  },
-    far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
-    ui3dDimsScaleMin: { value: 0.45, min: 0.1, max: 3, step: 0.01, render: get => get('showDevTools') },
-    ui3dDimsScaleMax: { value: 4.2, min: 0.2, max: 30, step: 0.01, render: get => get('showDevTools') },
-    ui3dButtonsScaleMin: { value: 0.45, min: 0.1, max: 3, step: 0.01, render: get => get('showDevTools') },
-    ui3dButtonsScaleMax: { value: 5, min: 0.2, max: 30, step: 0.01, render: get => get('showDevTools') },
-    contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
-    wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  },
-    idleDelaySeconds: { value: 3, min: 0, max: 20, step: 0.5, render: get => get('showDevTools') },
-    idleRotateSpeed: { value: 0.15, min: 0.05, max: 3, step: 0.05, render: get => get('showDevTools') },
-    idleRampSeconds: { value: 5, min: 0.2, max: 12, step: 0.1, render: get => get('showDevTools') }
+  const [controls, setControls] = useControls(() => createControlsSchema({
+    startDims,
+    maxDims,
+    selectedMaterialKey,
+    materials: {
+      mat_Brushed,
+      mat_Chrome,
+      mat_PaintedMetal,
+      mat_MATCAP,
+      mat_Wireframe,
+      mat_UVDebug,
+    },
+    isDevMaterialVisible,
+    onResetMaterialPresets: () => setMaterialResetNonce((value) => value + 1),
   }))
 
   const didHydrateControlsRef = useRef(false)
@@ -293,22 +126,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
 
   useEffect(() => {
     if (!didHydrateControlsRef.current) return
-    if (typeof window === 'undefined') return
-
-    const serializableControls = Object.fromEntries(
-      Object.entries(controls).filter(([, value]) => (
-        typeof value === 'number' ||
-        typeof value === 'string' ||
-        typeof value === 'boolean' ||
-        Array.isArray(value)
-      )),
-    )
-
-    try {
-      window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(serializableControls))
-    } catch {
-      // ignore storage write failures
-    }
+    persistPanelState(controls)
   }, [controls])
 
   useEffect(() => {
@@ -316,7 +134,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     setControls(DEFAULT_MATERIAL_DEV_SETTINGS)
   }, [materialResetNonce, setControls])
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, bevelEnabled, bevelSize, bevelThickness, bevelSegments, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, ui3dDimsScaleMin, ui3dDimsScaleMax, ui3dButtonsScaleMin, ui3dButtonsScaleMax, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, interlockSlotsEnabled, interlockSlotClearance, interlockSlotLengthFactor, bevelEnabled, bevelSize, bevelThickness, bevelSegments, showProps, showDevTools, lightPos, lightTarget, intensity, mapSize, near, far, ui3dDimsScaleMin, ui3dDimsScaleMax, ui3dButtonsScaleMin, ui3dButtonsScaleMax, contactShadowPos, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
   const furnitureUiScale = useMemo(() => {
     const maxFurnitureDimension = Math.max(width, height, depth)
     return THREE.MathUtils.clamp(maxFurnitureDimension / 0.55, 0.75, 2.2)
@@ -333,125 +151,30 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     return { min: minValue, max: maxValue }
   }, [ui3dButtonsScaleMin, ui3dButtonsScaleMax])
 
-  const panelSpecs = useMemo(() => (
-    generatePanelSpecs({
-      width,
-      height,
-      depth,
-      dividers,
-      shelves,
-      edgeOffset,
-      slotOffset,
-      materialThickness,
-    })
-  ), [width, height, depth, dividers, shelves, edgeOffset, slotOffset, materialThickness])
-
-  const panelMeshes = useMemo(() => (
-    panelSpecs.map((panelSpec) => ({
-      panelSpec,
-      ...createExtrudedPanelGeometry(panelSpec, {
-        enabled: bevelEnabled,
-        size: bevelSize,
-        thickness: bevelThickness,
-        segments: bevelSegments,
-      }),
-    }))
-  ), [panelSpecs, bevelEnabled, bevelSize, bevelThickness, bevelSegments])
-
-  const panelLayoutMetrics = useMemo(() => {
-    if (panelSpecs.length === 0) {
-      return {
-        center: new THREE.Vector3(),
-        explodeDistance: 0.12,
-      }
-    }
-
-    const center = panelSpecs.reduce((accumulator, panelSpec) => {
-      return accumulator.add(toVector3(panelSpec.center))
-    }, new THREE.Vector3()).multiplyScalar(1 / panelSpecs.length)
-
-    let maxRadius = 0
-    panelSpecs.forEach((panelSpec) => {
-      const panelCenter = toVector3(panelSpec.center)
-      const radius = panelCenter.distanceTo(center) + (Math.max(panelSpec.width, panelSpec.height) * 0.5)
-      if (radius > maxRadius) maxRadius = radius
-    })
-
-    return {
-      center,
-      explodeDistance: Math.max(0.08, maxRadius * 0.55),
-    }
-  }, [panelSpecs])
-
-  const dividerControlAnchors = useMemo(() => {
-    const dividerPanels = panelSpecs.filter((panelSpec) => panelSpec.kind === 'vertical')
-    if (dividerPanels.length === 0) {
-      return {
-        decrement: [-width/2, 0, -depth/2],
-        increment: [width/2, 0, depth/2],
-      }
-    }
-
-    let minX = Number.POSITIVE_INFINITY
-    let maxX = Number.NEGATIVE_INFINITY
-    dividerPanels.forEach((panelSpec) => {
-      const center = toVector3(panelSpec.center)
-      minX = Math.min(minX, center.x)
-      maxX = Math.max(maxX, center.x)
-    })
-
-    const sideOffset = 0
-    const zOffset = 0
-
-    return {
-      decrement: [minX - sideOffset, (height / 2) * 1.8, zOffset],
-      increment: [maxX + sideOffset, (height / 2) * 1.8, zOffset],
-    }
-  }, [panelSpecs, depth])
-
-  const shelfControlAnchors = useMemo(() => {
-    const shelfPanels = panelSpecs.filter((panelSpec) => panelSpec.kind === 'shelf')
-    if (shelfPanels.length === 0) {
-      return {
-        decrement: [0, -height/2, 0],
-        increment: [0, height/2, 0],
-      }
-    }
-
-    let minY = Number.POSITIVE_INFINITY
-    let maxY = Number.NEGATIVE_INFINITY
-    shelfPanels.forEach((panelSpec) => {
-      const center = toVector3(panelSpec.center)
-      minY = Math.min(minY, center.y)
-      maxY = Math.max(maxY, center.y)
-    })
-
-    const xOffset = -width / 2 - (0.02)
-    const yOffset = 0
-    const zOffset = 0
-
-    return {
-      decrement: [xOffset, minY - yOffset, zOffset],
-      increment: [xOffset, maxY + yOffset, zOffset],
-    }
-  }, [panelSpecs, width, depth])
-
-  useEffect(() => {
-    if (!hasSeenCountsRef.current) {
-      hasSeenCountsRef.current = true
-      lastCountsRef.current = { dividers, shelves }
-      return
-    }
-    const changedKinds = new Set()
-    if (dividers !== lastCountsRef.current.dividers) changedKinds.add('vertical')
-    if (shelves !== lastCountsRef.current.shelves) changedKinds.add('shelf')
-
-    structureAnimatedKindsRef.current = changedKinds
-    if (changedKinds.size > 0) {
-      structureTransitionRef.current = 0
-    }
-    lastCountsRef.current = { dividers, shelves }
-  }, [dividers, shelves])
+  const {
+    panelSpecs,
+    panelMeshes,
+    panelLayoutMetrics,
+    dividerControlAnchors,
+    shelfControlAnchors,
+    toVector3,
+  } = usePanelLayout({
+    width,
+    height,
+    depth,
+    dividers,
+    shelves,
+    edgeOffset,
+    slotOffset,
+    materialThickness,
+    bevelEnabled,
+    bevelSize,
+    bevelThickness,
+    bevelSegments,
+    interlockSlotsEnabled,
+    interlockSlotClearance,
+    interlockSlotLengthFactor,
+  })
 
   useEffect(() => {
     return () => {
@@ -459,20 +182,12 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     }
   }, [panelMeshes])
 
-  useEffect(() => {
-    if (lightRef.current) {
-      // Point the light's target at the mesh
-      // lightRef.current.target = Bounding.current.position
-      lightRef.current.position.set(lightPos[0], lightPos[1], lightPos[2])
-      lightRef.current.target.position.set(lightTarget[0], lightTarget[1], lightTarget[2])
-      lightRef.current.intensity = intensity * 100
-      lightRef.current.updateMatrixWorld()
-      lightRef.current.target.updateMatrixWorld()
-      // console.log("Light Position:", lightRef.current.position);
-    }
-  }, [])
-
-  // useHelper(lightRef, THREE.SpotLightHelper, '#ff000043')
+  useSceneLightSetup({
+    lightRef,
+    lightPos,
+    lightTarget,
+    intensity,
+  })
 
   useEffect(() => {
     let timeoutId = null
@@ -496,164 +211,21 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     }
   }, [])
 
-  const createNoiseTexture = (noiseParams) => {
-    if (!enhancedAssetsReady) return null
-
-    const noiseResolution = 1024
-    const noiseCanvas = GeneratePerlinNoiseTexture(
-      noiseResolution,
-      noiseResolution,
-      noiseParams.x1,
-      noiseParams.y1,
-      noiseParams.x2,
-      noiseParams.y2,
-    )
-
-    const texture = new THREE.CanvasTexture(noiseCanvas)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(noiseParams.scale, noiseParams.scale)
-    texture.magFilter = THREE.LinearFilter
-    texture.minFilter = THREE.LinearMipmapLinearFilter
-    texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
-    texture.needsUpdate = true
-    return texture
-  }
-
-  const pbrNoiseTexture = useMemo(() => {
-    return createNoiseTexture({
-      x1: controls.pbr_noiseX1,
-      y1: controls.pbr_noiseY1,
-      x2: controls.pbr_noiseX2,
-      y2: controls.pbr_noiseY2,
-      scale: controls.pbr_noiseScale,
-    })
-  }, [enhancedAssetsReady, gl, controls.pbr_noiseX1, controls.pbr_noiseY1, controls.pbr_noiseX2, controls.pbr_noiseY2, controls.pbr_noiseScale])
-
-  const chromeNoiseTexture = useMemo(() => {
-    return createNoiseTexture({
-      x1: controls.chrome_noiseX1,
-      y1: controls.chrome_noiseY1,
-      x2: controls.chrome_noiseX2,
-      y2: controls.chrome_noiseY2,
-      scale: controls.chrome_noiseScale,
-    })
-  }, [enhancedAssetsReady, gl, controls.chrome_noiseX1, controls.chrome_noiseY1, controls.chrome_noiseX2, controls.chrome_noiseY2, controls.chrome_noiseScale])
-
-  const paintedNoiseTexture = useMemo(() => {
-    return createNoiseTexture({
-      x1: controls.painted_noiseX1,
-      y1: controls.painted_noiseY1,
-      x2: controls.painted_noiseX2,
-      y2: controls.painted_noiseY2,
-      scale: controls.painted_noiseScale,
-    })
-  }, [enhancedAssetsReady, gl, controls.painted_noiseX1, controls.painted_noiseY1, controls.painted_noiseX2, controls.painted_noiseY2, controls.painted_noiseScale])
-
-  useEffect(() => {
-    if (pbrNoiseTexture) {
-      mat_Brushed.roughnessMap = pbrNoiseTexture
-      mat_Brushed.bumpMap = pbrNoiseTexture
-    }
-    mat_Brushed.roughness = controls.pbr_roughness
-    mat_Brushed.metalness = controls.pbr_metalness
-    mat_Brushed.bumpScale = controls.pbr_bumpScale
-    mat_Brushed.needsUpdate = true
-
-    return () => {
-      if (pbrNoiseTexture) pbrNoiseTexture.dispose()
-    }
-  }, [mat_Brushed, pbrNoiseTexture, controls.pbr_roughness, controls.pbr_metalness, controls.pbr_bumpScale])
-
-  useEffect(() => {
-    if (chromeNoiseTexture) {
-      mat_Chrome.roughnessMap = chromeNoiseTexture
-      mat_Chrome.bumpMap = chromeNoiseTexture
-    }
-    mat_Chrome.roughness = controls.chrome_roughness
-    mat_Chrome.metalness = controls.chrome_metalness
-    mat_Chrome.bumpScale = controls.chrome_bumpScale
-    mat_Chrome.needsUpdate = true
-
-    return () => {
-      if (chromeNoiseTexture) chromeNoiseTexture.dispose()
-    }
-  }, [mat_Chrome, chromeNoiseTexture, controls.chrome_roughness, controls.chrome_metalness, controls.chrome_bumpScale])
-
-  useEffect(() => {
-    if (paintedNoiseTexture) {
-      mat_PaintedMetal.roughnessMap = paintedNoiseTexture
-      mat_PaintedMetal.bumpMap = paintedNoiseTexture
-    }
-    mat_PaintedMetal.roughness = controls.painted_roughness
-    mat_PaintedMetal.metalness = controls.painted_metalness
-    mat_PaintedMetal.bumpScale = controls.painted_bumpScale
-    mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
-    mat_PaintedMetal.needsUpdate = true
-
-    return () => {
-      if (paintedNoiseTexture) paintedNoiseTexture.dispose()
-    }
-  }, [mat_PaintedMetal, paintedNoiseTexture, controls.painted_roughness, controls.painted_metalness, controls.painted_bumpScale, controls.paintedMetal_Colour])
-
-  // Legacy shared noise texture for quick global tweaking
-  const noiseTexture = useMemo(() => {
-    if (!enhancedAssetsReady) return null
-
-    const noiseResolution = 1024
-    const noiseCanvas = GeneratePerlinNoiseTexture(noiseResolution, noiseResolution, x1, y1, x2, y2)
-    const tex = new THREE.CanvasTexture(noiseCanvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    tex.repeat.set(1, 1)
-    tex.magFilter = THREE.LinearFilter
-    tex.minFilter = THREE.LinearMipmapLinearFilter
-    tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
-    return tex
-  }, [enhancedAssetsReady, x1, y1, x2, y2, gl])
-
-  useEffect(() => {
-    return () => {
-      if (noiseTexture) noiseTexture.dispose()
-    }
-  }, [noiseTexture])
-
-  const publicMaterialMap = useMemo(() => ({
-    Brushed: mat_Brushed,
-    PBR: mat_Brushed,
-    Chrome: mat_Chrome,
-    Painted: mat_PaintedMetal,
-    MATCAP: mat_MATCAP,
-    Wireframe: mat_Wireframe,
-    UVDebug: mat_UVDebug,
-  }), [mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
-
-  useEffect(() => {
-    if (!mat_UVDebug) return
-    mat_UVDebug.map = uvDebugTexture
-    mat_UVDebug.needsUpdate = true
-  }, [uvDebugTexture, mat_UVDebug])
-
-  useEffect(() => {
-    return () => {
-      if (uvDebugTexture) uvDebugTexture.dispose()
-    }
-  }, [uvDebugTexture])
-
-  const selectedSceneMaterial = selectedMaterialKey
-    ? publicMaterialMap[selectedMaterialKey] || material
-    : material
-
-  const activeMaterial = selectedSceneMaterial || mat_Placeholder
-
-  useEffect(() => {
-    ;[mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
-      candidateMaterial.transparent = true
-      candidateMaterial.depthWrite = false
-      candidateMaterial.opacity = 0
-      candidateMaterial.needsUpdate = true
-    })
-  }, [mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
+  const { activeMaterial } = useConfiguredActiveMaterial({
+    materials: {
+      mat_Placeholder,
+      mat_Brushed,
+      mat_Chrome,
+      mat_PaintedMetal,
+      mat_MATCAP,
+      mat_Wireframe,
+      mat_UVDebug,
+    },
+    controls,
+    selectedMaterialKey,
+    enhancedAssetsReady,
+    gl,
+  })
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -669,180 +241,46 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     }
   }, [panelSpecs, onInitialObjectVisible])
 
-  useLayoutEffect(() => {
-    let rafId = null
-    let attempts = 0
-    let successfulFits = 0
-    const maxAttempts = 30
+  useFitCameraOnLoad({
+    furnitureGroupRef: FurnitureGroup,
+    orbitRef: OrbitRef,
+  })
 
-    const fitOnLoad = () => {
-      attempts += 1
+  const fadeMaterials = useMemo(() => ([
+    mat_Brushed,
+    mat_Chrome,
+    mat_PaintedMetal,
+    mat_MATCAP,
+    mat_Wireframe,
+    mat_UVDebug,
+  ]), [mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug])
 
-      if (FurnitureGroup.current && OrbitRef.current) {
-        const box = new THREE.Box3().setFromObject(FurnitureGroup.current)
+  const { animateOrbit } = useOrbitAutoRotate({
+    orbitRef: OrbitRef,
+    idleDelaySeconds,
+    idleRotateSpeed,
+    idleRampSeconds,
+  })
 
-        if (!box.isEmpty()) {
-          const center = box.getCenter(new THREE.Vector3())
-          const size = box.getSize(new THREE.Vector3())
-          const controls = OrbitRef.current
-          const camera = controls.object
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const fov = THREE.MathUtils.degToRad(camera.fov)
-          const fitDistance = (maxDim / (2 * Math.tan(fov / 2))) * 1.25
-
-          camera.position.set(center.x, center.y, center.z + fitDistance)
-          controls.target.copy(center)
-          controls.update()
-
-          camera.near = 0.001
-          camera.far = 500
-          camera.updateProjectionMatrix()
-
-          successfulFits += 1
-        }
-      }
-
-      if (attempts < maxAttempts && successfulFits < 3) {
-        rafId = requestAnimationFrame(fitOnLoad)
-      }
-    }
-
-    rafId = requestAnimationFrame(fitOnLoad)
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!OrbitRef.current) return
-
-    const orbit = OrbitRef.current
-
-    const handleStart = () => {
-      isUserInteractingRef.current = true
-      lastInteractionAtRef.current = Date.now()
-    }
-
-    const handleEnd = () => {
-      isUserInteractingRef.current = false
-      lastInteractionAtRef.current = Date.now()
-    }
-
-    const handleChange = () => {
-      if (isUserInteractingRef.current) {
-        lastInteractionAtRef.current = Date.now()
-      }
-    }
-
-    orbit.addEventListener('start', handleStart)
-    orbit.addEventListener('end', handleEnd)
-    orbit.addEventListener('change', handleChange)
-
-    return () => {
-      orbit.removeEventListener('start', handleStart)
-      orbit.removeEventListener('end', handleEnd)
-      orbit.removeEventListener('change', handleChange)
-    }
-  }, [])
+  const { animateFurniture } = useFurnitureAnimation({
+    dividers,
+    shelves,
+    panelLayoutMetrics,
+    panelMeshRefs,
+    panelMeshTargetsRef,
+    fadeMaterials,
+    enhancedAssetsReady,
+    boundingRef: Bounding,
+    showDevTools,
+    width,
+    height,
+    depth,
+    startDims,
+  })
 
   useFrame((_, delta) => {
-    if (OrbitRef.current) {
-      const idleForMs = Date.now() - lastInteractionAtRef.current
-      const shouldAutoRotate = !isUserInteractingRef.current && idleForMs >= idleDelaySeconds * 1000
-      const targetSpeed = shouldAutoRotate ? idleRotateSpeed : 0
-      const rampSeconds = Math.max(0.2, idleRampSeconds)
-      const smoothingLambda = 4.6 / rampSeconds
-      const easingFactor = 1 - Math.exp(-delta * smoothingLambda)
-
-      currentAutoRotateSpeedRef.current = THREE.MathUtils.lerp(
-        currentAutoRotateSpeedRef.current,
-        targetSpeed,
-        easingFactor,
-      )
-
-      const hasIdleSpin = currentAutoRotateSpeedRef.current > 0.005
-      OrbitRef.current.autoRotate = hasIdleSpin
-      OrbitRef.current.autoRotateSpeed = currentAutoRotateSpeedRef.current
-    }
-
-    const introCap = enhancedAssetsReady ? 1 : 0.86
-    const introBlend = 1 - Math.exp(-delta * 2.6)
-    introProgressRef.current = THREE.MathUtils.lerp(introProgressRef.current, introCap, introBlend)
-    const introT = THREE.MathUtils.clamp(introProgressRef.current, 0, 1)
-    const positionT = easeOutCubic(introT)
-    const scaleT = THREE.MathUtils.clamp(easeOutBack(introT), 0, 1.12)
-
-    const structureBlend = 1 - Math.exp(-delta * 2.6)
-    structureTransitionRef.current = THREE.MathUtils.lerp(
-      structureTransitionRef.current,
-      1,
-      structureBlend,
-    )
-    const structureT = THREE.MathUtils.clamp(easeInOutSine(structureTransitionRef.current), 0, 1)
-    if (structureTransitionRef.current > 0.995) {
-      structureAnimatedKindsRef.current.clear()
-    }
-
-    const targetFade = enhancedAssetsReady ? 1 : 0
-    const fadeBlend = 1 - Math.exp(-delta * 3.2)
-    materialFadeRef.current = THREE.MathUtils.lerp(materialFadeRef.current, targetFade, fadeBlend)
-    const materialFade = THREE.MathUtils.clamp(materialFadeRef.current, 0, 1)
-
-    ;[mat_Brushed, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe, mat_UVDebug].forEach((candidateMaterial) => {
-      candidateMaterial.opacity = materialFade
-      candidateMaterial.depthWrite = materialFade > 0.98
-    })
-
-    const { center: layoutCenter, explodeDistance } = panelLayoutMetrics
-    panelMeshRefs.current.forEach((mesh, panelId) => {
-      const targetMeta = panelMeshTargetsRef.current.get(panelId)
-      if (!mesh || !targetMeta) return
-
-      const { targetPosition, seed, kind } = targetMeta
-      const direction = targetPosition.clone().sub(layoutCenter)
-      if (direction.lengthSq() < 1e-6) {
-        direction.set(
-          THREE.MathUtils.mapLinear((seed % 97), 0, 96, -0.55, 0.55),
-          THREE.MathUtils.mapLinear((seed % 89), 0, 88, -0.25, 0.4),
-          THREE.MathUtils.mapLinear((seed % 83), 0, 82, -0.55, 0.55),
-        )
-      }
-      direction.normalize()
-      const startPosition = targetPosition.clone().add(direction.multiplyScalar(explodeDistance))
-
-      if (introT < 0.995) {
-        mesh.position.lerpVectors(startPosition, targetPosition, positionT)
-        mesh.scale.setScalar(THREE.MathUtils.clamp(scaleT, 0.001, 1.06))
-        return
-      }
-
-      if (kind === 'vertical' || kind === 'shelf') {
-        const shouldAnimateKind = structureAnimatedKindsRef.current.has(kind)
-        if (shouldAnimateKind) {
-          const countChangeStart = targetPosition.clone()
-          if (kind === 'vertical') {
-            countChangeStart.x = THREE.MathUtils.lerp(targetPosition.x, layoutCenter.x, 0.22)
-          } else {
-            countChangeStart.y = THREE.MathUtils.lerp(targetPosition.y, layoutCenter.y, 0.22)
-          }
-
-          mesh.position.lerpVectors(countChangeStart, targetPosition, structureT)
-          mesh.scale.setScalar(THREE.MathUtils.lerp(0.9, 1, structureT))
-          return
-        }
-      }
-
-      mesh.position.copy(targetPosition)
-      mesh.scale.setScalar(1)
-    })
-
-    {/* PARAMETRIC LOGIC */}
-    if (Bounding.current && showDevTools===true) {
-      Bounding.current.scale.x = THREE.MathUtils.lerp(Bounding.current.scale.x, width / startDims.x, 0.1)
-      Bounding.current.scale.y = THREE.MathUtils.lerp(Bounding.current.scale.y, height / startDims.y, 0.1)
-      Bounding.current.scale.z = THREE.MathUtils.lerp(Bounding.current.scale.z, depth / startDims.z, 0.1)
-    }
+    animateOrbit(delta)
+    animateFurniture(delta)
   })
 
   return (
@@ -854,205 +292,55 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
         {/* <CrossMarker position={[0,0,0]}/> */}
       </group>
     
-      <group name="FurnitureGroup" ref={FurnitureGroup}>
-        {/* PARAMETRIC LOGIC */}
+      <FurniturePanels
+        groupRef={FurnitureGroup}
+        panelMeshes={panelMeshes}
+        panelMeshRefs={panelMeshRefs}
+        panelMeshTargetsRef={panelMeshTargetsRef}
+        toVector3={toVector3}
+        panelIdSeed={panelIdSeed}
+        activeMaterial={activeMaterial}
+      />
 
-        {panelMeshes.map(({ panelSpec, geometry, vectorLoops }) => (
-          <mesh
-            key={panelSpec.id}
-            ref={(node) => {
-              if (node) {
-                panelMeshRefs.current.set(panelSpec.id, node)
-                panelMeshTargetsRef.current.set(panelSpec.id, {
-                  targetPosition: toVector3(panelSpec.center),
-                  seed: panelIdSeed(panelSpec.id),
-                  kind: panelSpec.kind,
-                })
-              } else {
-                panelMeshRefs.current.delete(panelSpec.id)
-                panelMeshTargetsRef.current.delete(panelSpec.id)
-              }
-            }}
-            name={`Panel_${panelSpec.id}`}
-            castShadow={true}
-            receiveShadow={true}
-            position={panelSpec.center}
-            rotation={panelSpec.rotation}
-            geometry={geometry}
-            material={activeMaterial}
-            userData={{
-              panelId: panelSpec.id,
-              panelKind: panelSpec.kind,
-              panelPlane: panelSpec.plane,
-              panelWidth: panelSpec.width,
-              panelHeight: panelSpec.height,
-              panelThickness: panelSpec.thickness,
-              vectorLoops,
-            }}
-          />
-        ))}
-      </group>
+      <DimensionsOverlay
+        visible={publicShowDimensions}
+        dividerControlAnchors={dividerControlAnchors}
+        shelfControlAnchors={shelfControlAnchors}
+        furnitureUiScale={furnitureUiScale}
+        uiScaleClampButtons={uiScaleClampButtons}
+        uiScaleClampDims={uiScaleClampDims}
+        dividers={dividers}
+        shelves={shelves}
+        dividerMin={DIVIDER_MIN}
+        dividerMax={DIVIDER_MAX}
+        shelfMin={SHELF_MIN}
+        shelfMax={SHELF_MAX}
+        width={width}
+        height={height}
+        depth={depth}
+        setControls={setControls}
+      />
 
-      <group name="DimensionsGroup" ref={Dimensions} visible={publicShowDimensions}>
-        <BillboardStepButton
-          position={dividerControlAnchors.decrement}
-          symbol="−"
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampButtons.min}
-          uiScaleMax={uiScaleClampButtons.max}
-          disabled={dividers <= DIVIDER_MIN}
-          onClick={() => setControls({ dividers: Math.max(DIVIDER_MIN, dividers - 1) })}
-        />
-        <BillboardStepButton
-          position={dividerControlAnchors.increment}
-          symbol="+"
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampButtons.min}
-          uiScaleMax={uiScaleClampButtons.max}
-          disabled={dividers >= DIVIDER_MAX}
-          onClick={() => setControls({ dividers: Math.min(DIVIDER_MAX, dividers + 1) })}
-        />
-        <BillboardStepButton
-          position={shelfControlAnchors.decrement}
-          symbol="−"
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampButtons.min}
-          uiScaleMax={uiScaleClampButtons.max}
-          disabled={shelves <= SHELF_MIN}
-          onClick={() => setControls({ shelves: Math.max(SHELF_MIN, shelves - 1) })}
-        />
-        <BillboardStepButton
-          position={shelfControlAnchors.increment}
-          symbol="+"
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampButtons.min}
-          uiScaleMax={uiScaleClampButtons.max}
-          disabled={shelves >= SHELF_MAX}
-          onClick={() => setControls({ shelves: Math.min(SHELF_MAX, shelves + 1) })}
-        />
+      <PropsGroup
+        visible={showProps}
+        enhancedAssetsReady={enhancedAssetsReady}
+        LazyProps={LazyProps}
+        width={width}
+        height={height}
+        materialThickness={materialThickness}
+      />
 
-        {/* Width Label - OVERALL*/}
-        <PlaneDimensionLine 
-          start={[-width/2, height / 2, -depth / 2]} 
-          end={[width/2, height / 2, -depth / 2]} 
-          label={width}
-          setDimension={(v) => setControls({ width: v })}
-          dimensionGap={0.025}
-          anchorGap={0.005}
-          fontSize={0.01}
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampDims.min}
-          uiScaleMax={uiScaleClampDims.max}
-        />
-        {/* Height Label - OVERALL*/}
-        <PlaneDimensionLine 
-          start={[width/2, -height / 2, -depth / 2]} 
-          end={[width/2, height / 2, -depth / 2]} 
-          label={height}
-          setDimension={(v) => setControls({ height: v })}
-          dimensionGap={0.025}
-          anchorGap={0.005}
-          fontSize={0.01}
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampDims.min}
-          uiScaleMax={uiScaleClampDims.max}
-        />
-        {/* Depth Label - OVERALL*/}
-        <PlaneDimensionLine 
-          start={[width/2, -height / 2, depth / 2]} 
-          end={[width/2, -height / 2, -depth / 2]} 
-          label={depth}
-          setDimension={(v) => setControls({ depth: v })}
-          dimensionGap={0.025}
-          anchorGap={0.005}
-          fontSize={0.01}
-          uiScale={furnitureUiScale}
-          uiScaleMin={uiScaleClampDims.min}
-          uiScaleMax={uiScaleClampDims.max}
-        />
-      </group>
-
-      {/* Props Instance */}
-      {enhancedAssetsReady && (
-        <Suspense fallback={null}>
-          <group name="PropsGroup" visible={showProps} position={[0, 0, 0]} scale={0.1}>
-            <LazyProps 
-              vasePos={[(width*10)/2 - 1, (height*10)/2, 0]}
-              cylinder004Pos={[-(width*10)/2 + 1, -(height*10)/2, 0]}
-              cylinder003Pos={[-(width*10)/2 + 1, -(height*10)/2 + materialThickness, 0]}
-              // cylinder001Pos={[-(width*10)/2 + 3, (height*10)/2, 0]}
-              // cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
-              // cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
-              // cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
-              // cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
-              // cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
-            />
-          </group>
-        </Suspense>
-      )}
-
-      <group name="SceneGroup">
-        <OrbitControls ref={OrbitRef} makeDefault minDistance={0.01}/>
-        
-        {/* <mesh name="wall" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[0, 0, 0]} position={[0, contactShadowPos[1] + (wallSize/2), -depth/2]} receiveShadow={true} castShadow={false}/>
-        <mesh name="floor" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[-(Math.PI/2), 0, 0]} position={new THREE.Vector3(0, contactShadowPos[1]-0.001, (wallSize/2) - depth/2)} receiveShadow={true} castShadow={false}/> */}
-
-        {/* <directionalLight 
-          ref={lightRef} 
-          position={lightPos} 
-          target-position={lightTarget}
-          // rotation={[10,0.1,0]}
-          intensity={intensity * 1000} 
-        /> */}
-        <spotLight //spotlight 1 main
-          castShadow={true}
-          shadow-mapSize={[mapSize, mapSize]}
-          shadow-camera-near={near}
-          shadow-camera-far={far}
-          shadow-radius={60}
-          shadow-bias={-0.0005}
-          shadow-normalBias={0.0005}
-          ref={lightRef} 
-          position={lightPos} 
-          target-position={lightTarget}
-          intensity={intensity * 100}
-          angle={Math.PI / 8}
-          penumbra={1}
-          decay={2}
-          distance={2}
-          color={"#fee7c2"}
-        />
-        <ContactShadows 
-          position={new THREE.Vector3(contactShadowPos[0], contactShadowPos[1], contactShadowPos[2])}
-          opacity={0.2} 
-          scale={1} 
-          blur={3} 
-          far={10} 
-        />
-        {/* <CrossMarker position={lightTarget} color="red" /> */}
-      </group>
+      <SceneGroup
+        orbitRef={OrbitRef}
+        lightRef={lightRef}
+        lightPos={lightPos}
+        lightTarget={lightTarget}
+        intensity={intensity}
+        mapSize={mapSize}
+        near={near}
+        far={far}
+        contactShadowPos={contactShadowPos}
+      />
     </group>
   )
 }
-
-//NOTES
-
-    // console.log(leftGroupRef.current.position);
-    // print("test"); //INTERESTING: PRINTS SCREENSHOT OF PAGE
-
-    // Move the accessories on the left and right sides
-    // const sideOffset = (width-startDims.x)/2
-    // leftGroupRef.current.position.x = THREE.MathUtils.lerp(leftGroupRef.current.position.x, -sideOffset, 0.1)
-    // rightGroupRef.current.position.x = THREE.MathUtils.lerp(rightGroupRef.current.position.x, sideOffset, 0.1)
-
-      {/* LEFT SIDE ACCESSORIES (Stay on the left edge) */}
-      // <group ref={leftGroupRef}>
-      // </group>
-
-      {/* RIGHT SIDE ACCESSORIES (Stay on the right edge) */}
-      // <group ref={rightGroupRef}>
-      // </group>
-
-      {/* CENTER PIECES (Stay in the middle) */}
-      // <group visible={showProps}>
-      // </group>
