@@ -1,16 +1,15 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
 import { useRef, useMemo, useLayoutEffect, useEffect } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera, useHelper, ContactShadows } from '@react-three/drei'
+import { useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls, ContactShadows } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 import { Props_1 } from './Props_1'
-import { CrossMarker } from './CrossMarker'
-import { SpotLightHelper } from 'three'
 
 export function Experience() {
+  const { gl } = useThree()
   
   // const leftGroupRef = useRef()
   // const rightGroupRef = useRef()
@@ -18,8 +17,7 @@ export function Experience() {
   const Bounding = useRef()
   const Back = useRef()
   const FurnitureGroup = useRef()
-  const CameraRef = useRef() // This will be for the PerspectiveCamera
-  const OrbitRef = useRef() // This will be for the OrbitControls
+  const OrbitRef = useRef()
   const lightRef = useRef()
 
   const startDims = new THREE.Vector3(0.3, 0.1, 0.05);
@@ -64,7 +62,7 @@ export function Experience() {
     lightTarget: { value: [-0.2210000000000003,-0.7,-0.007999999999999612], render: get => get('showDevTools') },
     intensity: { value: 0.005, min: 0, max: 10 , render: get => get('showDevTools') },
     mapSize: { value: 1024, options: [512, 1024, 2048] , render: get => get('showDevTools') }, // Higher = Sharper
-    near: { value: 0.001, min: 0.1, max: 10, render: get => get('showDevTools')  },
+    near: { value: 0.001, min: 0, max: 10, render: get => get('showDevTools')  },
     far: { value: 10, min: 0.1, max: 100, render: get => get('showDevTools')  },
     contactShadowPos: { value: [0.086,-0.15,0], render: get => get('showDevTools') },
     wallSize: { value: 2, min: 0.01, max: 3, render: get => get('showDevTools')  }
@@ -87,14 +85,16 @@ export function Experience() {
 
   // useHelper(lightRef, THREE.SpotLightHelper, '#ff000043')
 
-  // Memo-ise noise texture with proper dependency array (reduced resolution for perf)
+  // Memo-ise noise texture with proper dependency array
   const noiseTexture = useMemo(() => {
-    const noiseCanvas = GeneratePerlinNoiseTexture(512, 512, x1, y1, x2, y2)
+    const noiseResolution = 1024
+    const noiseCanvas = GeneratePerlinNoiseTexture(noiseResolution, noiseResolution, x1, y1, x2, y2)
     const tex = new THREE.CanvasTexture(noiseCanvas)
     tex.magFilter = THREE.LinearFilter
     tex.minFilter = THREE.LinearMipmapLinearFilter
+    tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
     return tex
-  }, [x1, y1, x2, y2])
+  }, [x1, y1, x2, y2, gl])
 
   // Update mat_PBR roughness map when texture changes
   useMemo(() => {
@@ -119,16 +119,30 @@ export function Experience() {
   const { boxMain } = geometries
 
   useLayoutEffect(() => {
-    if (Bounding.current && CameraRef.current && OrbitRef.current) {
-      // Get object world position
-      const origin = new THREE.Vector3()
-      Bounding.current.getWorldPosition(origin)
+    const rafId = requestAnimationFrame(() => {
+      if (!FurnitureGroup.current || !OrbitRef.current) return
 
-      // console.log("Target Position:", origin);
-      OrbitRef.current.object.position.set(origin.x, origin.y, origin.z)
-      OrbitRef.current.target.set(origin.x, origin.y, origin.z)
-      OrbitRef.current.update()
-    }
+      const box = new THREE.Box3().setFromObject(FurnitureGroup.current)
+      if (box.isEmpty()) return
+
+      const center = box.getCenter(new THREE.Vector3())
+      const size = box.getSize(new THREE.Vector3())
+      const controls = OrbitRef.current
+      const camera = controls.object
+      const maxDim = Math.max(size.x, size.y, size.z)
+      const fov = THREE.MathUtils.degToRad(camera.fov)
+      const fitDistance = (maxDim / (2 * Math.tan(fov / 2))) * 1.25
+
+      camera.position.set(center.x, center.y, center.z + fitDistance)
+      controls.target.copy(center)
+      controls.update()
+
+      camera.near = 0.001;   // Minimum render distance
+      camera.far = 500;   // Maximum render distance
+      camera.updateProjectionMatrix();
+    })
+
+    return () => cancelAnimationFrame(rafId)
   }, [])
 
   useFrame(() => {
@@ -261,8 +275,7 @@ export function Experience() {
       </group>
 
       <group name="SceneGroup">
-        <OrbitControls ref={OrbitRef} makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} minDistance={0.05} near={0.001} far={100} fov={45} />
-        <PerspectiveCamera ref={CameraRef} fov={45} near={0.001} far={100}/>
+        <OrbitControls ref={OrbitRef} makeDefault minDistance={0.01}/>
         
         {/* <mesh name="wall" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[0, 0, 0]} position={[0, contactShadowPos[1] + (wallSize/2), -depth/2]} receiveShadow={true} castShadow={false}/>
         <mesh name="floor" geometry={new THREE.PlaneGeometry(wallSize, wallSize)} material={mat_Shadow} rotation={[-(Math.PI/2), 0, 0]} position={new THREE.Vector3(0, contactShadowPos[1]-0.001, (wallSize/2) - depth/2)} receiveShadow={true} castShadow={false}/> */}

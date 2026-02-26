@@ -1,14 +1,13 @@
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
-import { Stage, OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
-import { Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import { Stage, Environment } from '@react-three/drei'
+import { Suspense, useEffect, useState } from 'react'
 // import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
 import { Experience } from './Experience'
 import { downloadScene } from './SceneDownloader';
 import { useSceneStore } from './useSceneStore';
 import { Leva } from 'leva'
 import './App.css'
-import { CrossMarker } from './CrossMarker'
 
 // Component to sync scene to store
 const SceneSync = () => {
@@ -36,28 +35,10 @@ const DownloadButton = () => {
   );
 };
 
-// Component to log and use scene & camera
-function SceneInspector() {
-  const { scene, camera, gl } = useThree();
-
-  useEffect(() => {
-    // console.log('Scene:', scene);
-    // console.log('Camera:', camera);
-    // console.log('Renderer:', gl);
-
-    // Example: Change background color
-    // scene.background = new THREE.Color(0x000000);
-
-    // Adjust camera position
-    camera.position.set(-0.09, -0.5, 0.3); //X(LEFT&RIGHT), Y(UP&DOWN), Z(FORWARD&BACKWARD)
-    camera.lookAt(0, 0, 0);
-  }, [scene, camera, gl]);
-
-  return null; // This component doesn't render anything
-}
-
 function App() {
   const [levaVisible, setLevaVisible] = useState(true)
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  const dprRange = isMobile ? [1, 1.5] : [1, 2]
   
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -73,14 +54,16 @@ function App() {
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--background-color)' }}>
+    <div style={{ width: '100vw', height: '100dvh', background: 'var(--background-color)' }}>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
-        gl={{ antialias: true }}
-        dpr={[1, 1]}
-        camera={{ fov: 45, near: 0.001, far: 10 }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        dpr={dprRange}
+        camera={{ position: [0.35, 0.2, 0.35] }}
+        near={0.002}
+        far={10}
       >
-        {/* <SceneSync />  */}
+        <SceneSync /> 
         <Suspense fallback={null}>
           {/* Stage handles professional lighting and shadows automatically */}
             {/* PERPECTIVE CAMERA & ORBIT CONTROLS handled in Experience */}
@@ -92,7 +75,6 @@ function App() {
                 environment={null}
                 >
               <Experience />
-              <SceneInspector />
             </Stage>
           <Environment 
             files='monochrome_studio_02_1k.hdr' 
