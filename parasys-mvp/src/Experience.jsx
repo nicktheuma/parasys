@@ -1,15 +1,18 @@
 import * as THREE from 'three'
 import { useControls } from 'leva'
-import { useRef, useMemo, useLayoutEffect, useEffect } from 'react'
+import { useRef, useMemo, useLayoutEffect, useEffect, useState, lazy, Suspense } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, ContactShadows } from '@react-three/drei'
 
 import { PlaneDimensionLine } from './DimensionManager'
 import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
-import { Props_1 } from './Props_1'
 
-export function Experience() {
+const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
+
+export function Experience({ onInitialObjectVisible = () => {} }) {
   const { gl } = useThree()
+  const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
+  const hasReportedInitialVisible = useRef(false)
   
   // const leftGroupRef = useRef()
   // const rightGroupRef = useRef()
@@ -30,6 +33,7 @@ export function Experience() {
   const materials = useMemo(() => ({
     mat_Dev: new THREE.MeshStandardMaterial( {map: null, color: '#ff0000', roughness: 1, transparent: true, opacity: 0.3}),
     mat_Dev_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#ff0000', wireframe: true, wireframeLinewidth: 0.1}),
+    mat_Placeholder: new THREE.MeshStandardMaterial( {map: null, color: '#c5ccd3', roughness: 0.9, metalness: 0.05}),
     mat_Wireframe: new THREE.MeshMatcapMaterial( {map: null, color: '#000000', wireframe: true, wireframeLinewidth: 0.01}),
     mat_MATCAP: new THREE.MeshMatcapMaterial( {map: null, color: '#ffffff'}),
     mat_Shadow: new THREE.ShadowMaterial({ opacity: 0.1 }),
@@ -38,7 +42,7 @@ export function Experience() {
     mat_PaintedMetal: new THREE.MeshStandardMaterial( {map: null, color: '#526982', roughness: 1, metalness: 0.2})
   }), [])
 
-  const { mat_Dev, mat_Dev_Wireframe, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
+  const { mat_Dev, mat_Dev_Wireframe, mat_Placeholder, mat_Wireframe, mat_MATCAP, mat_Shadow,mat_PBR, mat_Chrome, mat_PaintedMetal } = materials
   
   const [controls, setControls] = useControls(() => ({
     width: { value: startDims.x, min: startDims.x, max: maxDims.x, step: 0.01},
@@ -85,8 +89,32 @@ export function Experience() {
 
   // useHelper(lightRef, THREE.SpotLightHelper, '#ff000043')
 
+  useEffect(() => {
+    let timeoutId = null
+    let idleId = null
+
+    const enableEnhancedAssets = () => {
+      timeoutId = setTimeout(() => setEnhancedAssetsReady(true), 120)
+    }
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(enableEnhancedAssets, { timeout: 800 })
+    } else {
+      enableEnhancedAssets()
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (idleId && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
+    }
+  }, [])
+
   // Memo-ise noise texture with proper dependency array
   const noiseTexture = useMemo(() => {
+    if (!enhancedAssetsReady) return null
+
     const noiseResolution = 1024
     const noiseCanvas = GeneratePerlinNoiseTexture(noiseResolution, noiseResolution, x1, y1, x2, y2)
     const tex = new THREE.CanvasTexture(noiseCanvas)
@@ -94,22 +122,24 @@ export function Experience() {
     tex.minFilter = THREE.LinearMipmapLinearFilter
     tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
     return tex
-  }, [x1, y1, x2, y2, gl])
+  }, [enhancedAssetsReady, x1, y1, x2, y2, gl])
 
   // Update mat_PBR roughness map when texture changes
   useMemo(() => {
-    if (mat_PBR) mat_PBR.roughnessMap = noiseTexture
+    if (mat_PBR && noiseTexture) mat_PBR.roughnessMap = noiseTexture
   }, [noiseTexture, mat_PBR])
   
   // Update mat_PaintedMetal roughness map when texture changes
   useMemo(() => {
-    if (mat_PaintedMetal) {
+    if (mat_PaintedMetal && noiseTexture) {
       mat_PaintedMetal.roughnessMap = noiseTexture
       // mat_PaintedMetal.normalMap = noiseTexture
       mat_PaintedMetal.bumpMap = noiseTexture
       mat_PaintedMetal.color = new THREE.Color(controls.paintedMetal_Colour)
     }
   }, [noiseTexture, mat_PaintedMetal, controls.paintedMetal_Colour])
+
+  const activeMaterial = enhancedAssetsReady ? material : mat_Placeholder
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
@@ -174,6 +204,11 @@ export function Experience() {
       Back.current.scale.set(width/startDims.x, height/startDims.y, materialThickness / startDims.z);
       Back.current.rotation.set(0, 0, 0);
       Back.current.position.set(0, 0, -(depth / 2) + (materialThickness / 2));
+
+      if (!hasReportedInitialVisible.current) {
+        hasReportedInitialVisible.current = true
+        onInitialObjectVisible()
+      }
     }
   })
 
@@ -192,7 +227,7 @@ export function Experience() {
         {/* THE MAIN PIECE */}
         {/* <mesh ref={Top} geometry={boxMain} material={material} /> */}
         {/* <mesh ref={Bottom} geometry={boxMain} material={material} /> */}
-        <mesh receiveShadow={true} ref={Back} geometry={boxMain} material={material} />
+        <mesh receiveShadow={true} ref={Back} geometry={boxMain} material={activeMaterial} />
 
         {/* VERTICAL SHEETS YZ */}
         {Array.from({ length: (dividers + 2) }).map((_, i) => {
@@ -206,7 +241,7 @@ export function Experience() {
               position={[x, 0, -(slotOffset/2)]}
               rotation={[0, 0, 0]}
               geometry={boxMain}
-              material={material}
+              material={activeMaterial}
               // scale={[
               //   (height + (slotOffset * 2) - (materialThickness * 2)) / startDims.z,
               //   ((depth - slotOffset) / startDims.x),
@@ -233,7 +268,7 @@ export function Experience() {
               position={[0, (AdjustedHeight / 2) - x, 0]}
               rotation={[0, 0, 0]}
               geometry={boxMain}
-              material={material}
+              material={activeMaterial}
               scale={[
                 width / startDims.x,
                 materialThickness / startDims.y,
@@ -278,19 +313,23 @@ export function Experience() {
       </group>
 
       {/* Props Instance */}
-      <group name="PropsGroup" visible={showProps} position={[0, 0, 0]} scale={0.1}>
-        <Props_1 
-          vasePos={[(width*10)/2 - 1, (height*10)/2, 0]}
-          cylinder004Pos={[-(width*10)/2 + 1, -(height*10)/2, 0]}
-          cylinder003Pos={[-(width*10)/2 + 1, -(height*10)/2 + materialThickness, 0]}
-          // cylinder001Pos={[-(width*10)/2 + 3, (height*10)/2, 0]}
-          // cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
-          // cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
-          // cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
-          // cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
-          // cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
-        />
-      </group>
+      {enhancedAssetsReady && (
+        <Suspense fallback={null}>
+          <group name="PropsGroup" visible={showProps} position={[0, 0, 0]} scale={0.1}>
+            <LazyProps 
+              vasePos={[(width*10)/2 - 1, (height*10)/2, 0]}
+              cylinder004Pos={[-(width*10)/2 + 1, -(height*10)/2, 0]}
+              cylinder003Pos={[-(width*10)/2 + 1, -(height*10)/2 + materialThickness, 0]}
+              // cylinder001Pos={[-(width*10)/2 + 3, (height*10)/2, 0]}
+              // cube008Pos={[(width*10)/2 + 1.5, (height*10)/2, 0]}
+              // cube004Pos={[-(width*10)/2 + 3, -(height*10)/2, 0]}
+              // cube004_1Pos={[-(width*10)/2 + 2, -(height*10)/2, 0]}
+              // cube003Pos={[-(width*10)/2 + 2.5, (height*10)/2, 0]}
+              // cube003_1Pos={[-(width*10)/2 + 1, (height*10)/2, 0]}
+            />
+          </group>
+        </Suspense>
+      )}
 
       <group name="SceneGroup">
         <OrbitControls ref={OrbitRef} makeDefault minDistance={0.01}/>

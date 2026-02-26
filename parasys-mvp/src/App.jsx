@@ -35,8 +35,22 @@ const DownloadButton = () => {
   );
 };
 
+const LoadingOverlay = ({ visible }) => {
+  if (!visible) return null
+
+  return (
+    <div className="loading-overlay" role="status" aria-live="polite">
+      <div className="loading-card">
+        <div className="loading-spinner" />
+        <p>Building...</p>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [levaVisible, setLevaVisible] = useState(true)
+  const [isInitialObjectVisible, setIsInitialObjectVisible] = useState(false)
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
   const dprRange = isMobile ? [1, 1.5] : [1, 2]
   
@@ -55,6 +69,7 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100dvh', background: 'var(--background-color)' }}>
+      <LoadingOverlay visible={!isInitialObjectVisible} />
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
@@ -74,7 +89,7 @@ function App() {
                 adjustCamera={0}
                 environment={null}
                 >
-              <Experience />
+              <Experience onInitialObjectVisible={() => setIsInitialObjectVisible(true)} />
             </Stage>
           <Environment 
             files='monochrome_studio_02_1k.hdr' 

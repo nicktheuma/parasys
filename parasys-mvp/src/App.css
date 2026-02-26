@@ -17,6 +17,39 @@
   text-align: center;
 }
 
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--background-color) 90%, white 10%);
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--interaction-color);
+  font-size: 0.95rem;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #00000022;
+  border-top-color: #000000aa;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Styles for the download button - fixed UI overlay like Leva panel */
 .button {
   position: fixed;

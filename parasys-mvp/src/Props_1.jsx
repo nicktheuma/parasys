@@ -31,5 +31,3 @@ export function Props_1(props) {
     </group>
   )
 }
-
-useGLTF.preload(GLB_PATH)
