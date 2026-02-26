@@ -119,30 +119,48 @@ export function Experience() {
   const { boxMain } = geometries
 
   useLayoutEffect(() => {
-    const rafId = requestAnimationFrame(() => {
-      if (!FurnitureGroup.current || !OrbitRef.current) return
+    let rafId = null
+    let attempts = 0
+    let successfulFits = 0
+    const maxAttempts = 30
 
-      const box = new THREE.Box3().setFromObject(FurnitureGroup.current)
-      if (box.isEmpty()) return
+    const fitOnLoad = () => {
+      attempts += 1
 
-      const center = box.getCenter(new THREE.Vector3())
-      const size = box.getSize(new THREE.Vector3())
-      const controls = OrbitRef.current
-      const camera = controls.object
-      const maxDim = Math.max(size.x, size.y, size.z)
-      const fov = THREE.MathUtils.degToRad(camera.fov)
-      const fitDistance = (maxDim / (2 * Math.tan(fov / 2))) * 1.25
+      if (FurnitureGroup.current && OrbitRef.current) {
+        const box = new THREE.Box3().setFromObject(FurnitureGroup.current)
 
-      camera.position.set(center.x, center.y, center.z + fitDistance)
-      controls.target.copy(center)
-      controls.update()
+        if (!box.isEmpty()) {
+          const center = box.getCenter(new THREE.Vector3())
+          const size = box.getSize(new THREE.Vector3())
+          const controls = OrbitRef.current
+          const camera = controls.object
+          const maxDim = Math.max(size.x, size.y, size.z)
+          const fov = THREE.MathUtils.degToRad(camera.fov)
+          const fitDistance = (maxDim / (2 * Math.tan(fov / 2))) * 1.25
 
-      camera.near = 0.001;   // Minimum render distance
-      camera.far = 500;   // Maximum render distance
-      camera.updateProjectionMatrix();
-    })
+          camera.position.set(center.x, center.y, center.z + fitDistance)
+          controls.target.copy(center)
+          controls.update()
 
-    return () => cancelAnimationFrame(rafId)
+          camera.near = 0.001
+          camera.far = 500
+          camera.updateProjectionMatrix()
+
+          successfulFits += 1
+        }
+      }
+
+      if (attempts < maxAttempts && successfulFits < 3) {
+        rafId = requestAnimationFrame(fitOnLoad)
+      }
+    }
+
+    rafId = requestAnimationFrame(fitOnLoad)
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [])
 
   useFrame(() => {
