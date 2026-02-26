@@ -21,17 +21,40 @@ const SceneSync = () => {
   return null;
 };
 
-// Button rendered outside Canvas
-const DownloadButton = () => {
+const MATERIAL_OPTIONS = [
+  { key: 'Painted', label: 'Painted', thumbnailClass: 'material-thumb--painted' },
+  { key: 'PBR', label: 'PBR', thumbnailClass: 'material-thumb--pbr' },
+  { key: 'Chrome', label: 'Chrome', thumbnailClass: 'material-thumb--chrome' },
+  { key: 'MATCAP', label: 'Matcap', thumbnailClass: 'material-thumb--matcap' },
+  { key: 'Wireframe', label: 'Wireframe', thumbnailClass: 'material-thumb--wireframe' },
+]
+
+const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
   const scene = useSceneStore((state) => state.scene);
 
   return (
-    <button 
-      onClick={() => downloadScene(scene)}
-      className="button"
-    >
-      Download 3D Model
-    </button>
+    <div className="public-controls" role="region" aria-label="Viewer controls">
+      <div className="material-row" role="group" aria-label="Material choices">
+        {MATERIAL_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => onMaterialChange(option.key)}
+            className={`material-tile ${selectedMaterial === option.key ? 'is-active' : ''}`}
+          >
+            <span className={`material-thumb ${option.thumbnailClass}`} aria-hidden="true" />
+            <span className="material-label">{option.label}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => downloadScene(scene)}
+        className="public-button"
+      >
+        Download 3D Model
+      </button>
+    </div>
   );
 };
 
@@ -51,6 +74,7 @@ const LoadingOverlay = ({ visible }) => {
 function App() {
   const [levaVisible, setLevaVisible] = useState(true)
   const [isInitialObjectVisible, setIsInitialObjectVisible] = useState(false)
+  const [selectedMaterial, setSelectedMaterial] = useState('Painted')
   const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
   const dprRange = isMobile ? [1, 1.5] : [1, 2]
   
@@ -89,7 +113,10 @@ function App() {
                 adjustCamera={0}
                 environment={null}
                 >
-              <Experience onInitialObjectVisible={() => setIsInitialObjectVisible(true)} />
+              <Experience
+                selectedMaterialKey={selectedMaterial}
+                onInitialObjectVisible={() => setIsInitialObjectVisible(true)}
+              />
             </Stage>
           <Environment 
             files='monochrome_studio_02_1k.hdr' 
@@ -107,7 +134,7 @@ function App() {
             />
           </EffectComposer> */}
       </Canvas>
-      <DownloadButton />
+      <PublicControls selectedMaterial={selectedMaterial} onMaterialChange={setSelectedMaterial} />
       <Leva hidden={levaVisible} />
     </div>
   )}  

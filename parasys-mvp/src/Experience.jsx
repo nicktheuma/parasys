@@ -9,7 +9,7 @@ import { GeneratePerlinNoiseTexture } from './NoiseGenerator'
 
 const LazyProps = lazy(() => import('./Props_1').then((module) => ({ default: module.Props_1 })))
 
-export function Experience({ onInitialObjectVisible = () => {} }) {
+export function Experience({ onInitialObjectVisible = () => {}, selectedMaterialKey = null }) {
   const { gl } = useThree()
   const [enhancedAssetsReady, setEnhancedAssetsReady] = useState(false)
   const hasReportedInitialVisible = useRef(false)
@@ -145,7 +145,19 @@ export function Experience({ onInitialObjectVisible = () => {} }) {
     }
   }, [noiseTexture, mat_PaintedMetal, controls.paintedMetal_Colour])
 
-  const activeMaterial = enhancedAssetsReady ? material : mat_Placeholder
+  const publicMaterialMap = useMemo(() => ({
+    PBR: mat_PBR,
+    Chrome: mat_Chrome,
+    Painted: mat_PaintedMetal,
+    MATCAP: mat_MATCAP,
+    Wireframe: mat_Wireframe,
+  }), [mat_PBR, mat_Chrome, mat_PaintedMetal, mat_MATCAP, mat_Wireframe])
+
+  const selectedSceneMaterial = selectedMaterialKey
+    ? publicMaterialMap[selectedMaterialKey] || material
+    : material
+
+  const activeMaterial = enhancedAssetsReady ? selectedSceneMaterial : mat_Placeholder
 
   // Memo-ise geometries to avoid recreating them every render
   const geometries = useMemo(() => ({
