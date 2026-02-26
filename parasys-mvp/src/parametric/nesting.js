@@ -1,17 +1,23 @@
 const toMillimeters = (meters) => meters * 1000
 
 export const defaultNestingOptions = {
-  sheetWidthMm: 2440,
-  sheetHeightMm: 1220,
+  sheetWidthMm: 2400,
+  sheetHeightMm: 1200,
   marginMm: 12,
-  spacingMm: 4,
+  spacingMm: 12,
   allowRotate90: true,
 }
 
 const fitsInRow = ({ x, width, sheetWidthMm, marginMm }) => (x + width) <= (sheetWidthMm - marginMm)
 const fitsInSheet = ({ y, height, sheetHeightMm, marginMm }) => (y + height) <= (sheetHeightMm - marginMm)
 
-const choosePlacementOrientation = ({ panel, cursorX, options }) => {
+const fitsWithinSheetUsableArea = ({ widthMm, heightMm, options }) => {
+  const usableWidth = options.sheetWidthMm - (options.marginMm * 2)
+  const usableHeight = options.sheetHeightMm - (options.marginMm * 2)
+  return widthMm <= usableWidth && heightMm <= usableHeight
+}
+
+const buildOrientationCandidates = ({ panel, options }) => {
   const candidates = []
 
   candidates.push({
@@ -28,17 +34,42 @@ const choosePlacementOrientation = ({ panel, cursorX, options }) => {
     })
   }
 
-  const fitting = candidates.filter((candidate) =>
+  return candidates
+}
+
+const choosePlacementOrientation = ({ panel, cursorX, cursorY, rowHeight, options }) => {
+  const candidates = buildOrientationCandidates({ panel, options })
+
+  const sheetFittable = candidates.filter((candidate) =>
+    fitsWithinSheetUsableArea({
+      widthMm: candidate.widthMm,
+      heightMm: candidate.heightMm,
+      options,
+    }),
+  )
+
+  if (sheetFittable.length === 0) return null
+
+  const fitting = sheetFittable.filter((candidate) => {
+    const nextRowHeight = Math.max(rowHeight, candidate.heightMm)
+    return (
     fitsInRow({
       x: cursorX,
       width: candidate.widthMm,
       sheetWidthMm: options.sheetWidthMm,
       marginMm: options.marginMm,
-    }),
-  )
+    }) &&
+    fitsInSheet({
+      y: cursorY,
+      height: nextRowHeight,
+      sheetHeightMm: options.sheetHeightMm,
+      marginMm: options.marginMm,
+    })
+    )
+  })
 
   if (fitting.length === 0) {
-    return candidates[0]
+    return null
   }
 
   return fitting.sort((left, right) => {
@@ -61,27 +92,38 @@ export function nestPanelsRectangular(panelSpecs, overrides = {}) {
     .sort((left, right) => Math.max(right.widthMm, right.heightMm) - Math.max(left.widthMm, left.heightMm))
 
   const placements = []
+  const rejectedPanels = []
   let sheetIndex = 0
   let cursorX = options.marginMm
   let cursorY = options.marginMm
   let rowHeight = 0
 
   panels.forEach((panel) => {
-    let orientation = choosePlacementOrientation({ panel, cursorX, options })
+    let orientation = choosePlacementOrientation({ panel, cursorX, cursorY, rowHeight, options })
 
-    if (!fitsInRow({ x: cursorX, width: orientation.widthMm, sheetWidthMm: options.sheetWidthMm, marginMm: options.marginMm })) {
+    if (!orientation) {
       cursorX = options.marginMm
       cursorY += rowHeight + options.spacingMm
       rowHeight = 0
-      orientation = choosePlacementOrientation({ panel, cursorX, options })
+      orientation = choosePlacementOrientation({ panel, cursorX, cursorY, rowHeight, options })
     }
 
-    if (!fitsInSheet({ y: cursorY, height: orientation.heightMm, sheetHeightMm: options.sheetHeightMm, marginMm: options.marginMm })) {
+    if (!orientation) {
       sheetIndex += 1
       cursorX = options.marginMm
       cursorY = options.marginMm
       rowHeight = 0
-      orientation = choosePlacementOrientation({ panel, cursorX, options })
+      orientation = choosePlacementOrientation({ panel, cursorX, cursorY, rowHeight, options })
+    }
+
+    if (!orientation) {
+      rejectedPanels.push({
+        id: panel.id,
+        kind: panel.kind,
+        widthMm: panel.widthMm,
+        heightMm: panel.heightMm,
+      })
+      return
     }
 
     placements.push({
@@ -100,7 +142,10 @@ export function nestPanelsRectangular(panelSpecs, overrides = {}) {
 
   return {
     options,
-    sheetCount: placements.reduce((max, placement) => Math.max(max, placement.sheetIndex), 0) + 1,
+    rejectedPanels,
+    sheetCount: placements.length > 0
+      ? placements.reduce((max, placement) => Math.max(max, placement.sheetIndex), 0) + 1
+      : 0,
     placements,
   }
 }

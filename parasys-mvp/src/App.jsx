@@ -51,14 +51,14 @@ const PublicControls = ({ selectedMaterial, onMaterialChange }) => {
       <div className="download-row" role="group" aria-label="Download options">
         <button
           type="button"
-          onClick={() => downloadNestedSvg(scene)}
+          onClick={() => downloadNestedSvg(scene, selectedMaterial)}
           className="public-button public-button--compact"
         >
           ⬇ SVG
         </button>
         <button
           type="button"
-          onClick={() => downloadNestedPdf(scene)}
+          onClick={() => downloadNestedPdf(scene, selectedMaterial)}
           className="public-button public-button--compact"
         >
           ⬇ PDF

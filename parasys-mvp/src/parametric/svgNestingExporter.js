@@ -59,6 +59,14 @@ const buildPlacementPath = (placement) => {
 export function buildNestedSvg(panelSpecs, overrides = {}) {
   const nesting = nestPanelsRectangular(panelSpecs, { ...defaultNestingOptions, ...overrides })
   const { options, placements, sheetCount } = nesting
+
+  if (nesting.rejectedPanels.length > 0) {
+    const rejectedList = nesting.rejectedPanels
+      .map((panel) => `${panel.id} (${roundTo(panel.widthMm, 1)} x ${roundTo(panel.heightMm, 1)} mm)`)
+      .join(', ')
+    throw new Error(`Some panels do not fit the selected sheet size ${options.sheetWidthMm} x ${options.sheetHeightMm} mm: ${rejectedList}`)
+  }
+
   const sheetGapMm = 40
   const canvasWidth = options.sheetWidthMm
   const canvasHeight = (sheetCount * options.sheetHeightMm) + ((sheetCount - 1) * sheetGapMm)

@@ -50,6 +50,13 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
   const nesting = nestPanelsRectangular(panelSpecs, { ...defaultNestingOptions, ...overrides })
   const { options, placements, sheetCount } = nesting
 
+  if (nesting.rejectedPanels.length > 0) {
+    const rejectedList = nesting.rejectedPanels
+      .map((panel) => `${panel.id} (${panel.widthMm.toFixed(1)} x ${panel.heightMm.toFixed(1)} mm)`)
+      .join(', ')
+    throw new Error(`Some panels do not fit the selected sheet size ${options.sheetWidthMm} x ${options.sheetHeightMm} mm: ${rejectedList}`)
+  }
+
   const pdfDocument = await PDFDocument.create()
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica)
 

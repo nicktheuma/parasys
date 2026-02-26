@@ -1,6 +1,7 @@
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { buildNestedSvg } from './parametric/svgNestingExporter';
 import { buildNestedPdfBytes } from './parametric/pdfNestingExporter';
+import { getSheetPresetForMaterial } from './parametric/materialSheetProfiles';
 
 // Helper function to trigger the browser download for binary files
 const saveArrayBuffer = (buffer, filename) => {
@@ -97,24 +98,51 @@ const extractPanelSpecsFromScene = (scene) => {
   return panelSpecs;
 };
 
-export const downloadNestedSvg = (scene, options = {}) => {
+const resolveMaterialNestingOptions = (materialKey, options = {}) => {
+  const preset = getSheetPresetForMaterial(materialKey);
+  return {
+    ...options,
+    sheetWidthMm: options.sheetWidthMm ?? preset.sheetWidthMm,
+    sheetHeightMm: options.sheetHeightMm ?? preset.sheetHeightMm,
+    marginMm: options.marginMm ?? preset.marginMm,
+    spacingMm: options.spacingMm ?? preset.spacingMm,
+  };
+};
+
+export const downloadNestedSvg = (scene, materialKey = 'Painted', options = {}) => {
   const panelSpecs = extractPanelSpecsFromScene(scene);
   if (panelSpecs.length === 0) {
     console.warn('No panel specs found for nested SVG export.');
     return;
   }
 
-  const { svg } = buildNestedSvg(panelSpecs, options);
-  saveString(svg, 'nested_panels.svg');
+  try {
+    const nestingOptions = resolveMaterialNestingOptions(materialKey, options);
+    const { svg } = buildNestedSvg(panelSpecs, nestingOptions);
+    saveString(svg, 'nested_panels.svg');
+  } catch (error) {
+    console.error('Failed to export nested SVG:', error);
+    if (typeof window !== 'undefined') {
+      window.alert(error?.message || 'Unable to export nested SVG for current material sheet size.');
+    }
+  }
 };
 
-export const downloadNestedPdf = async (scene, options = {}) => {
+export const downloadNestedPdf = async (scene, materialKey = 'Painted', options = {}) => {
   const panelSpecs = extractPanelSpecsFromScene(scene);
   if (panelSpecs.length === 0) {
     console.warn('No panel specs found for nested PDF export.');
     return;
   }
 
-  const { pdfBytes } = await buildNestedPdfBytes(panelSpecs, options);
-  saveArrayBuffer(pdfBytes, 'nested_panels.pdf');
+  try {
+    const nestingOptions = resolveMaterialNestingOptions(materialKey, options);
+    const { pdfBytes } = await buildNestedPdfBytes(panelSpecs, nestingOptions);
+    saveArrayBuffer(pdfBytes, 'nested_panels.pdf');
+  } catch (error) {
+    console.error('Failed to export nested PDF:', error);
+    if (typeof window !== 'undefined') {
+      window.alert(error?.message || 'Unable to export nested PDF for current material sheet size.');
+    }
+  }
 };
