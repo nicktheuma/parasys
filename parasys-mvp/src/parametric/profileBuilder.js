@@ -65,11 +65,19 @@ export const buildPanelProfile = (panelSpec) => {
   }
 }
 
-export const createExtrudedPanelGeometry = (panelSpec) => {
+export const createExtrudedPanelGeometry = (panelSpec, bevelOptions = {}) => {
   const { shape, outerLoop, holeLoops } = buildPanelProfile(panelSpec)
+  const maxBevelFromThickness = Math.max(0, (panelSpec.thickness * 0.5) - 0.00001)
+  const bevelEnabled = Boolean(bevelOptions.enabled)
+  const bevelSize = THREE.MathUtils.clamp(bevelOptions.size ?? 0.0002, 0, maxBevelFromThickness)
+  const bevelThickness = THREE.MathUtils.clamp(bevelOptions.thickness ?? 0.0002, 0, maxBevelFromThickness)
+  const bevelSegments = Math.max(1, Math.round(bevelOptions.segments ?? 2))
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth: panelSpec.thickness,
-    bevelEnabled: false,
+    bevelEnabled,
+    bevelSize,
+    bevelThickness,
+    bevelSegments,
     steps: 1,
     curveSegments: 1,
   })

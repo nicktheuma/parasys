@@ -3,15 +3,15 @@
 :root {
   /* Global app colors */
   --background-color: #ebebeb;
-  --dimension-color: #a7a7a7;
+  --dimension-color: #747474;
   --interaction-color: #060606;
   --button-bg: #00000012;
-  --button-text: #ffffff;
-  --button-border: #ffffff;
+  --button-text: var(--dimension-color);
+  --button-border: var(--dimension-color);
   --step-button-radius: 0.008;
-  --step-button-font-size: 0.008;
+  --step-button-font-size: 0.012;
   --step-button-outline-width: 0.0004;
-  --step-button-outline-opacity-idle: 0.1;
+  --step-button-outline-opacity-idle: 0.5;
   --step-button-outline-opacity-hover: 1;
   --step-button-fill-opacity-idle: 0.1;
   --step-button-fill-opacity-hover: 0.3;
@@ -48,8 +48,8 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 2px solid #00000022;
-  border-top-color: #000000aa;
+  border: 2px solid var(--dimension-color);
+  border-top-color: var(--dimension-color);
   animation: spin 0.9s linear infinite;
 }
 
@@ -72,7 +72,7 @@
   padding: 10px;
   border-radius: 14px;
   background: #ffffff00;
-  border: 0px solid #ffffff4d;
+  border: 0px solid var(--dimension-color);
   /* backdrop-filter: blur(16px); */
   /* -webkit-backdrop-filter: blur(16px); */
 }
@@ -94,7 +94,7 @@
   place-items: center;
   padding: 0;
   cursor: pointer;
-  color: var(--interaction-color);
+  color: var(--button-border);
   font-size: 1.35rem;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -108,15 +108,15 @@
 .action-icon {
   font-size: 1.65rem;
   line-height: 1;
-  color: var(--dimension-color);
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  color: var(--button-border);
+  font-variation-settings: 'FILL' 0, 'wght' 100, 'GRAD' 0, 'opsz' 24;
   transition: color 0.2s ease, font-variation-settings 0.2s ease;
 }
 
 .action-bubble:hover,
 .action-bubble:focus-visible {
   background: #ffffff00;
-  border-color: #000000;
+  border-color: var(--button-border);
   border-width: 0caps 0.3px;
   transform: translateY(-1px);
 }
@@ -124,7 +124,7 @@
 .action-bubble:hover .action-icon,
 .action-bubble:focus-visible .action-icon {
   color: var(--interaction-color);
-  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 1, 'wght' 200, 'GRAD' 0, 'opsz' 24;
 }
 
 .nested-panel {
@@ -155,7 +155,7 @@
 .material-chip {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--interaction-color);
+  color: var(--button-border);
   border-radius: 8px;
   padding: 4px;
   font-size: 1rem;
@@ -172,7 +172,7 @@
 .public-button {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--interaction-color);
+  color: var(--button-border);
   border-radius: 2px;
   padding: 4px;
   font-size: 1rem;
@@ -197,8 +197,8 @@
 
 .material-chip.is-active .material-thumb,
 .material-bubble .material-thumb {
-  border-color: #ffffff;
-  box-shadow: 0 0 0 2px #ffffff75, inset 0 1px 0 #ffffffb3;
+  border-color: var(--button-border);
+  box-shadow: 0 0 0 2px var(--interaction-color), inset 0 1px 0 var(--interaction-color);
 }
 
 .material-thumb--painted {
@@ -236,7 +236,7 @@
 .public-button {
   width: 100%;
   font-size: 0.85rem;
-  border: 1px solid #ffffff8a;
+  border: 1px solid var(--button-border);
   background: #ffffff1c;
   padding: 7px 8px;
 }
@@ -247,14 +247,14 @@
 }
 
 .public-button.is-active {
-  border-color: #ffffff;
-  background: #ffffff45;
+  border-color: var(--interaction-color);
+  background: #ffffff13;
 }
 
 .material-chip:hover .material-thumb,
 .action-bubble:hover .material-thumb,
 .public-button:hover {
-  background: #ffffff52;
+  background: #ffffff15;
 }
 
 @media (max-width: 640px) {

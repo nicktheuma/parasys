@@ -201,6 +201,10 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     dividers: { value: 1, min: 0, max: 4, step: 1 },  // ((get) => get('width')
     edgeOffset: { value: 0.05, min: 0, max: 0.2, step: 0.01 },
     slotOffset: { value: 0.01, min: 0.015, max: 0.15, step: 0.001 },
+    bevelEnabled: { value: false },
+    bevelSize: { value: 0.0002, min: 0, max: 0.0008, step: 0.00001, render: get => get('bevelEnabled') },
+    bevelThickness: { value: 0.0002, min: 0, max: 0.0008, step: 0.00001, render: get => get('bevelEnabled') },
+    bevelSegments: { value: 2, min: 1, max: 8, step: 1, render: get => get('bevelEnabled') },
     activeMaterialKey: { value: selectedMaterialKey || 'Painted', options: ['Painted', 'Brushed', 'Chrome', 'MATCAP', 'Wireframe', 'UVDebug'], render: () => false },
     material: { value: mat_PaintedMetal, options: { Brushed: mat_Brushed, Chrome: mat_Chrome, Painted: mat_PaintedMetal, MATCAP: mat_MATCAP, Wireframe: mat_Wireframe, UVDebug: mat_UVDebug } },
     paintedMetal_Colour: { value: '#526982' },
@@ -312,7 +316,7 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
     setControls(DEFAULT_MATERIAL_DEV_SETTINGS)
   }, [materialResetNonce, setControls])
 
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, ui3dDimsScaleMin, ui3dDimsScaleMax, ui3dButtonsScaleMin, ui3dButtonsScaleMax, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
+  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, bevelEnabled, bevelSize, bevelThickness, bevelSegments, material, showProps, showDims, showDevTools, paintedMetal_Colour, x1, x2, y1, y2, lightPos, lightTarget, intensity, mapSize, near, far, ui3dDimsScaleMin, ui3dDimsScaleMax, ui3dButtonsScaleMin, ui3dButtonsScaleMax, contactShadowPos, wallSize, idleDelaySeconds, idleRotateSpeed, idleRampSeconds } = controls
   const furnitureUiScale = useMemo(() => {
     const maxFurnitureDimension = Math.max(width, height, depth)
     return THREE.MathUtils.clamp(maxFurnitureDimension / 0.55, 0.75, 2.2)
@@ -345,9 +349,14 @@ export function Experience({ onInitialObjectVisible = () => {}, selectedMaterial
   const panelMeshes = useMemo(() => (
     panelSpecs.map((panelSpec) => ({
       panelSpec,
-      ...createExtrudedPanelGeometry(panelSpec),
+      ...createExtrudedPanelGeometry(panelSpec, {
+        enabled: bevelEnabled,
+        size: bevelSize,
+        thickness: bevelThickness,
+        segments: bevelSegments,
+      }),
     }))
-  ), [panelSpecs])
+  ), [panelSpecs, bevelEnabled, bevelSize, bevelThickness, bevelSegments])
 
   const panelLayoutMetrics = useMemo(() => {
     if (panelSpecs.length === 0) {

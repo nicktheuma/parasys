@@ -20,10 +20,10 @@ function useCssColors(defaultDim = '#d0d0d0', defaultHover = '#0800ff') {
 function useStepButtonSizing(
   defaultRadius = 0.003,
   defaultFontSize = 0.003,
-  defaultOutlineWidth = 0.0004,
-  defaultOutlineOpacityIdle = 0.1,
+  defaultOutlineWidth = 0.0006,
+  defaultOutlineOpacityIdle = 1,
   defaultOutlineOpacityHover = 1,
-  defaultFillOpacityIdle = 0.1,
+  defaultFillOpacityIdle = 1,
   defaultFillOpacityHover = 1,
 ) {
   const [radius, setRadius] = useState(defaultRadius)
