@@ -110,6 +110,8 @@ export type DimLimits = {
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
 export type ConfiguratorSettingsRow = {
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+  /** Public configurator opens with this material selected when valid and in the material list */
+  defaultMaterialId?: string | null
   dimLimits?: DimLimits | null
   paramGraph?: ParamGraphSettings | null
   templateParams?: Record<string, TemplateParametricPreset> | null

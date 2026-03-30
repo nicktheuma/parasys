@@ -98,6 +98,14 @@ export function normalizeSettings(
     }
   }
 
+  const dmid = input.defaultMaterialId
+  if (dmid === null) {
+    out.defaultMaterialId = null
+  } else if (typeof dmid === 'string') {
+    const t = dmid.trim()
+    if (t.length > 0) out.defaultMaterialId = t
+  }
+
   if (input.paramGraph !== undefined) out.paramGraph = validateParamGraph(input.paramGraph)
 
   const dl = input.dimLimits

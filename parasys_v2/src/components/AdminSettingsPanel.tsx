@@ -15,6 +15,7 @@ import type {
 } from '@shared/types'
 import type { BlendMode, MaterialShaderLayer, MaterialShaderSpec, NoiseType } from '@/lib/materialShader'
 import { ColorSwatchInput } from './ColorSwatchInput'
+import { AdminTabDimsIcon, AdminTabMaterialsIcon, AdminTabParamsIcon, AdminTabUvIcon } from './icons'
 import { FACE_GROUPS } from '@shared/types'
 import styles from './adminSettingsPanel.module.css'
 
@@ -108,12 +109,14 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     paramLimits,
     uvMappings,
     materialId,
+    defaultMaterialId,
     materials,
     materialSpec: storeMatSpec,
     setDim,
     setTemplateParam,
     setUvMapping,
     setMaterialId,
+    setDefaultMaterialId,
     setMaterialSpec,
   } = useConfiguratorStore()
 
@@ -212,6 +215,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           settings: {
             defaultDims: { widthMm, depthMm, heightMm },
+            defaultMaterialId,
             dimLimits: localDimLimits,
             templateParams: { [templateKey]: merged },
             paramLimits: { [templateKey]: localLimits },
@@ -515,6 +519,14 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         {tab === 'materials' ? (
           <div className={styles.tabContent}>
             <p className={styles.sectionTitle}>Materials for this configurator</p>
+            <p className={styles.hint}>
+              The material marked default is selected when visitors open this configurator.
+              {defaultMaterialId ? (
+                <button type="button" className={styles.clearDefaultBtn} onClick={() => setDefaultMaterialId(null)}>
+                  Clear default
+                </button>
+              ) : null}
+            </p>
             {matLoading ? <p className={styles.hint}>Loading...</p> : null}
 
             {/* Inline material editor */}
@@ -676,6 +688,15 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                       {!mat.enabled ? <span className={styles.matBadge}>Hidden</span> : null}
                     </div>
                     <div className={styles.matCardActions}>
+                      <label className={styles.defaultMatRow} title="Default for new visitors">
+                        <input
+                          type="radio"
+                          name="defaultMaterial"
+                          checked={defaultMaterialId === mat.id}
+                          onChange={() => setDefaultMaterialId(mat.id)}
+                        />
+                        <span>Default</span>
+                      </label>
                       <button type="button" className={styles.toggleLimits} onClick={() => void toggleMatEnabled(mat)}>
                         {mat.enabled ? 'Disable' : 'Enable'}
                       </button>
@@ -836,21 +857,25 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         </form>
 
         <div className={styles.tabsRail} role="tablist" aria-label="Admin panel sections">
-          {([
-            ['dimensions', 'Dimensions'],
-            ['parameters', 'Parameters'],
-            ['materials', 'Materials'],
-            ['uv', 'UV mapping'],
-          ] as const).map(([t, label]) => (
+          {(
+            [
+              ['dimensions', 'Dimensions', AdminTabDimsIcon] as const,
+              ['parameters', 'Parameters', AdminTabParamsIcon] as const,
+              ['materials', 'Materials', AdminTabMaterialsIcon] as const,
+              ['uv', 'UV mapping', AdminTabUvIcon] as const,
+            ] as const
+          ).map(([t, label, Icon]) => (
             <button
               key={t}
               type="button"
               role="tab"
+              aria-label={label}
+              title={label}
               aria-selected={tab === t}
               className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
               onClick={() => setTab(t)}
             >
-              {label}
+              <Icon size={18} />
             </button>
           ))}
         </div>

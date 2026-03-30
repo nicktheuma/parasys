@@ -25,6 +25,7 @@ export type ConfiguratorStore = {
   templateKey: string
   materials: PublicMat[]
   materialId: string | null
+  defaultMaterialId: string | null
   widthMm: number
   depthMm: number
   heightMm: number
@@ -41,6 +42,7 @@ export type ConfiguratorStore = {
 
   setDim: (axis: 'width' | 'depth' | 'height', value: number) => void
   setMaterialId: (id: string | null) => void
+  setDefaultMaterialId: (id: string | null) => void
   setMaterialSpec: (spec: MaterialShaderSpec) => void
   setTemplateParam: (key: string, preset: TemplateParametricPreset) => void
   setUvMapping: (surfaceKind: string, materialId: string, faceGroup: FaceGroup, mapping: SurfaceUvMapping) => void
@@ -52,6 +54,7 @@ export type ConfiguratorStore = {
     materials: PublicMat[]
     settings: {
       defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+      defaultMaterialId?: string | null
       dimLimits?: DimLimits | null
       paramGraph?: ParamGraphSettings | null
       templateParams?: Record<string, TemplateParametricPreset> | null
@@ -84,6 +87,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   templateKey: 'tv_console',
   materials: [],
   materialId: null,
+  defaultMaterialId: null,
   widthMm: DIM_MM.width.default,
   depthMm: DIM_MM.depth.default,
   heightMm: DIM_MM.height.default,
@@ -115,6 +119,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     }))
   },
 
+  setDefaultMaterialId(id) {
+    set({ defaultMaterialId: id })
+  },
+
   setMaterialSpec(spec) {
     set({ materialSpec: spec })
   },
@@ -144,7 +152,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
 
   loadConfigurator(data) {
     const mats = data.materials ?? []
-    const mid = mats[0]?.id ?? null
+    const rawPreferred = data.settings?.defaultMaterialId ?? null
+    const preferred =
+      rawPreferred && mats.some((m) => m.id === rawPreferred) ? rawPreferred : null
+    const mid = preferred ?? mats[0]?.id ?? null
     const d = data.settings?.defaultDims
     const w = clampDimMm('width', d?.widthMm ?? DIM_MM.width.default)
     const dp = clampDimMm('depth', d?.depthMm ?? DIM_MM.depth.default)
@@ -155,6 +166,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       productName: data.name,
       templateKey: data.templateKey || 'tv_console',
       materials: mats,
+      defaultMaterialId: preferred,
       materialId: mid,
       widthMm: w,
       depthMm: dp,

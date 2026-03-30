@@ -207,6 +207,10 @@ export async function updateConfigurator(
                 ...patch.settings.defaultDims,
               }
             : prev?.defaultDims,
+        defaultMaterialId:
+          patch.settings.defaultMaterialId !== undefined
+            ? patch.settings.defaultMaterialId
+            : prev?.defaultMaterialId,
         paramGraph:
           patch.settings.paramGraph !== undefined ? patch.settings.paramGraph : prev?.paramGraph,
         templateParams:

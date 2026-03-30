@@ -55,6 +55,7 @@ export function ConfiguratorPublic() {
           templateKey: string
           settings: {
             defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+            defaultMaterialId?: string | null
             dimLimits?: DimLimits | null
             paramGraph?: ParamGraphSettings | null
             templateParams?: Record<string, TemplateParametricPreset> | null

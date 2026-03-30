@@ -1,11 +1,10 @@
 import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls, Stage } from '@react-three/drei'
+import { Environment, OrbitControls } from '@react-three/drei'
 import { Suspense } from 'react'
 import * as THREE from 'three'
-import { TemplateProduct } from '@/features/configurator/TemplateProduct'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { CanvasErrorBoundary } from './CanvasErrorBoundary'
-import { DimensionsOverlay3D } from './DimensionsOverlay3D'
+import { ConfiguratorStageContent } from './ConfiguratorStageContent'
 import styles from '@/routes/configuratorPublic.module.css'
 
 export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
@@ -24,35 +23,18 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
         camera={{ position: [0.35, 0.2, 0.35], near: 0.002, far: 10 }}
       >
         <Suspense fallback={null}>
-          <Stage
-            key={stageKey}
-            intensity={1.2}
-            preset="rembrandt"
-            shadows={{
-              type: 'contact',
-              color: 'black',
-              blur: 2.5,
-              opacity: 0.22,
-              offset: 0,
-              bias: -0.0001,
-              normalBias: 0,
-              size: 2048,
-            }}
-            adjustCamera={adminMode ? false : 1.1}
-            environment={null}
-          >
-            <TemplateProduct
-              templateKey={templateKey}
-              widthMm={driven.widthMm}
-              depthMm={driven.depthMm}
-              heightMm={driven.heightMm}
-              materialSpec={materialSpec}
-              materialId={materialId}
-              templateParamOverrides={templateParamOverrides}
-              uvMappings={uvMappings}
-            />
-            <DimensionsOverlay3D />
-          </Stage>
+          <ConfiguratorStageContent
+            stageKey={stageKey}
+            adminMode={adminMode}
+            templateKey={templateKey}
+            widthMm={driven.widthMm}
+            depthMm={driven.depthMm}
+            heightMm={driven.heightMm}
+            materialSpec={materialSpec}
+            materialId={materialId}
+            templateParamOverrides={templateParamOverrides}
+            uvMappings={uvMappings}
+          />
 
           {/* Three-point studio lighting */}
           <directionalLight
