@@ -36,6 +36,7 @@ export function ConfiguratorThumbnail({ templateKey, defaultDims }: Props) {
             widthMm={w}
             depthMm={d}
             heightMm={h}
+            materialId={null}
             materialSpec={matSpec}
           />
         </Stage>

@@ -1,10 +1,23 @@
 import { create } from 'zustand'
-import type { MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type { FaceGroup, MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import { FACE_GROUPS } from '@shared/types'
 import { clampDimMm, DIM_MM } from '@/lib/configuratorDimensions'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
 import { resolveGraphDrivenDims } from '@/lib/paramGraphEval'
 
 type DrivenDims = ReturnType<typeof resolveGraphDrivenDims>
+
+function uvKey(surfaceKind: string, materialId: string, faceGroup: FaceGroup): string {
+  return `${surfaceKind}|${materialId}|${faceGroup}`
+}
+
+export function getUvFaceMappings(
+  uvMappings: Record<string, SurfaceUvMapping> | null,
+  surfaceKind: string,
+  materialId: string,
+): SurfaceUvMapping[] {
+  return FACE_GROUPS.map((fg) => uvMappings?.[uvKey(surfaceKind, materialId, fg)] ?? {})
+}
 
 export type ConfiguratorStore = {
   configuratorId: string | null
@@ -28,7 +41,7 @@ export type ConfiguratorStore = {
   setDim: (axis: 'width' | 'depth' | 'height', value: number) => void
   setMaterialId: (id: string | null) => void
   setTemplateParam: (key: string, preset: TemplateParametricPreset) => void
-  setUvMapping: (surfaceKey: string, mapping: SurfaceUvMapping) => void
+  setUvMapping: (surfaceKind: string, materialId: string, faceGroup: FaceGroup, mapping: SurfaceUvMapping) => void
   toggleDimensions: () => void
   loadConfigurator: (data: {
     id: string
@@ -107,11 +120,12 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     }))
   },
 
-  setUvMapping(surfaceKey, mapping) {
+  setUvMapping(surfaceKind, materialId, faceGroup, mapping) {
+    const k = uvKey(surfaceKind, materialId, faceGroup)
     set((s) => ({
       uvMappings: {
         ...(s.uvMappings ?? {}),
-        [surfaceKey]: { ...(s.uvMappings?.[surfaceKey] ?? {}), ...mapping },
+        [k]: { ...(s.uvMappings?.[k] ?? {}), ...mapping },
       },
     }))
   },

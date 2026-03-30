@@ -132,7 +132,7 @@ export function ConfiguratorPublic() {
         </p>
       ) : null}
 
-      <ConfiguratorCanvas />
+      <ConfiguratorCanvas adminMode={showAdminPanel} />
 
       <footer className={styles.footer}>
         <p className={styles.hint}>

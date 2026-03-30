@@ -10,11 +10,11 @@ import styles from '@/routes/configuratorPublic.module.css'
 
 const CONTACT_SHADOW_POS: [number, number, number] = [0.086, -0.15, 0]
 
-export function ConfiguratorCanvas() {
+export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
   const { templateKey, driven, materialSpec, materialId, templateParamOverrides, uvMappings } =
     useConfiguratorStore()
 
-  const stageKey = `${templateKey}-${materialId ?? 'none'}`
+  const stageKey = adminMode ? templateKey : `${templateKey}-${materialId ?? 'none'}`
 
   return (
     <div className={styles.canvasWrap}>
@@ -40,7 +40,7 @@ export function ConfiguratorCanvas() {
               normalBias: 0,
               size: 2048,
             }}
-            adjustCamera={1.1}
+            adjustCamera={adminMode ? false : 1.1}
             environment={null}
           >
             <TemplateProduct
@@ -49,6 +49,7 @@ export function ConfiguratorCanvas() {
               depthMm={driven.depthMm}
               heightMm={driven.heightMm}
               materialSpec={materialSpec}
+              materialId={materialId}
               templateParamOverrides={templateParamOverrides}
               uvMappings={uvMappings}
             />

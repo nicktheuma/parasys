@@ -1,10 +1,11 @@
-import { type FormEvent, useCallback, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import { DIM_MM } from '@/lib/configuratorDimensions'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { getTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
-import type { TemplateParametricPreset, TemplateParamLimits, ParamRange, SurfaceUvMapping } from '@shared/types'
+import type { TemplateParametricPreset, TemplateParamLimits, ParamRange, SurfaceUvMapping, FaceGroup } from '@shared/types'
+import { FACE_GROUPS } from '@shared/types'
 import styles from './adminSettingsPanel.module.css'
 
 type NumericParamKey = Exclude<keyof TemplateParametricPreset, 'interlockEnabled'>
@@ -22,17 +23,19 @@ function limitKey(k: NumericParamKey): keyof TemplateParamLimits {
   return k as keyof TemplateParamLimits
 }
 
-function computeSurfaceKeys(dividers: number, shelves: number): { id: string; label: string }[] {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const keys: { id: string; label: string }[] = []
-  keys.push({ id: `back-${pad(0)}`, label: 'Back panel' })
-  for (let i = 0; i < dividers + 2; i++) {
-    keys.push({ id: `vertical-${pad(i)}`, label: `Vertical ${i + 1}` })
-  }
-  for (let i = 0; i < shelves; i++) {
-    keys.push({ id: `shelf-${pad(i)}`, label: `Shelf ${i + 1}` })
-  }
-  return keys
+const SURFACE_KINDS: { value: string; label: string }[] = [
+  { value: 'back', label: 'Back panel' },
+  { value: 'vertical', label: 'Vertical dividers' },
+  { value: 'shelf', label: 'Shelves' },
+]
+
+const FACE_LABELS: Record<FaceGroup, string> = {
+  front: 'Front (+Z)',
+  back: 'Back (-Z)',
+  right: 'Right (+X)',
+  left: 'Left (-X)',
+  top: 'Top (+Y)',
+  bottom: 'Bottom (-Y)',
 }
 
 const UV_FIELDS: { key: keyof SurfaceUvMapping; label: string; min: number; max: number; step: number; fallback: number }[] = [
@@ -42,6 +45,10 @@ const UV_FIELDS: { key: keyof SurfaceUvMapping; label: string; min: number; max:
   { key: 'offsetY', label: 'Offset Y', min: -10, max: 10, step: 0.01, fallback: 0 },
   { key: 'rotation', label: 'Rotation', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
 ]
+
+function uvCompoundKey(surfaceKind: string, materialId: string, faceGroup: FaceGroup): string {
+  return `${surfaceKind}|${materialId}|${faceGroup}`
+}
 
 export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
@@ -54,6 +61,8 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     templateParamOverrides,
     paramLimits,
     uvMappings,
+    materialId,
+    materials,
     setDim,
     setTemplateParam,
     setUvMapping,
@@ -64,17 +73,16 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const merged: TemplateParametricPreset = { ...defaults, ...overrides }
   const limits: TemplateParamLimits = paramLimits?.[templateKey] ?? {}
 
-  const surfaceKeys = useMemo(
-    () => computeSurfaceKeys(merged.dividers ?? 2, merged.shelves ?? 2),
-    [merged.dividers, merged.shelves],
-  )
+  const currentMat = materials.find((m) => m.id === materialId)
+  const currentMatLabel = currentMat ? currentMat.name : 'No material'
 
   const [localLimits, setLocalLimits] = useState<TemplateParamLimits>(limits)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [showLimits, setShowLimits] = useState(false)
   const [showUv, setShowUv] = useState(false)
-  const [expandedUv, setExpandedUv] = useState<string | null>(null)
+  const [uvSurfaceKind, setUvSurfaceKind] = useState('back')
+  const [expandedFace, setExpandedFace] = useState<FaceGroup | null>(null)
 
   const setParam = useCallback(
     (key: NumericParamKey, value: number | undefined) => {
@@ -98,8 +106,9 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setLocalLimits({ ...localLimits, [lk]: next })
   }
 
-  function onUvChange(surfaceId: string, field: keyof SurfaceUvMapping, raw: number) {
-    setUvMapping(surfaceId, { [field]: raw })
+  function onUvFaceChange(faceGroup: FaceGroup, field: keyof SurfaceUvMapping, value: number) {
+    if (!materialId) return
+    setUvMapping(uvSurfaceKind, materialId, faceGroup, { [field]: value })
   }
 
   async function onSave(e: FormEvent) {
@@ -260,17 +269,38 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
         {showUv ? (
           <div className={styles.uvSection}>
-            {surfaceKeys.map(({ id, label }) => {
-              const isOpen = expandedUv === id
-              const current = uvMappings?.[id]
+            <p className={styles.uvHint}>
+              Material: <strong>{currentMatLabel}</strong>
+            </p>
+
+            <label className={styles.uvKindRow}>
+              <span className={styles.dimLabel}>Surface</span>
+              <select
+                className={styles.uvKindSelect}
+                value={uvSurfaceKind}
+                onChange={(e) => {
+                  setUvSurfaceKind(e.target.value)
+                  setExpandedFace(null)
+                }}
+              >
+                {SURFACE_KINDS.map((sk) => (
+                  <option key={sk.value} value={sk.value}>{sk.label}</option>
+                ))}
+              </select>
+            </label>
+
+            {FACE_GROUPS.map((fg) => {
+              const isOpen = expandedFace === fg
+              const key = materialId ? uvCompoundKey(uvSurfaceKind, materialId, fg) : null
+              const current = key ? uvMappings?.[key] : undefined
               return (
-                <div key={id} className={styles.uvSurface}>
+                <div key={fg} className={styles.uvSurface}>
                   <button
                     type="button"
                     className={styles.uvSurfaceHead}
-                    onClick={() => setExpandedUv(isOpen ? null : id)}
+                    onClick={() => setExpandedFace(isOpen ? null : fg)}
                   >
-                    <span>{label}</span>
+                    <span>{FACE_LABELS[fg]}</span>
                     <span className={styles.uvToggle}>{isOpen ? '\u25B2' : '\u25BC'}</span>
                   </button>
                   {isOpen ? (
@@ -287,7 +317,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                               max={f.max}
                               step={f.step}
                               value={val}
-                              onChange={(e) => onUvChange(id, f.key, Number(e.target.value))}
+                              onChange={(e) => onUvFaceChange(fg, f.key, Number(e.target.value))}
                             />
                             <input
                               type="number"
@@ -296,7 +326,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                               max={f.max}
                               step={f.step}
                               value={val}
-                              onChange={(e) => onUvChange(id, f.key, Number(e.target.value))}
+                              onChange={(e) => onUvFaceChange(fg, f.key, Number(e.target.value))}
                             />
                           </label>
                         )
@@ -330,7 +360,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
       </form>
 
       <p className={styles.hint}>
-        All changes update the 3D preview live. Click &ldquo;Save as defaults&rdquo; to persist.
+        UV settings are per-material and per-surface kind. Select a material in the configurator first.
         Press <kbd>P</kbd> to toggle this panel.
       </p>
     </div>

@@ -163,6 +163,7 @@ export const createExtrudedPanelGeometry = (
   const bounds = geometry.boundingBox
   if (positions && normals && bounds) {
     const uv = new Float32Array(positions.count * 2)
+    const faceGroup = new Float32Array(positions.count)
     const minX = bounds.min.x
     const minY = bounds.min.y
     const minZ = bounds.min.z
@@ -170,9 +171,12 @@ export const createExtrudedPanelGeometry = (
       const x = positions.getX(i)
       const y = positions.getY(i)
       const z = positions.getZ(i)
-      const nx = Math.abs(normals.getX(i))
-      const ny = Math.abs(normals.getY(i))
-      const nz = Math.abs(normals.getZ(i))
+      const rnx = normals.getX(i)
+      const rny = normals.getY(i)
+      const rnz = normals.getZ(i)
+      const nx = Math.abs(rnx)
+      const ny = Math.abs(rny)
+      const nz = Math.abs(rnz)
       let u = 0
       let v = 0
       if (nz > 0.9) {
@@ -187,8 +191,18 @@ export const createExtrudedPanelGeometry = (
       }
       uv[i * 2] = u
       uv[i * 2 + 1] = v
+
+      // Face group: 0=front(+Z) 1=back(-Z) 2=right(+X) 3=left(-X) 4=top(+Y) 5=bottom(-Y)
+      if (nz > nx && nz > ny) {
+        faceGroup[i] = rnz > 0 ? 0 : 1
+      } else if (nx > ny) {
+        faceGroup[i] = rnx > 0 ? 2 : 3
+      } else {
+        faceGroup[i] = rny > 0 ? 4 : 5
+      }
     }
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    geometry.setAttribute('aFaceGroup', new THREE.Float32BufferAttribute(faceGroup, 1))
     geometry.attributes.uv.needsUpdate = true
   }
 

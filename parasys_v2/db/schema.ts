@@ -83,6 +83,10 @@ export type TemplateParamLimits = {
   interlockLengthFactor?: ParamRange
 }
 
+export type FaceGroup = 'front' | 'back' | 'right' | 'left' | 'top' | 'bottom'
+
+export const FACE_GROUPS: FaceGroup[] = ['front', 'back', 'right', 'left', 'top', 'bottom']
+
 export type SurfaceUvMapping = {
   scaleX?: number
   scaleY?: number

@@ -8,6 +8,7 @@ type Props = {
   depthMm: number
   heightMm: number
   materialSpec: MaterialShaderSpec
+  materialId: string | null
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
 }
@@ -18,6 +19,7 @@ export function TemplateProduct({
   depthMm,
   heightMm,
   materialSpec,
+  materialId,
   templateParamOverrides,
   uvMappings,
 }: Props) {
@@ -31,6 +33,7 @@ export function TemplateProduct({
       hm={hm}
       dm={dm}
       materialSpec={materialSpec}
+      materialId={materialId}
       templateParamOverrides={templateParamOverrides}
       uvMappings={uvMappings}
       templateKey={templateKey}

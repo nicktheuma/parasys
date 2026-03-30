@@ -106,21 +106,29 @@ function colorBlock(i: number): string {
 }
 
 const uvTransformGlsl = /* glsl */ `
-vec3 _lsm_uvTransform(vec3 p) {
-  float c = cos(uUvRotation);
-  float s = sin(uUvRotation);
+vec3 _lsm_uvTransform(vec3 p, int fi) {
+  vec2 sc; vec2 off; float rot;
+  if (fi == 1) { sc = uUvScale[1]; off = uUvOff[1]; rot = uUvRot[1]; }
+  else if (fi == 2) { sc = uUvScale[2]; off = uUvOff[2]; rot = uUvRot[2]; }
+  else if (fi == 3) { sc = uUvScale[3]; off = uUvOff[3]; rot = uUvRot[3]; }
+  else if (fi == 4) { sc = uUvScale[4]; off = uUvOff[4]; rot = uUvRot[4]; }
+  else if (fi == 5) { sc = uUvScale[5]; off = uUvOff[5]; rot = uUvRot[5]; }
+  else { sc = uUvScale[0]; off = uUvOff[0]; rot = uUvRot[0]; }
+  float c = cos(rot);
+  float s = sin(rot);
   vec3 q = p;
   float rx = c * q.x - s * q.z;
   float rz = s * q.x + c * q.z;
-  q.x = rx * uUvScaleX + uUvOffsetX;
-  q.z = rz * uUvScaleY + uUvOffsetY;
+  q.x = rx * sc.x + off.x;
+  q.z = rz * sc.y + off.y;
   return q;
 }
 `
 
 const colorApplication = /* glsl */ `
 {
-  vec3 wp = _lsm_uvTransform(vWorldPosition);
+  int _fg = int(vFaceGroup + 0.5);
+  vec3 wp = _lsm_uvTransform(vWorldPosition, _fg);
   vec3 albedo = diffuseColor.rgb;
   float rough = roughnessFactor;
   float metal = metalnessFactor;
@@ -151,7 +159,8 @@ function normalBlock(i: number): string {
 
 const normalApplication = /* glsl */ `
 {
-  vec3 nwp = _lsm_uvTransform(vWorldPosition);
+  int _nfg = int(vFaceGroup + 0.5);
+  vec3 nwp = _lsm_uvTransform(vWorldPosition, _nfg);
 ${normalBlock(0)}
 ${normalBlock(1)}
 ${normalBlock(2)}
@@ -192,15 +201,15 @@ const blendToInt = (t: string) => (t === 'multiply' ? 1 : t === 'overlay' ? 2 : 
 
 type Uniforms = Record<string, THREE.IUniform>
 
+const IDENTITY_FACE_MAPPINGS: SurfaceUvMapping[] = Array.from({ length: 6 }, () => ({}))
+
 function buildUniforms(): Uniforms {
   const u: Uniforms = {
     uLayerCount: { value: 0 },
     uAoFactor: { value: 1.0 },
-    uUvScaleX: { value: 1.0 },
-    uUvScaleY: { value: 1.0 },
-    uUvOffsetX: { value: 0.0 },
-    uUvOffsetY: { value: 0.0 },
-    uUvRotation: { value: 0.0 },
+    uUvScale: { value: Array.from({ length: 6 }, () => new THREE.Vector2(1, 1)) },
+    uUvOff: { value: Array.from({ length: 6 }, () => new THREE.Vector2(0, 0)) },
+    uUvRot: { value: new Float32Array(6) },
   }
   for (let i = 0; i < 3; i++) {
     const L = `uL${i}`
@@ -236,7 +245,16 @@ function createMaterial(): THREE.MeshPhysicalMaterial {
     // --- Vertex shader ---
     shader.vertexShader = shader.vertexShader.replace(
       'void main() {',
-      `varying vec3 vWorldPosition;\n${layerUniforms}\n${noiseGlsl}\nvoid main() {`,
+      `varying vec3 vWorldPosition;
+attribute float aFaceGroup;
+varying float vFaceGroup;
+${layerUniforms}
+${noiseGlsl}
+void main() {`,
+    )
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>\nvFaceGroup = aFaceGroup;`,
     )
     shader.vertexShader = shader.vertexShader.replace(
       '#include <displacementmap_vertex>',
@@ -251,11 +269,10 @@ function createMaterial(): THREE.MeshPhysicalMaterial {
     shader.fragmentShader = shader.fragmentShader.replace(
       'void main() {',
       `varying vec3 vWorldPosition;
-uniform float uUvScaleX;
-uniform float uUvScaleY;
-uniform float uUvOffsetX;
-uniform float uUvOffsetY;
-uniform float uUvRotation;
+varying float vFaceGroup;
+uniform vec2 uUvScale[6];
+uniform vec2 uUvOff[6];
+uniform float uUvRot[6];
 ${layerUniforms}
 ${noiseGlsl}
 ${uvTransformGlsl}
@@ -273,7 +290,7 @@ void main() {`,
     )
   }
 
-  mat.customProgramCacheKey = () => 'lsm-v4'
+  mat.customProgramCacheKey = () => 'lsm-v5'
 
   return mat
 }
@@ -326,20 +343,31 @@ function applySpec(mat: THREE.MeshPhysicalMaterial, spec: MaterialShaderSpec) {
   mat.needsUpdate = true
 }
 
-export function LayeredShaderMaterial({ spec, uvMapping }: { spec: MaterialShaderSpec; uvMapping?: SurfaceUvMapping }) {
+export function LayeredShaderMaterial({
+  spec,
+  uvFaceMappings,
+}: {
+  spec: MaterialShaderSpec
+  uvFaceMappings?: SurfaceUvMapping[]
+}) {
   const mat = useMemo(() => createMaterial(), [])
 
   useLayoutEffect(() => {
     applySpec(mat, spec)
     const u = (mat as unknown as { _lsmUniforms: Uniforms })._lsmUniforms
     if (u) {
-      u.uUvScaleX.value = uvMapping?.scaleX ?? 1
-      u.uUvScaleY.value = uvMapping?.scaleY ?? 1
-      u.uUvOffsetX.value = uvMapping?.offsetX ?? 0
-      u.uUvOffsetY.value = uvMapping?.offsetY ?? 0
-      u.uUvRotation.value = uvMapping?.rotation ?? 0
+      const maps = uvFaceMappings ?? IDENTITY_FACE_MAPPINGS
+      const scaleArr = u.uUvScale.value as THREE.Vector2[]
+      const offArr = u.uUvOff.value as THREE.Vector2[]
+      const rotArr = u.uUvRot.value as Float32Array
+      for (let i = 0; i < 6; i++) {
+        const m = maps[i] ?? {}
+        scaleArr[i].set(m.scaleX ?? 1, m.scaleY ?? 1)
+        offArr[i].set(m.offsetX ?? 0, m.offsetY ?? 0)
+        rotArr[i] = m.rotation ?? 0
+      }
     }
-  }, [mat, spec, uvMapping])
+  }, [mat, spec, uvFaceMappings])
 
   useLayoutEffect(() => {
     return () => { mat.dispose() }

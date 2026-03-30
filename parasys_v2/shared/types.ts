@@ -1,5 +1,7 @@
 import type { MaterialShaderSpec } from '../db/schema'
 
+export { FACE_GROUPS } from '../db/schema'
+
 export type {
   BlendMode,
   ConfiguratorSettingsRow,
@@ -13,6 +15,7 @@ export type {
   ParamGraphNodeType,
   ParamGraphSettings,
   ParamRange,
+  FaceGroup,
   SurfaceUvMapping,
   TemplateParametricPreset,
   TemplateParamLimits,
