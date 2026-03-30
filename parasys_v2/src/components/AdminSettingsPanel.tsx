@@ -339,27 +339,8 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-      <div className={styles.tabs} role="tablist">
-        {([
-          ['dimensions', 'Dimensions'],
-          ['parameters', 'Parameters'],
-          ['materials', 'Materials'],
-          ['uv', 'UV Mapping'],
-        ] as const).map(([t, label]) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <form className={styles.form} onSubmit={onSave}>
+      <div className={styles.panelBody}>
+        <form className={styles.form} onSubmit={onSave}>
         {/* ── DIMENSIONS TAB ── */}
         {tab === 'dimensions' ? (
           <div className={styles.tabContent}>
@@ -852,7 +833,28 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             {saveMsg}
           </p>
         ) : null}
-      </form>
+        </form>
+
+        <div className={styles.tabsRail} role="tablist" aria-label="Admin panel sections">
+          {([
+            ['dimensions', 'Dimensions'],
+            ['parameters', 'Parameters'],
+            ['materials', 'Materials'],
+            ['uv', 'UV mapping'],
+          ] as const).map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <p className={styles.hint}>
         Press <kbd>P</kbd> to toggle this panel.

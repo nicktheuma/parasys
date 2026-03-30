@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { ContactShadows, Environment, OrbitControls, Stage } from '@react-three/drei'
+import { Environment, OrbitControls, Stage } from '@react-three/drei'
 import { Suspense } from 'react'
 import * as THREE from 'three'
 import { TemplateProduct } from '@/features/configurator/TemplateProduct'
@@ -8,8 +8,6 @@ import { CanvasErrorBoundary } from './CanvasErrorBoundary'
 import { DimensionsOverlay3D } from './DimensionsOverlay3D'
 import styles from '@/routes/configuratorPublic.module.css'
 
-const CONTACT_SHADOW_POS: [number, number, number] = [0, -0.001, 0]
-
 export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
   const { templateKey, driven, materialSpec, materialId, templateParamOverrides, uvMappings } =
     useConfiguratorStore()
@@ -17,7 +15,7 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
   const stageKey = adminMode ? templateKey : `${templateKey}-${materialId ?? 'none'}`
 
   return (
-    <div className={styles.canvasWrap}>
+    <div className={`${styles.canvasWrap} ${adminMode ? styles.canvasWrapAdmin : ''}`}>
       <CanvasErrorBoundary>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
@@ -34,7 +32,7 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
               type: 'contact',
               color: 'black',
               blur: 2.5,
-              opacity: 1,
+              opacity: 0.22,
               offset: 0,
               bias: -0.0001,
               normalBias: 0,
@@ -76,14 +74,6 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
             position={[0, 3, -3]}
             intensity={0.8}
             color="#ffffff"
-          />
-
-          <ContactShadows
-            position={CONTACT_SHADOW_POS}
-            opacity={0.2}
-            scale={1}
-            blur={3}
-            far={10}
           />
 
           <Environment
