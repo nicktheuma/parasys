@@ -1,0 +1,15 @@
+.wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: min(280px, 42vw);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}

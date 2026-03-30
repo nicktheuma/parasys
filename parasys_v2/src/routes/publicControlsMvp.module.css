@@ -1,0 +1,114 @@
+.publicControls {
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: min(92vw, 580px);
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.primaryActions {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: center;
+  gap: 12px;
+}
+
+.actionBubble {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.actionBubble:hover {
+  border-color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.actionBubbleIcon {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.nestedPanel {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.materialCarousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(76px, auto);
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.optionGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 260px);
+  margin: 0 auto;
+}
+
+.materialChip {
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 76px;
+}
+
+.isActive {
+  border-color: var(--accent);
+}
+
+.materialThumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.materialLabel {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.publicButton {
+  width: 100%;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+.publicButton:hover {
+  border-color: var(--text);
+}

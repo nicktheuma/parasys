@@ -1,0 +1,267 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    'bar'
+    'banner'
+    'canvas'
+    'footer';
+  background: var(--bg);
+}
+
+.bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dimPanel {
+  display: none;
+}
+
+.dimHeading {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.graphPanel {
+  padding: 0.5rem 0.55rem;
+  margin-bottom: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.graphHeading {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.graphLine {
+  margin: 0;
+  color: var(--text);
+}
+
+.graphErr {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.graphHint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.dimRowLocked {
+  opacity: 0.72;
+}
+
+.dimRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.dimRow input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.dimNumber {
+  font: inherit;
+  padding: 0.25rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  max-width: 100%;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.matPick {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.matPickLabel {
+  white-space: nowrap;
+}
+
+.matSelect {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  max-width: 220px;
+}
+
+.slug {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.downloadDev {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.downloadDev:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.buy {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent-dim);
+  background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.buy:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.banner,
+.bannerMuted,
+.bannerErr {
+  grid-area: banner;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+  background: rgba(26, 26, 26, 0.04);
+  color: var(--text);
+}
+
+.bannerLead {
+  margin: 0;
+}
+
+.downloadPaid {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent-dim);
+  background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.downloadPaid:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.bannerMuted {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.bannerErr {
+  background: rgba(198, 40, 40, 0.06);
+  color: var(--danger);
+}
+
+.canvasWrap {
+  grid-area: canvas;
+  min-height: 0;
+  min-height: 60dvh;
+  position: relative;
+}
+
+.footer {
+  grid-area: footer;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 70ch;
+}
+
+.adminOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  max-width: 90vw;
+  z-index: 1100;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  border-left: 1px solid var(--border);
+  padding: 1.25rem 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: slideInRight 0.2s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

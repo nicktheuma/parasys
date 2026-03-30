@@ -1,0 +1,265 @@
+import { and, desc, eq } from 'drizzle-orm'
+import type { ConfiguratorSettingsRow, MaterialShaderSpec } from '../../../db/schema'
+import { getDb } from '../../../db/index'
+import { configurators, materials } from '../../../db/schema'
+import { TEMPLATE_KEYS } from '../../../shared/constants'
+import { normalizeSettings } from '../dimensions'
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
+
+export type ConfiguratorRow = {
+  id: string
+  slug: string
+  name: string
+  templateKey: string
+  clientLabel: string | null
+  settings: ConfiguratorSettingsRow | null
+  createdAt: string
+}
+
+function mapRow(r: typeof configurators.$inferSelect): ConfiguratorRow {
+  return {
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    templateKey: r.templateKey,
+    clientLabel: r.clientLabel ?? null,
+    settings: normalizeSettings(r.settings),
+    createdAt: r.createdAt.toISOString(),
+  }
+}
+
+export async function listConfigurators(): Promise<
+  { ok: true; items: ConfiguratorRow[] } | { ok: false; status: number; error: string }
+> {
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const rows = await db.select().from(configurators).orderBy(desc(configurators.createdAt))
+  return { ok: true, items: rows.map(mapRow) }
+}
+
+export async function createConfigurator(input: {
+  name: string
+  slug: string
+  templateKey: string
+  clientLabel?: string
+  settings?: ConfiguratorSettingsRow | null
+}): Promise<{ ok: true; item: ConfiguratorRow } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const slug = input.slug.trim().toLowerCase()
+  if (!SLUG_RE.test(slug)) {
+    return { ok: false, status: 400, error: 'Invalid slug' }
+  }
+  if (!TEMPLATE_KEYS.has(input.templateKey)) {
+    return { ok: false, status: 400, error: 'Invalid template' }
+  }
+  const name = input.name.trim()
+  if (!name) {
+    return { ok: false, status: 400, error: 'Name required' }
+  }
+  const settings = input.settings != null ? normalizeSettings(input.settings) : null
+  try {
+    const [row] = await db
+      .insert(configurators)
+      .values({
+        slug,
+        name,
+        templateKey: input.templateKey,
+        clientLabel: input.clientLabel?.trim() || null,
+        settings,
+      })
+      .returning()
+    if (!row) {
+      return { ok: false, status: 500, error: 'Insert failed' }
+    }
+    return { ok: true, item: mapRow(row) }
+  } catch {
+    return { ok: false, status: 409, error: 'Slug already exists' }
+  }
+}
+
+export async function getConfiguratorBySlug(
+  slug: string,
+): Promise<{ ok: true; item: ConfiguratorRow } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const rows = await db.select().from(configurators).where(eq(configurators.slug, slug)).limit(1)
+  const row = rows[0]
+  if (!row) {
+    return { ok: false, status: 404, error: 'Not found' }
+  }
+  return { ok: true, item: mapRow(row) }
+}
+
+export type PublicMaterialRow = {
+  id: string
+  name: string
+  folder: string
+  colorHex: string
+  shader: MaterialShaderSpec | null
+}
+
+export async function getPublicConfigurator(
+  slug: string,
+): Promise<
+  | {
+      ok: true
+      item: {
+        id: string
+        slug: string
+        name: string
+        templateKey: string
+        settings: ConfiguratorSettingsRow | null
+        materials: PublicMaterialRow[]
+      }
+    }
+  | { ok: false; status: number; error: string }
+> {
+  const r = await getConfiguratorBySlug(slug.trim())
+  if (!r.ok) return r
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const matRows = await db
+    .select({
+      id: materials.id,
+      name: materials.name,
+      folder: materials.folder,
+      colorHex: materials.colorHex,
+      shader: materials.shader,
+    })
+    .from(materials)
+    .where(eq(materials.configuratorId, r.item.id))
+    .orderBy(desc(materials.createdAt))
+
+  const materialsOut: PublicMaterialRow[] = matRows.map((m) => ({
+    id: m.id,
+    name: m.name,
+    folder: m.folder,
+    colorHex: m.colorHex,
+    shader: m.shader ?? null,
+  }))
+
+  const { id: cid, slug: s, name, templateKey, settings } = r.item
+  return {
+    ok: true,
+    item: {
+      id: cid,
+      slug: s,
+      name,
+      templateKey,
+      settings,
+      materials: materialsOut,
+    },
+  }
+}
+
+export async function updateConfigurator(
+  id: string,
+  patch: {
+    name?: string
+    slug?: string
+    templateKey?: string
+    clientLabel?: string | null
+    settings?: ConfiguratorSettingsRow | null
+  },
+): Promise<{ ok: true; item: ConfiguratorRow } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const existing = await db.select().from(configurators).where(eq(configurators.id, id)).limit(1)
+  if (!existing[0]) {
+    return { ok: false, status: 404, error: 'Not found' }
+  }
+
+  const updates: Partial<typeof configurators.$inferInsert> = {}
+  if (patch.name !== undefined) {
+    const name = patch.name.trim()
+    if (!name) return { ok: false, status: 400, error: 'Name required' }
+    updates.name = name
+  }
+  if (patch.slug !== undefined) {
+    const slug = patch.slug.trim().toLowerCase()
+    if (!SLUG_RE.test(slug)) return { ok: false, status: 400, error: 'Invalid slug' }
+    updates.slug = slug
+  }
+  if (patch.templateKey !== undefined) {
+    if (!TEMPLATE_KEYS.has(patch.templateKey)) {
+      return { ok: false, status: 400, error: 'Invalid template' }
+    }
+    updates.templateKey = patch.templateKey
+  }
+  if (patch.clientLabel !== undefined) {
+    updates.clientLabel = patch.clientLabel?.trim() || null
+  }
+  if (patch.settings !== undefined) {
+    if (patch.settings === null) {
+      updates.settings = null
+    } else {
+      const prev = existing[0].settings
+      const merged: ConfiguratorSettingsRow = {
+        ...prev,
+        ...patch.settings,
+        defaultDims:
+          patch.settings.defaultDims !== undefined
+            ? {
+                ...prev?.defaultDims,
+                ...patch.settings.defaultDims,
+              }
+            : prev?.defaultDims,
+        paramGraph:
+          patch.settings.paramGraph !== undefined ? patch.settings.paramGraph : prev?.paramGraph,
+        templateParams:
+          patch.settings.templateParams !== undefined
+            ? {
+                ...(prev?.templateParams ?? {}),
+                ...patch.settings.templateParams,
+              }
+            : prev?.templateParams,
+        paramLimits:
+          patch.settings.paramLimits !== undefined
+            ? {
+                ...(prev?.paramLimits ?? {}),
+                ...patch.settings.paramLimits,
+              }
+            : prev?.paramLimits,
+      }
+      updates.settings = normalizeSettings(merged)
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return { ok: true, item: mapRow(existing[0]) }
+  }
+
+  try {
+    const [row] = await db.update(configurators).set(updates).where(eq(configurators.id, id)).returning()
+    if (!row) return { ok: false, status: 404, error: 'Not found' }
+    return { ok: true, item: mapRow(row) }
+  } catch {
+    return { ok: false, status: 409, error: 'Slug already exists' }
+  }
+}
+
+export async function deleteConfigurator(
+  id: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) {
+    return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  }
+  const deleted = await db.delete(configurators).where(eq(configurators.id, id)).returning({ id: configurators.id })
+  if (deleted.length === 0) {
+    return { ok: false, status: 404, error: 'Not found' }
+  }
+  return { ok: true }
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.local
+.vercel
+drizzle/meta
+playwright-report
+test-results
+*.log
