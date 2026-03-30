@@ -105,9 +105,22 @@ function colorBlock(i: number): string {
   }`
 }
 
+const uvTransformGlsl = /* glsl */ `
+vec3 _lsm_uvTransform(vec3 p) {
+  float c = cos(uUvRotation);
+  float s = sin(uUvRotation);
+  vec3 q = p;
+  float rx = c * q.x - s * q.z;
+  float rz = s * q.x + c * q.z;
+  q.x = rx * uUvScaleX + uUvOffsetX;
+  q.z = rz * uUvScaleY + uUvOffsetY;
+  return q;
+}
+`
+
 const colorApplication = /* glsl */ `
 {
-  vec3 wp = vWorldPosition;
+  vec3 wp = _lsm_uvTransform(vWorldPosition);
   vec3 albedo = diffuseColor.rgb;
   float rough = roughnessFactor;
   float metal = metalnessFactor;
@@ -138,7 +151,7 @@ function normalBlock(i: number): string {
 
 const normalApplication = /* glsl */ `
 {
-  vec3 nwp = vWorldPosition;
+  vec3 nwp = _lsm_uvTransform(vWorldPosition);
 ${normalBlock(0)}
 ${normalBlock(1)}
 ${normalBlock(2)}
@@ -223,26 +236,7 @@ function createMaterial(): THREE.MeshPhysicalMaterial {
     // --- Vertex shader ---
     shader.vertexShader = shader.vertexShader.replace(
       'void main() {',
-      `varying vec3 vWorldPosition;
-uniform float uUvScaleX;
-uniform float uUvScaleY;
-uniform float uUvOffsetX;
-uniform float uUvOffsetY;
-uniform float uUvRotation;
-${layerUniforms}
-${noiseGlsl}
-void main() {`,
-    )
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <uv_vertex>',
-      `#include <uv_vertex>
-{
-  float c = cos(uUvRotation);
-  float s = sin(uUvRotation);
-  vec2 centered = vUv - 0.5;
-  vUv = vec2(c * centered.x - s * centered.y, s * centered.x + c * centered.y);
-  vUv = vUv * vec2(uUvScaleX, uUvScaleY) + vec2(uUvOffsetX, uUvOffsetY) + 0.5;
-}`,
+      `varying vec3 vWorldPosition;\n${layerUniforms}\n${noiseGlsl}\nvoid main() {`,
     )
     shader.vertexShader = shader.vertexShader.replace(
       '#include <displacementmap_vertex>',
@@ -256,7 +250,16 @@ void main() {`,
     // --- Fragment shader ---
     shader.fragmentShader = shader.fragmentShader.replace(
       'void main() {',
-      `varying vec3 vWorldPosition;\n${layerUniforms}\n${noiseGlsl}\nvoid main() {`,
+      `varying vec3 vWorldPosition;
+uniform float uUvScaleX;
+uniform float uUvScaleY;
+uniform float uUvOffsetX;
+uniform float uUvOffsetY;
+uniform float uUvRotation;
+${layerUniforms}
+${noiseGlsl}
+${uvTransformGlsl}
+void main() {`,
     )
     // Color/roughness/metalness after both are defined
     shader.fragmentShader = shader.fragmentShader.replace(
