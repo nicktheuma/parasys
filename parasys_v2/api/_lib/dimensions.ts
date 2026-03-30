@@ -100,6 +100,22 @@ export function normalizeSettings(
 
   if (input.paramGraph !== undefined) out.paramGraph = validateParamGraph(input.paramGraph)
 
+  const dl = input.dimLimits
+  if (dl && typeof dl === 'object') {
+    const nf = (v: unknown): number | undefined =>
+      typeof v === 'number' && Number.isFinite(v) ? v : undefined
+    const cleanDl: Record<string, { min?: number; max?: number }> = {}
+    for (const dk of ['widthMm', 'depthMm', 'heightMm'] as const) {
+      const rv = (dl as Record<string, unknown>)[dk]
+      if (!rv || typeof rv !== 'object') continue
+      const r = rv as { min?: unknown; max?: unknown }
+      const mn = nf(r.min)
+      const mx = nf(r.max)
+      if (mn !== undefined || mx !== undefined) cleanDl[dk] = { min: mn, max: mx }
+    }
+    if (Object.keys(cleanDl).length > 0) out.dimLimits = cleanDl
+  }
+
   const tp = input.templateParams
   if (tp && typeof tp === 'object') {
     const clean: NonNullable<ConfiguratorSettingsRow['templateParams']> = {}
@@ -113,6 +129,7 @@ export function normalizeSettings(
         interlockEnabled?: unknown
         interlockClearanceFactor?: unknown
         interlockLengthFactor?: unknown
+        panelThickness?: unknown
       }
       const n = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
       clean[key] = {
@@ -123,6 +140,7 @@ export function normalizeSettings(
         interlockEnabled: typeof src.interlockEnabled === 'boolean' ? src.interlockEnabled : undefined,
         interlockClearanceFactor: n(src.interlockClearanceFactor),
         interlockLengthFactor: n(src.interlockLengthFactor),
+        panelThickness: n(src.panelThickness),
       }
     }
     if (Object.keys(clean).length > 0) out.templateParams = clean

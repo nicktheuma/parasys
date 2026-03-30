@@ -216,6 +216,13 @@ export async function updateConfigurator(
                 ...patch.settings.templateParams,
               }
             : prev?.templateParams,
+        dimLimits:
+          patch.settings.dimLimits !== undefined
+            ? {
+                ...(prev?.dimLimits ?? {}),
+                ...patch.settings.dimLimits,
+              }
+            : prev?.dimLimits,
         paramLimits:
           patch.settings.paramLimits !== undefined
             ? {

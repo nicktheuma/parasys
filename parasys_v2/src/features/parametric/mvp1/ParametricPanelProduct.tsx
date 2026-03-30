@@ -20,6 +20,7 @@ type Props = {
   interlockEnabled?: boolean
   interlockClearanceFactor?: number
   interlockLengthFactor?: number
+  panelThickness?: number
 }
 
 export function ParametricPanelProduct({
@@ -36,9 +37,11 @@ export function ParametricPanelProduct({
   interlockEnabled = true,
   interlockClearanceFactor = 0.12,
   interlockLengthFactor = 1.6,
+  panelThickness,
 }: Props) {
   const panelMeshes = useMemo(() => {
-    const materialThickness = Math.max(0.002, Math.min(widthM, depthM, heightM) * 0.03)
+    const autoThickness = Math.max(0.002, Math.min(widthM, depthM, heightM) * 0.03)
+    const materialThickness = panelThickness != null ? Math.max(0.001, panelThickness) : autoThickness
     const slotOffset = materialThickness * slotOffsetFactor
     const panelSpecs = generatePanelSpecs({
       width: widthM,
@@ -78,6 +81,7 @@ export function ParametricPanelProduct({
     interlockClearanceFactor,
     interlockEnabled,
     interlockLengthFactor,
+    panelThickness,
     shelves,
     slotOffsetFactor,
     widthM,

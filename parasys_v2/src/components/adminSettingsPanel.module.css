@@ -30,6 +30,46 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  padding: 0.4rem 0.35rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/* ── Form ── */
 .form {
   display: flex;
   flex-direction: column;
@@ -101,6 +141,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.limitsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dimLimitRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .limitsRow {
@@ -207,6 +259,7 @@
   font-size: 0.7rem;
 }
 
+/* ── UV Section ── */
 .uvSection {
   display: flex;
   flex-direction: column;
@@ -276,4 +329,161 @@
   flex-direction: column;
   gap: 0.35rem;
   border-top: 1px solid var(--border);
+}
+
+/* ── Material Cards ── */
+.matCard {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.matDisabled {
+  opacity: 0.55;
+}
+
+.matCardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.matSwatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.matName {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.matBadge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--danger);
+  color: #fff;
+}
+
+.matCardActions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.assignList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* ── Inline Material Editor ── */
+.matEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.matEditorHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.matPreviewWrap {
+  height: 140px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.matFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.matFieldRow {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.matNum {
+  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem;
+  text-align: right;
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.matSelect {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.matLayer {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.45rem;
+}
+
+.matLayerHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.dangerBtn {
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.addLayerBtn {
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent-dim);
+  background: var(--surface-2);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.matActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }

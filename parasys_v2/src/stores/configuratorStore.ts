@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { FaceGroup, MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type { DimLimits, FaceGroup, MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
 import { FACE_GROUPS } from '@shared/types'
 import { clampDimMm, DIM_MM } from '@/lib/configuratorDimensions'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
@@ -30,6 +30,7 @@ export type ConfiguratorStore = {
   heightMm: number
   paramGraph: ParamGraphSettings | null
   templateParamOverrides: Record<string, TemplateParametricPreset> | null
+  dimLimits: DimLimits | null
   paramLimits: Record<string, TemplateParamLimits> | null
   uvMappings: Record<string, SurfaceUvMapping> | null
   showDimensions: boolean
@@ -50,6 +51,7 @@ export type ConfiguratorStore = {
     materials: PublicMat[]
     settings: {
       defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+      dimLimits?: DimLimits | null
       paramGraph?: ParamGraphSettings | null
       templateParams?: Record<string, TemplateParametricPreset> | null
       paramLimits?: Record<string, TemplateParamLimits> | null
@@ -86,6 +88,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   heightMm: DIM_MM.height.default,
   paramGraph: null,
   templateParamOverrides: null,
+  dimLimits: null,
   paramLimits: null,
   uvMappings: null,
   showDimensions: true,
@@ -153,6 +156,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       heightMm: h,
       paramGraph: pg,
       templateParamOverrides: data.settings?.templateParams ?? null,
+      dimLimits: data.settings?.dimLimits ?? null,
       paramLimits: data.settings?.paramLimits ?? null,
       uvMappings: data.settings?.uvMappings ?? null,
       loadErr: null,

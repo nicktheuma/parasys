@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
-import type { ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type { DimLimits, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { useDesignPackage } from '@/hooks/useDesignPackage'
 import { ConfiguratorCanvas } from '@/components/ConfiguratorCanvas'
@@ -55,6 +55,7 @@ export function ConfiguratorPublic() {
           templateKey: string
           settings: {
             defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+            dimLimits?: DimLimits | null
             paramGraph?: ParamGraphSettings | null
             templateParams?: Record<string, TemplateParametricPreset> | null
             paramLimits?: Record<string, TemplateParamLimits> | null

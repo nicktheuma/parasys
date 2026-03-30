@@ -5,6 +5,7 @@ export { FACE_GROUPS } from '../db/schema'
 export type {
   BlendMode,
   ConfiguratorSettingsRow,
+  DimLimits,
   GhInputMode,
   MaterialShaderLayer,
   MaterialShaderSpec,

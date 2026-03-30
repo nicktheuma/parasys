@@ -70,6 +70,7 @@ export type TemplateParametricPreset = {
   interlockEnabled?: boolean
   interlockClearanceFactor?: number
   interlockLengthFactor?: number
+  panelThickness?: number
 }
 
 export type ParamRange = { min?: number; max?: number }
@@ -81,6 +82,7 @@ export type TemplateParamLimits = {
   slotOffsetFactor?: ParamRange
   interlockClearanceFactor?: ParamRange
   interlockLengthFactor?: ParamRange
+  panelThickness?: ParamRange
 }
 
 export type FaceGroup = 'front' | 'back' | 'right' | 'left' | 'top' | 'bottom'
@@ -95,9 +97,16 @@ export type SurfaceUvMapping = {
   rotation?: number
 }
 
+export type DimLimits = {
+  widthMm?: ParamRange
+  depthMm?: ParamRange
+  heightMm?: ParamRange
+}
+
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
 export type ConfiguratorSettingsRow = {
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+  dimLimits?: DimLimits | null
   paramGraph?: ParamGraphSettings | null
   templateParams?: Record<string, TemplateParametricPreset> | null
   paramLimits?: Record<string, TemplateParamLimits> | null

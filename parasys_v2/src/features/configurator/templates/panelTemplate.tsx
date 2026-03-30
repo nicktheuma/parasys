@@ -19,6 +19,7 @@ export function PanelTemplate({ wm, hm, dm, materialSpec, materialId, templatePa
       interlockEnabled={preset?.interlockEnabled}
       interlockClearanceFactor={preset?.interlockClearanceFactor}
       interlockLengthFactor={preset?.interlockLengthFactor}
+      panelThickness={preset?.panelThickness}
     />
   )
 }
