@@ -15,6 +15,8 @@ export type MaterialRow = {
   shader: MaterialShaderSpec | null
   enabled: boolean
   createdAt: string
+  /** True when this row is included because of material_assignments, not native ownership */
+  linkedViaAssignment?: boolean
 }
 
 function mapRow(r: typeof materials.$inferSelect): MaterialRow {
@@ -37,12 +39,33 @@ export async function listMaterials(
   if (!db) {
     return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
   }
-  const rows = await db
-    .select()
-    .from(materials)
-    .where(eq(materials.configuratorId, configuratorId))
-    .orderBy(desc(materials.createdAt))
-  return { ok: true, items: rows.map(mapRow) }
+  const assignedRows = await db
+    .select({ materialId: materialAssignments.materialId })
+    .from(materialAssignments)
+    .where(eq(materialAssignments.configuratorId, configuratorId))
+  const assignedIds = assignedRows.map((r) => r.materialId)
+
+  const rows =
+    assignedIds.length === 0
+      ? await db
+          .select()
+          .from(materials)
+          .where(eq(materials.configuratorId, configuratorId))
+          .orderBy(desc(materials.createdAt))
+      : await db
+          .select()
+          .from(materials)
+          .where(or(eq(materials.configuratorId, configuratorId), inArray(materials.id, assignedIds)))
+          .orderBy(desc(materials.createdAt))
+
+  const items = rows.map((r) => {
+    const row = mapRow(r)
+    return {
+      ...row,
+      linkedViaAssignment: row.configuratorId !== configuratorId,
+    }
+  })
+  return { ok: true, items }
 }
 
 export async function listAllMaterials(): Promise<

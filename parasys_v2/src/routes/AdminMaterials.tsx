@@ -35,6 +35,7 @@ export function AdminMaterials() {
   const [name, setName] = useState('')
   const [colorHex, setColorHex] = useState('#c4a882')
   const [creating, setCreating] = useState(false)
+  const [showCreateMaterial, setShowCreateMaterial] = useState(false)
   const [editing, setEditing] = useState<Material | null>(null)
 
   useEffect(() => {
@@ -83,6 +84,10 @@ export function AdminMaterials() {
     void loadMaterials()
   }, [loadMaterials])
 
+  useEffect(() => {
+    setShowCreateMaterial(false)
+  }, [configId])
+
   async function onCreate(e: FormEvent) {
     e.preventDefault()
     if (!configId) return
@@ -104,6 +109,7 @@ export function AdminMaterials() {
     }
     setFolder('')
     setName('')
+    setShowCreateMaterial(false)
     await loadMaterials()
   }
 
@@ -177,35 +183,53 @@ export function AdminMaterials() {
       {error ? <p className={styles.error}>{error}</p> : null}
 
       {configId && configId !== '__all__' ? (
-        <section className={styles.panel} aria-labelledby="add-mat">
-          <h2 id="add-mat" className={styles.h2}>
-            Add material
-          </h2>
-          <form className={styles.form} onSubmit={onCreate}>
-            <div className={styles.row}>
+        showCreateMaterial ? (
+          <section className={styles.panel} aria-labelledby="add-mat">
+            <h2 id="add-mat" className={styles.h2}>
+              Add material
+            </h2>
+            <form className={styles.form} onSubmit={onCreate}>
+              <div className={styles.row}>
+                <label className={styles.label}>
+                  Folder
+                  <input
+                    className={styles.input}
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value)}
+                    placeholder="Wood"
+                  />
+                </label>
+                <label className={styles.label}>
+                  Name
+                  <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} required />
+                </label>
+              </div>
               <label className={styles.label}>
-                Folder
-                <input
-                  className={styles.input}
-                  value={folder}
-                  onChange={(e) => setFolder(e.target.value)}
-                  placeholder="Wood"
-                />
+                Colour
+                <ColorSwatchInput value={colorHex} onChange={setColorHex} aria-label="New material colour" />
               </label>
-              <label className={styles.label}>
-                Name
-                <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} required />
-              </label>
-            </div>
-            <label className={styles.label}>
-              Colour
-              <ColorSwatchInput value={colorHex} onChange={setColorHex} aria-label="New material colour" />
-            </label>
-            <button type="submit" className={styles.button} disabled={creating}>
-              {creating ? 'Adding…' : 'Add material'}
+              <div className={styles.createActions}>
+                <button type="submit" className={styles.button} disabled={creating}>
+                  {creating ? 'Adding…' : 'Add material'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={creating}
+                  onClick={() => setShowCreateMaterial(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : (
+          <div className={styles.createMaterialBar}>
+            <button type="button" className={styles.button} onClick={() => setShowCreateMaterial(true)}>
+              Create material
             </button>
-          </form>
-        </section>
+          </div>
+        )
       ) : null}
 
       {editing ? (

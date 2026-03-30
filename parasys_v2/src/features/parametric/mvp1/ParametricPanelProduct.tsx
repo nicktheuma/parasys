@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { LayeredShaderMaterial } from '@/features/configurator/LayeredShaderMaterial'
+import { MaterialOrMatcap } from '@/features/configurator/MaterialOrMatcap'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
 import type { SurfaceUvMapping } from '@shared/types'
 import { getUvFaceMappings } from '@/stores/configuratorStore'
@@ -108,7 +108,7 @@ export function ParametricPanelProduct({
             rotation={panelSpec.rotation}
             geometry={geometry}
           >
-            <LayeredShaderMaterial spec={materialSpec} uvFaceMappings={faceMaps} />
+            <MaterialOrMatcap materialId={materialId} materialSpec={materialSpec} uvFaceMappings={faceMaps} />
           </mesh>
         )
       })}

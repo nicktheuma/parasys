@@ -1,6 +1,11 @@
 /**
  * Inserts demo configurators + materials + initial admin user (idempotent).
  * Run: npm run db:seed
+ *
+ * Rebuild demo rows (drops existing demo configurators by slug — cascades materials, orders, assignments):
+ *   npm run db:seed:demos
+ *
+ * Each demo has a single default material; `defaultMaterialId` in settings points to it.
  */
 import { config as loadEnv } from 'dotenv'
 import path from 'node:path'
@@ -20,41 +25,47 @@ const DEMOS = [
     name: 'Oak shelving unit',
     templateKey: 'open_shelf',
     settings: { defaultDims: { widthMm: 900, depthMm: 350, heightMm: 1900 } },
-    materials: [
-      { folder: 'Wood', name: 'Natural oak', colorHex: '#c4a882' },
-      { folder: 'Wood', name: 'Smoked walnut', colorHex: '#5c4033' },
-      { folder: 'Metal', name: 'Black powder', colorHex: '#2a2a2a' },
-    ],
+    material: { folder: 'Wood', name: 'Natural oak', colorHex: '#c4a882' },
   },
   {
     slug: 'demo-media-console',
     name: 'Walnut media console',
     templateKey: 'media_unit',
     settings: { defaultDims: { widthMm: 1600, depthMm: 450, heightMm: 520 } },
-    materials: [
-      { folder: 'Wood', name: 'American walnut', colorHex: '#6b4e3d' },
-      { folder: 'Wood', name: 'Bleached ash', colorHex: '#d4c4b0' },
-      { folder: 'Accent', name: 'Brass trim', colorHex: '#b5a642' },
-    ],
+    material: { folder: 'Wood', name: 'American walnut', colorHex: '#6b4e3d' },
   },
   {
     slug: 'demo-kitchen-island',
     name: 'Kitchen island',
     templateKey: 'kitchen_island',
     settings: { defaultDims: { widthMm: 1800, depthMm: 900, heightMm: 920 } },
-    materials: [
-      { folder: 'Stone', name: 'Quartz white', colorHex: '#e8e6e1' },
-      { folder: 'Wood', name: 'White oak', colorHex: '#d8c4a8' },
-      { folder: 'Paint', name: 'Sage green', colorHex: '#8a9a8c' },
-    ],
+    material: { folder: 'Stone', name: 'Quartz white', colorHex: '#e8e6e1' },
   },
 ] as const
+
+const reseedDemos =
+  process.argv.includes('--reseed-demos') || process.env.RESEED_DEMOS === '1'
 
 async function main() {
   const db = getDb()
   if (!db) {
     console.error('DATABASE_URL is not set')
     process.exit(1)
+  }
+
+  if (reseedDemos) {
+    console.log('[seed] reseed-demos: removing existing demo configurators (cascade)...')
+    for (const demo of DEMOS) {
+      const found = await db
+        .select({ id: configurators.id })
+        .from(configurators)
+        .where(eq(configurators.slug, demo.slug))
+        .limit(1)
+      if (found[0]) {
+        await db.delete(configurators).where(eq(configurators.id, found[0].id))
+        console.log(`[seed]   deleted: ${demo.slug}`)
+      }
+    }
   }
 
   for (const demo of DEMOS) {
@@ -74,16 +85,28 @@ async function main() {
       .returning()
     if (!row) continue
     console.log(`[seed] created configurator ${demo.slug}`)
-    for (const m of demo.materials) {
-      await db.insert(materials).values({
+    const m = demo.material
+    const [mRow] = await db
+      .insert(materials)
+      .values({
         configuratorId: row.id,
         folder: m.folder,
         name: m.name,
         colorHex: m.colorHex,
         shader: defaultMaterialShader(m.colorHex),
       })
-    }
-    console.log(`[seed]   + ${demo.materials.length} materials`)
+      .returning()
+    if (!mRow) continue
+    await db
+      .update(configurators)
+      .set({
+        settings: {
+          ...demo.settings,
+          defaultMaterialId: mRow.id,
+        },
+      })
+      .where(eq(configurators.id, row.id))
+    console.log(`[seed]   + 1 material (default)`)
   }
   const adminEmail = 'admin@parasys.local'
   const [existingAdmin] = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1)

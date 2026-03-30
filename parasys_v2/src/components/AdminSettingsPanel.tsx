@@ -12,6 +12,7 @@ import type {
   SurfaceUvMapping,
   FaceGroup,
   DimLimits,
+  PublicMat,
 } from '@shared/types'
 import type { BlendMode, MaterialShaderLayer, MaterialShaderSpec, NoiseType } from '@/lib/materialShader'
 import { ColorSwatchInput } from './ColorSwatchInput'
@@ -76,6 +77,17 @@ type AdminMaterial = {
   shader: MaterialShaderSpec | null
   enabled: boolean
   createdAt: string
+  linkedViaAssignment?: boolean
+}
+
+function adminMaterialToPublic(m: AdminMaterial): PublicMat {
+  return {
+    id: m.id,
+    name: m.name,
+    folder: m.folder,
+    colorHex: m.colorHex,
+    shader: m.shader,
+  }
 }
 
 function newLayer(): MaterialShaderLayer {
@@ -118,6 +130,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setMaterialId,
     setDefaultMaterialId,
     setMaterialSpec,
+    setMaterials,
   } = useConfiguratorStore()
 
   const [tab, setTab] = useState<Tab>('dimensions')
@@ -146,6 +159,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const [matSaving, setMatSaving] = useState(false)
   const [matMsg, setMatMsg] = useState<string | null>(null)
   const [showAssign, setShowAssign] = useState(false)
+  const [bulkUnassigning, setBulkUnassigning] = useState(false)
   const preEditSpecRef = useRef<MaterialShaderSpec | null>(null)
 
   useEffect(() => {
@@ -159,10 +173,14 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
       fetchJson<{ items: AdminMaterial[] }>(`/api/admin/materials?configuratorId=${encodeURIComponent(configuratorId)}`),
       fetchJson<{ items: AdminMaterial[] }>('/api/admin/materials?configuratorId=__all__'),
     ])
-    if (own.ok && own.data?.items) setAdminMaterials(own.data.items)
+    if (own.ok && own.data?.items) {
+      const items = own.data.items
+      setAdminMaterials(items)
+      setMaterials(items.map(adminMaterialToPublic))
+    }
     if (all.ok && all.data?.items) setAllMaterials(all.data.items)
     setMatLoading(false)
-  }, [configuratorId])
+  }, [configuratorId, setMaterials])
 
   useEffect(() => {
     if (tab === 'materials') void loadMaterials()
@@ -322,9 +340,45 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     void loadMaterials()
   }
 
+  async function unassignAllLinkedExceptDefault() {
+    if (!configuratorId) return
+    const toUnassign = adminMaterials.filter(
+      (m) => m.linkedViaAssignment && m.id !== defaultMaterialId,
+    )
+    if (toUnassign.length === 0) return
+    const msg =
+      defaultMaterialId != null
+        ? `Remove ${toUnassign.length} linked material(s)? The default stays linked to this configurator.`
+        : `Remove all ${toUnassign.length} linked material(s)? No default is set.`
+    if (!window.confirm(msg)) return
+    setBulkUnassigning(true)
+    try {
+      const results = await Promise.all(
+        toUnassign.map((m) =>
+          fetchJson(
+            `/api/admin/materials/${encodeURIComponent(m.id)}?configuratorId=${encodeURIComponent(m.configuratorId)}`,
+            {
+              method: 'PATCH',
+              body: JSON.stringify({ unassignFrom: [configuratorId] }),
+            },
+          ),
+        ),
+      )
+      if (results.some((r) => !r.ok)) {
+        window.alert('Some unassign requests failed. Refresh and try again.')
+      }
+      void loadMaterials()
+    } finally {
+      setBulkUnassigning(false)
+    }
+  }
+
   // Determine which "foreign" materials could be assigned
   const ownMatIds = new Set(adminMaterials.map((m) => m.id))
   const foreignMaterials = allMaterials.filter((m) => !ownMatIds.has(m.id))
+  const linkedExceptDefaultCount = adminMaterials.filter(
+    (m) => m.linkedViaAssignment && m.id !== defaultMaterialId,
+  ).length
 
   const dimMmForAxis = (axis: typeof DIM_AXES[number]) =>
     axis === 'width' ? widthMm : axis === 'depth' ? depthMm : heightMm
@@ -527,6 +581,25 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
               ) : null}
             </p>
+            {adminMaterials.some((m) => m.linkedViaAssignment) ? (
+              <div className={styles.sectionRow}>
+                <button
+                  type="button"
+                  className={styles.dangerBtn}
+                  disabled={matLoading || bulkUnassigning || linkedExceptDefaultCount === 0}
+                  title={
+                    linkedExceptDefaultCount === 0
+                      ? 'Only the default linked material remains, or no linked materials.'
+                      : undefined
+                  }
+                  onClick={() => void unassignAllLinkedExceptDefault()}
+                >
+                  {bulkUnassigning
+                    ? 'Unassigning\u2026'
+                    : `Unassign all linked except default${linkedExceptDefaultCount > 0 ? ` (${linkedExceptDefaultCount})` : ''}`}
+                </button>
+              </div>
+            ) : null}
             {matLoading ? <p className={styles.hint}>Loading...</p> : null}
 
             {/* Inline material editor */}
@@ -676,7 +749,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               </div>
             ) : (
               <>
-                {/* Own materials list */}
+                {/* Materials for this configurator (native + assigned) */}
                 {adminMaterials.map((mat) => (
                   <div key={mat.id} className={`${styles.matCard} ${!mat.enabled ? styles.matDisabled : ''}`}>
                     <div className={styles.matCardHead}>
@@ -685,6 +758,11 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                         style={{ backgroundColor: mat.colorHex }}
                       />
                       <span className={styles.matName}>{mat.name}</span>
+                      {mat.linkedViaAssignment ? (
+                        <span className={styles.matBadgeLinked} title="Linked from another configurator">
+                          Linked
+                        </span>
+                      ) : null}
                       {!mat.enabled ? <span className={styles.matBadge}>Hidden</span> : null}
                     </div>
                     <div className={styles.matCardActions}>
@@ -710,6 +788,16 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                       >
                         Select
                       </button>
+                      {mat.linkedViaAssignment && configuratorId ? (
+                        <button
+                          type="button"
+                          className={styles.dangerBtn}
+                          title="Remove this link from this configurator"
+                          onClick={() => void unassignMatFromThis(mat.id, mat.configuratorId)}
+                        >
+                          Unassign
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -875,7 +963,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
               onClick={() => setTab(t)}
             >
-              <Icon size={18} />
+              <Icon size={16} />
             </button>
           ))}
         </div>

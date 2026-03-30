@@ -84,6 +84,25 @@ export function resolveDimsMm(input?: { widthMm?: number; depthMm?: number; heig
   }
 }
 
+function normalizeThumbnailSrc(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const t = raw.trim()
+  if (!t || t.length > 512) return undefined
+  if (t.startsWith('https://') || t.startsWith('http://')) {
+    try {
+      const u = new URL(t)
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined
+      return t
+    } catch {
+      return undefined
+    }
+  }
+  if (!t.startsWith('/')) return undefined
+  if (t.includes('..')) return undefined
+  if (/\s/.test(t)) return undefined
+  return t
+}
+
 export function normalizeSettings(
   input: ConfiguratorSettingsRow | null | undefined,
 ): ConfiguratorSettingsRow | null {
@@ -97,6 +116,9 @@ export function normalizeSettings(
       heightMm: clampDimMm('height', d.heightMm ?? DIM_MM.height.default),
     }
   }
+
+  const thumb = normalizeThumbnailSrc(input.thumbnailSrc)
+  if (thumb !== undefined) out.thumbnailSrc = thumb
 
   const dmid = input.defaultMaterialId
   if (dmid === null) {

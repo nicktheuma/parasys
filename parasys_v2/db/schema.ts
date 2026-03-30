@@ -110,6 +110,8 @@ export type DimLimits = {
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
 export type ConfiguratorSettingsRow = {
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+  /** Optional static image URL for admin lists (same-origin path like `/configurator-thumbnails/x.svg` or https URL) */
+  thumbnailSrc?: string | null
   /** Public configurator opens with this material selected when valid and in the material list */
   defaultMaterialId?: string | null
   dimLimits?: DimLimits | null

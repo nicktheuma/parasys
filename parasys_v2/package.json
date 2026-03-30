@@ -17,6 +17,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx db/seed.ts",
+    "db:seed:demos": "tsx db/seed.ts --reseed-demos",
     "db:create-user": "tsx db/create-user.ts",
     "db:studio": "drizzle-kit studio"
   },

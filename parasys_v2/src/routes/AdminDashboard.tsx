@@ -10,6 +10,7 @@ import {
   TemplateParamFields,
   type TplFieldValues,
 } from '@/components/TemplateParamFields'
+import { ConfiguratorThumbnail } from '@/components/ConfiguratorThumbnail'
 import styles from './adminDashboard.module.css'
 
 type Configurator = {
@@ -21,6 +22,7 @@ type Configurator = {
   settings: {
     defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
     templateParams?: Record<string, TemplateParametricPreset> | null
+    thumbnailSrc?: string | null
   } | null
   createdAt: string
 }
@@ -209,48 +211,40 @@ export function AdminDashboard() {
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
-      <section className={styles.grid} aria-label="Configurators">
+      <section aria-label="Configurators">
         {loading ? (
           <p className={styles.muted}>Loading\u2026</p>
         ) : items.length === 0 ? (
           <p className={styles.muted}>No configurators yet. Create one above.</p>
         ) : (
-          items.map((c) => (
-            <article key={c.id} className={styles.card}>
-              <div className={styles.cardThumb}>
-                <span className={styles.thumbLabel}>{c.templateKey.replace(/_/g, ' ')}</span>
-              </div>
-              <div className={styles.cardBody}>
-                <h3 className={styles.cardTitle}>{c.name}</h3>
-                <dl className={styles.meta}>
-                  <div>
-                    <dt>Slug</dt>
-                    <dd>
-                      <code>/{c.slug}</code>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Template</dt>
-                    <dd>{c.templateKey}</dd>
-                  </div>
-                  {c.clientLabel ? (
-                    <div>
-                      <dt>Client</dt>
-                      <dd>{c.clientLabel}</dd>
-                    </div>
-                  ) : null}
+          <ul className={styles.list}>
+            {items.map((c) => (
+              <li key={c.id} className={styles.listRow}>
+                <div className={styles.listThumb} title="Configurator preview image">
+                  <ConfiguratorThumbnail templateKey={c.templateKey} settings={c.settings} />
+                </div>
+                <div className={styles.listMain}>
+                  <h3 className={styles.listTitle}>{c.name}</h3>
+                  <p className={styles.listMeta}>
+                    <code>/{c.slug}</code>
+                    <span aria-hidden="true"> · </span>
+                    <span>{c.templateKey.replace(/_/g, ' ')}</span>
+                    {c.clientLabel ? (
+                      <>
+                        <span aria-hidden="true"> · </span>
+                        <span>{c.clientLabel}</span>
+                      </>
+                    ) : null}
+                  </p>
                   {c.settings?.defaultDims ? (
-                    <div>
-                      <dt>Defaults (mm)</dt>
-                      <dd>
-                        W {c.settings.defaultDims.widthMm ?? '\u2014'} \u00d7 D{' '}
-                        {c.settings.defaultDims.depthMm ?? '\u2014'} \u00d7 H{' '}
-                        {c.settings.defaultDims.heightMm ?? '\u2014'}
-                      </dd>
-                    </div>
+                    <p className={styles.listDims}>
+                      Defaults (mm): W {c.settings.defaultDims.widthMm ?? '\u2014'} \u00d7 D{' '}
+                      {c.settings.defaultDims.depthMm ?? '\u2014'} \u00d7 H{' '}
+                      {c.settings.defaultDims.heightMm ?? '\u2014'}
+                    </p>
                   ) : null}
-                </dl>
-                <div className={styles.cardActions}>
+                </div>
+                <div className={styles.listActions}>
                   <a
                     className={styles.preview}
                     href={`/c/${encodeURIComponent(c.slug)}`}
@@ -262,7 +256,7 @@ export function AdminDashboard() {
                   <button
                     type="button"
                     className={styles.secondary}
-                    onClick={() => navigate(`/c/${encodeURIComponent(c.slug)}?admin=1`)}
+                    onClick={() => navigate(`/c/${encodeURIComponent(c.slug)}`)}
                   >
                     Edit
                   </button>
@@ -274,9 +268,9 @@ export function AdminDashboard() {
                     Delete
                   </button>
                 </div>
-              </div>
-            </article>
-          ))
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

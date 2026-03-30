@@ -1,55 +1,36 @@
-import { Suspense, useMemo } from 'react'
-import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls, Stage } from '@react-three/drei'
-import { TemplateProduct } from '@/features/configurator/TemplateProduct'
-import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
-import { DIM_MM } from '@/lib/configuratorDimensions'
+import { useEffect, useState } from 'react'
+import type { ConfiguratorSettingsRow } from '@shared/types'
+import {
+  CONFIGURATOR_THUMBNAIL_FALLBACK,
+  getConfiguratorThumbnailSrc,
+} from '@/lib/configuratorThumbnailSrc'
+import styles from './configuratorThumbnail.module.css'
 
 type Props = {
   templateKey: string
-  defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
+  settings?: ConfiguratorSettingsRow | null
 }
 
-export function ConfiguratorThumbnail({ templateKey, defaultDims }: Props) {
-  const w = defaultDims?.widthMm ?? DIM_MM.width.default
-  const d = defaultDims?.depthMm ?? DIM_MM.depth.default
-  const h = defaultDims?.heightMm ?? DIM_MM.height.default
-  const matSpec = useMemo(() => defaultMaterialSpec('#c4a882'), [])
+export function ConfiguratorThumbnail({ templateKey, settings }: Props) {
+  const preferred = getConfiguratorThumbnailSrc(templateKey, settings)
+  const [src, setSrc] = useState(preferred)
+
+  useEffect(() => {
+    setSrc(preferred)
+  }, [preferred])
 
   return (
-    <Canvas
-      frameloop="demand"
-      dpr={[1, 1.5]}
-      gl={{ antialias: true, powerPreference: 'low-power' }}
-      camera={{ position: [0.35, 0.2, 0.35], near: 0.002, far: 10 }}
-      style={{ width: '100%', height: '100%' }}
-    >
-      <Suspense fallback={null}>
-        <Stage
-          intensity={1}
-          preset="rembrandt"
-          adjustCamera={1.3}
-          environment={null}
-        >
-          <TemplateProduct
-            templateKey={templateKey}
-            widthMm={w}
-            depthMm={d}
-            heightMm={h}
-            materialId={null}
-            materialSpec={matSpec}
-          />
-        </Stage>
-        <Environment files="/monochrome_studio_02_1k.hdr" />
-        <OrbitControls
-          autoRotate
-          autoRotateSpeed={2}
-          enableZoom
-          enablePan={false}
-          minPolarAngle={0.4}
-          maxPolarAngle={Math.PI / 2 - 0.1}
-        />
-      </Suspense>
-    </Canvas>
+    <img
+      className={styles.img}
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onError={() =>
+        setSrc((current) =>
+          current === CONFIGURATOR_THUMBNAIL_FALLBACK ? current : CONFIGURATOR_THUMBNAIL_FALLBACK,
+        )
+      }
+    />
   )
 }

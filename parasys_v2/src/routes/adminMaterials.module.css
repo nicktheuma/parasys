@@ -91,6 +91,17 @@
   cursor: not-allowed;
 }
 
+.createMaterialBar {
+  margin-bottom: 1.25rem;
+}
+
+.createActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .error {
   color: var(--danger);
   margin: 0 0 1rem;

@@ -39,6 +39,16 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.actionBubble:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actionBubble:disabled:hover {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0);
+}
+
 .actionBubbleIcon {
   font-size: 1.2rem;
   font-weight: 600;

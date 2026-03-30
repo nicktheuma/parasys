@@ -18,14 +18,13 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
       <CanvasErrorBoundary>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
-        gl={{ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
         dpr={[1, 2]}
         camera={{ position: [0.35, 0.2, 0.35], near: 0.002, far: 10 }}
       >
         <Suspense fallback={null}>
           <ConfiguratorStageContent
             stageKey={stageKey}
-            adminMode={adminMode}
             templateKey={templateKey}
             widthMm={driven.widthMm}
             depthMm={driven.depthMm}

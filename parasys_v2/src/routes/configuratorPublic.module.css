@@ -225,7 +225,7 @@
 
 /* When admin panel is open, offset canvas so the product stays centered in the visible area */
 .canvasWrapAdmin {
-  margin-right: min(480px, 92vw);
+  margin-right: min(300px, 88vw);
 }
 
 .footer {
@@ -247,17 +247,18 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(480px, 92vw);
+  width: min(300px, 88vw);
   z-index: 1100;
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(8px);
   border-left: 1px solid var(--border);
-  padding: 1rem 0.75rem 1rem 1rem;
+  padding: 0.55rem 0.45rem 0.55rem 0.6rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
   animation: slideInRight 0.2s ease-out;
+  font-size: 0.78rem;
 }
 
 .adminOverlay > * {

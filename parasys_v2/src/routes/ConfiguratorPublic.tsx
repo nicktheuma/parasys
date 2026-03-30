@@ -14,7 +14,6 @@ export function ConfiguratorPublic() {
   const [searchParams] = useSearchParams()
   const checkout = searchParams.get('checkout')
   const stripeSessionId = searchParams.get('session_id')
-  const adminParam = searchParams.get('admin') === '1'
 
   const allowFreeDownload = import.meta.env.VITE_ALLOW_FREE_DESIGN_PACKAGE === 'true'
 
@@ -23,11 +22,7 @@ export function ConfiguratorPublic() {
   const { loadConfigurator, setLoadErr, setMaterialId, toggleDimensions } =
     useConfiguratorStore()
 
-  const [showAdminPanel, setShowAdminPanel] = useState(adminParam)
-
-  useEffect(() => {
-    if (adminParam) setShowAdminPanel(true)
-  }, [adminParam])
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const pkg = useDesignPackage(slug)
 

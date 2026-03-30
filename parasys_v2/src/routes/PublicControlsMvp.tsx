@@ -19,13 +19,15 @@ type Props = {
 export function PublicControlsMvp(props: Props) {
   const [openPanel, setOpenPanel] = useState<'material' | 'download' | null>(null)
   const activeMaterial = useMemo(
-    () => props.materials.find((m) => m.id === props.materialId) ?? props.materials[0],
+    () =>
+      props.materialId ? props.materials.find((m) => m.id === props.materialId) ?? null : null,
     [props.materialId, props.materials],
   )
+  const hasMaterials = props.materials.length > 0
 
   return (
     <div className={styles.publicControls} role="region" aria-label="Viewer controls">
-      {openPanel === 'material' ? (
+      {openPanel === 'material' && hasMaterials ? (
         <div className={`${styles.nestedPanel} ${styles.materialCarousel}`} role="listbox" aria-label="Material options">
           {props.materials.map((option) => (
             <button
@@ -76,14 +78,23 @@ export function PublicControlsMvp(props: Props) {
         <button
           type="button"
           className={styles.actionBubble}
+          disabled={!hasMaterials}
           aria-expanded={openPanel === 'material'}
-          aria-label={`Material picker, current: ${activeMaterial?.name ?? 'none'}`}
-          onClick={() => setOpenPanel((v) => (v === 'material' ? null : 'material'))}
+          aria-label={
+            hasMaterials
+              ? `Material picker, current: ${activeMaterial?.name ?? 'Choose'}`
+              : 'No materials configured'
+          }
+          title={!hasMaterials ? 'Add materials in admin' : undefined}
+          onClick={() => {
+            if (!hasMaterials) return
+            setOpenPanel((v) => (v === 'material' ? null : 'material'))
+          }}
         >
           <span
             className={styles.materialThumb}
             aria-hidden="true"
-            style={{ backgroundColor: activeMaterial?.colorHex ?? '#c4a882' }}
+            style={{ backgroundColor: activeMaterial?.colorHex ?? '#8a8a8a' }}
           />
         </button>
         <button

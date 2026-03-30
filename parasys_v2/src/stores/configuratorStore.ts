@@ -63,6 +63,8 @@ export type ConfiguratorStore = {
     } | null
   }) => void
   setLoadErr: (err: string | null) => void
+  /** Replace materials list (e.g. after admin assign); keeps current materialId and refreshes spec */
+  setMaterials: (materials: PublicMat[]) => void
 }
 
 function deriveMaterialSpec(materials: PublicMat[], materialId: string | null): MaterialShaderSpec {
@@ -99,7 +101,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   showDimensions: true,
   loadErr: null,
   driven: deriveDriven(null, DIM_MM.width.default, DIM_MM.depth.default, DIM_MM.height.default),
-  materialSpec: defaultMaterialSpec('#c4a882'),
+  materialSpec: defaultMaterialSpec('#888888'),
 
   setDim(axis, value) {
     const clamped = clampDimMm(axis, value)
@@ -155,7 +157,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     const rawPreferred = data.settings?.defaultMaterialId ?? null
     const preferred =
       rawPreferred && mats.some((m) => m.id === rawPreferred) ? rawPreferred : null
-    const mid = preferred ?? mats[0]?.id ?? null
+    /* Only the admin-selected default material is selected on load — never the first material implicitly */
+    const mid = preferred
     const d = data.settings?.defaultDims
     const w = clampDimMm('width', d?.widthMm ?? DIM_MM.width.default)
     const dp = clampDimMm('depth', d?.depthMm ?? DIM_MM.depth.default)
@@ -184,5 +187,22 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
 
   setLoadErr(err) {
     set({ loadErr: err, configuratorId: null, productName: null })
+  },
+
+  setMaterials(materials) {
+    set((s) => {
+      const validDefault =
+        s.defaultMaterialId && materials.some((m) => m.id === s.defaultMaterialId)
+          ? s.defaultMaterialId
+          : null
+      let nextId =
+        s.materialId && materials.some((m) => m.id === s.materialId) ? s.materialId : null
+      if (nextId == null && validDefault != null) nextId = validDefault
+      return {
+        materials,
+        materialId: nextId,
+        materialSpec: deriveMaterialSpec(materials, nextId),
+      }
+    })
   },
 }))
