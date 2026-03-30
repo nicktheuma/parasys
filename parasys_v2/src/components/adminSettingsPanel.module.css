@@ -405,13 +405,6 @@
   font-size: 0.85rem;
 }
 
-.matPreviewWrap {
-  height: 140px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
 .matFields {
   display: flex;
   flex-direction: column;

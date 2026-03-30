@@ -41,6 +41,7 @@ export type ConfiguratorStore = {
 
   setDim: (axis: 'width' | 'depth' | 'height', value: number) => void
   setMaterialId: (id: string | null) => void
+  setMaterialSpec: (spec: MaterialShaderSpec) => void
   setTemplateParam: (key: string, preset: TemplateParametricPreset) => void
   setUvMapping: (surfaceKind: string, materialId: string, faceGroup: FaceGroup, mapping: SurfaceUvMapping) => void
   toggleDimensions: () => void
@@ -112,6 +113,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       materialId: id,
       materialSpec: deriveMaterialSpec(s.materials, id),
     }))
+  },
+
+  setMaterialSpec(spec) {
+    set({ materialSpec: spec })
   },
 
   setTemplateParam(key, preset) {

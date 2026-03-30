@@ -1,11 +1,10 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import { DIM_MM } from '@/lib/configuratorDimensions'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { getTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
-import { MaterialEditorPreview } from '@/routes/MaterialEditorPreview'
 import type {
   TemplateParametricPreset,
   TemplateParamLimits,
@@ -107,10 +106,12 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     uvMappings,
     materialId,
     materials,
+    materialSpec: storeMatSpec,
     setDim,
     setTemplateParam,
     setUvMapping,
     setMaterialId,
+    setMaterialSpec,
   } = useConfiguratorStore()
 
   const [tab, setTab] = useState<Tab>('dimensions')
@@ -139,6 +140,11 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const [matSaving, setMatSaving] = useState(false)
   const [matMsg, setMatMsg] = useState<string | null>(null)
   const [showAssign, setShowAssign] = useState(false)
+  const preEditSpecRef = useRef<MaterialShaderSpec | null>(null)
+
+  useEffect(() => {
+    if (matSpec) setMaterialSpec(matSpec)
+  }, [matSpec, setMaterialSpec])
 
   const loadMaterials = useCallback(async () => {
     if (!configuratorId) return
@@ -229,12 +235,17 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   }, [])
 
   function startEditMat(mat: AdminMaterial) {
+    preEditSpecRef.current = storeMatSpec
     setEditingMat(mat)
     setMatSpec(mat.shader ?? defaultMaterialSpec(mat.colorHex))
     setMatMsg(null)
   }
 
   function cancelEditMat() {
+    if (preEditSpecRef.current) {
+      setMaterialSpec(preEditSpecRef.current)
+      preEditSpecRef.current = null
+    }
     setEditingMat(null)
     setMatSpec(null)
     setMatMsg(null)
@@ -262,10 +273,11 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
       return
     }
     setMatMsg('Saved')
-    cancelEditMat()
+    preEditSpecRef.current = null
+    setEditingMat(null)
+    setMatSpec(null)
     void loadMaterials()
-    // Reload page to refresh 3D view with updated material shader
-    window.location.reload()
+    setTimeout(() => setMatMsg(null), 2500)
   }
 
   async function toggleMatEnabled(mat: AdminMaterial) {
@@ -529,9 +541,6 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                   <button type="button" className={styles.toggleLimits} onClick={cancelEditMat}>
                     Cancel
                   </button>
-                </div>
-                <div className={styles.matPreviewWrap}>
-                  <MaterialEditorPreview spec={matSpec} />
                 </div>
                 <div className={styles.matFields}>
                   <label className={styles.matFieldRow}>
