@@ -206,3 +206,46 @@
   font-family: inherit;
   font-size: 0.7rem;
 }
+
+.uvSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.uvSurface {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.uvSurfaceHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  background: var(--surface-2);
+  border: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.uvSurfaceHead:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.uvToggle {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.uvFields {
+  padding: 0.4rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid var(--border);
+}

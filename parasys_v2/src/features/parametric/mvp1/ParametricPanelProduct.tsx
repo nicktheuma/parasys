@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { LayeredShaderMaterial } from '@/features/configurator/LayeredShaderMaterial'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
+import type { SurfaceUvMapping } from '@shared/types'
 import { generatePanelSpecs } from './panelSpecs'
 import { createExtrudedPanelGeometry } from './profileBuilder'
 
@@ -9,6 +10,7 @@ type Props = {
   heightM: number
   depthM: number
   materialSpec: MaterialShaderSpec
+  uvMappings?: Record<string, SurfaceUvMapping> | null
   dividers?: number
   shelves?: number
   edgeOffset?: number
@@ -23,6 +25,7 @@ export function ParametricPanelProduct({
   heightM,
   depthM,
   materialSpec,
+  uvMappings,
   dividers = 2,
   shelves = 2,
   edgeOffset = 0,
@@ -85,18 +88,21 @@ export function ParametricPanelProduct({
 
   return (
     <group>
-      {panelMeshes.map(({ panelSpec, geometry }) => (
-        <mesh
-          key={panelSpec.id}
-          castShadow
-          receiveShadow
-          position={panelSpec.center}
-          rotation={panelSpec.rotation}
-          geometry={geometry}
-        >
-          <LayeredShaderMaterial spec={materialSpec} />
-        </mesh>
-      ))}
+      {panelMeshes.map(({ panelSpec, geometry }) => {
+        const uv = uvMappings?.[panelSpec.id]
+        return (
+          <mesh
+            key={panelSpec.id}
+            castShadow
+            receiveShadow
+            position={panelSpec.center}
+            rotation={panelSpec.rotation}
+            geometry={geometry}
+          >
+            <LayeredShaderMaterial spec={materialSpec} uvMapping={uv} />
+          </mesh>
+        )
+      })}
     </group>
   )
 }

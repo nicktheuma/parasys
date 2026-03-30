@@ -1,9 +1,10 @@
 import { and, desc, eq } from 'drizzle-orm'
 import type { ConfiguratorSettingsRow, MaterialShaderSpec } from '../../../db/schema'
 import { getDb } from '../../../db/index'
-import { configurators, materials } from '../../../db/schema'
+import { configurators } from '../../../db/schema'
 import { TEMPLATE_KEYS } from '../../../shared/constants'
 import { normalizeSettings } from '../dimensions'
+import { listMaterialsForPublicConfigurator } from './materials'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
 
@@ -128,17 +129,7 @@ export async function getPublicConfigurator(
   if (!db) {
     return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
   }
-  const matRows = await db
-    .select({
-      id: materials.id,
-      name: materials.name,
-      folder: materials.folder,
-      colorHex: materials.colorHex,
-      shader: materials.shader,
-    })
-    .from(materials)
-    .where(eq(materials.configuratorId, r.item.id))
-    .orderBy(desc(materials.createdAt))
+  const matRows = await listMaterialsForPublicConfigurator(r.item.id)
 
   const materialsOut: PublicMaterialRow[] = matRows.map((m) => ({
     id: m.id,
@@ -232,6 +223,13 @@ export async function updateConfigurator(
                 ...patch.settings.paramLimits,
               }
             : prev?.paramLimits,
+        uvMappings:
+          patch.settings.uvMappings !== undefined
+            ? {
+                ...(prev?.uvMappings ?? {}),
+                ...patch.settings.uvMappings,
+              }
+            : prev?.uvMappings,
       }
       updates.settings = normalizeSettings(merged)
     }

@@ -19,6 +19,7 @@ type Material = {
   name: string
   colorHex: string
   shader: MaterialShaderSpec | null
+  enabled: boolean
   createdAt: string
 }
 
@@ -104,6 +105,31 @@ export function AdminMaterials() {
     setFolder('')
     setName('')
     await loadMaterials()
+  }
+
+  async function onToggleEnabled(mat: Material) {
+    const cid = configId === '__all__' ? mat.configuratorId : configId
+    const r = await fetchJson(
+      `/api/admin/materials/${encodeURIComponent(mat.id)}?configuratorId=${encodeURIComponent(cid)}`,
+      { method: 'PATCH', body: JSON.stringify({ enabled: !mat.enabled }) },
+    )
+    if (!r.ok) {
+      setError(r.error ?? 'Toggle failed')
+      return
+    }
+    await loadMaterials()
+  }
+
+  async function onAssign(mat: Material, targetConfigId: string) {
+    const cid = configId === '__all__' ? mat.configuratorId : configId
+    const r = await fetchJson(
+      `/api/admin/materials/${encodeURIComponent(mat.id)}?configuratorId=${encodeURIComponent(cid)}`,
+      { method: 'PATCH', body: JSON.stringify({ assignTo: [targetConfigId] }) },
+    )
+    if (!r.ok) {
+      setError(r.error ?? 'Assign failed')
+      return
+    }
   }
 
   async function onDelete(mat: Material) {
@@ -201,24 +227,49 @@ export function AdminMaterials() {
           ) : (
             <ul className={styles.ul}>
               {items.map((m) => (
-                <li key={m.id} className={styles.li}>
+                <li key={m.id} className={`${styles.li} ${!m.enabled ? styles.liDisabled : ''}`}>
                   <MaterialThumb shader={m.shader} colorHex={m.colorHex} />
                   <span className={styles.matMeta}>
                     <strong>{m.folder ? `${m.folder} / ` : ''}</strong>
                     {m.name}
                     <code className={styles.hex}>{m.colorHex}</code>
+                    {!m.enabled ? <span className={styles.disabledBadge}>Hidden</span> : null}
                     {configId === '__all__' ? (
                       <span className={styles.cfgBadge}>
                         {configurators.find((c) => c.id === m.configuratorId)?.name ?? m.configuratorId}
                       </span>
                     ) : null}
                   </span>
-                  <button type="button" className={styles.edit} onClick={() => setEditing(m)}>
-                    Edit shader
-                  </button>
-                  <button type="button" className={styles.danger} onClick={() => void onDelete(m)}>
-                    Delete
-                  </button>
+                  <div className={styles.matActions}>
+                    <button
+                      type="button"
+                      className={m.enabled ? styles.secondary : styles.enableBtn}
+                      onClick={() => void onToggleEnabled(m)}
+                    >
+                      {m.enabled ? 'Disable' : 'Enable'}
+                    </button>
+                    <select
+                      className={styles.assignSelect}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) void onAssign(m, e.target.value)
+                        e.target.value = ''
+                      }}
+                    >
+                      <option value="">Assign to...</option>
+                      {configurators
+                        .filter((c) => c.id !== m.configuratorId)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                    <button type="button" className={styles.edit} onClick={() => setEditing(m)}>
+                      Edit shader
+                    </button>
+                    <button type="button" className={styles.danger} onClick={() => void onDelete(m)}>
+                      Delete
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

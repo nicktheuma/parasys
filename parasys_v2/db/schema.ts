@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 /** Grasshopper-style input modes for Params / sliders */
 export type GhInputMode = 'number' | 'integer' | 'angle' | 'boolean'
@@ -83,12 +83,21 @@ export type TemplateParamLimits = {
   interlockLengthFactor?: ParamRange
 }
 
+export type SurfaceUvMapping = {
+  scaleX?: number
+  scaleY?: number
+  offsetX?: number
+  offsetY?: number
+  rotation?: number
+}
+
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
 export type ConfiguratorSettingsRow = {
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
   paramGraph?: ParamGraphSettings | null
   templateParams?: Record<string, TemplateParametricPreset> | null
   paramLimits?: Record<string, TemplateParamLimits> | null
+  uvMappings?: Record<string, SurfaceUvMapping> | null
 }
 
 export type NoiseType = 'fbm' | 'voronoi' | 'simplex' | 'ridged' | 'turbulence' | 'marble'
@@ -184,5 +193,16 @@ export const materials = pgTable('materials', {
   name: text('name').notNull(),
   colorHex: text('color_hex').notNull().default('#888888'),
   shader: jsonb('shader').$type<MaterialShaderSpec | null>(),
+  enabled: boolean('enabled').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const materialAssignments = pgTable('material_assignments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  materialId: uuid('material_id')
+    .references(() => materials.id, { onDelete: 'cascade' })
+    .notNull(),
+  configuratorId: uuid('configurator_id')
+    .references(() => configurators.id, { onDelete: 'cascade' })
+    .notNull(),
 })

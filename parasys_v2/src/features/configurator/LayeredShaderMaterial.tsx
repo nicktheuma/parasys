@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
+import type { SurfaceUvMapping } from '@shared/types'
 
 const noiseGlsl = /* glsl */ `
 float _lsm_hash(vec3 p) {
@@ -182,6 +183,11 @@ function buildUniforms(): Uniforms {
   const u: Uniforms = {
     uLayerCount: { value: 0 },
     uAoFactor: { value: 1.0 },
+    uUvScaleX: { value: 1.0 },
+    uUvScaleY: { value: 1.0 },
+    uUvOffsetX: { value: 0.0 },
+    uUvOffsetY: { value: 0.0 },
+    uUvRotation: { value: 0.0 },
   }
   for (let i = 0; i < 3; i++) {
     const L = `uL${i}`
@@ -217,7 +223,26 @@ function createMaterial(): THREE.MeshPhysicalMaterial {
     // --- Vertex shader ---
     shader.vertexShader = shader.vertexShader.replace(
       'void main() {',
-      `varying vec3 vWorldPosition;\n${layerUniforms}\n${noiseGlsl}\nvoid main() {`,
+      `varying vec3 vWorldPosition;
+uniform float uUvScaleX;
+uniform float uUvScaleY;
+uniform float uUvOffsetX;
+uniform float uUvOffsetY;
+uniform float uUvRotation;
+${layerUniforms}
+${noiseGlsl}
+void main() {`,
+    )
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <uv_vertex>',
+      `#include <uv_vertex>
+{
+  float c = cos(uUvRotation);
+  float s = sin(uUvRotation);
+  vec2 centered = vUv - 0.5;
+  vUv = vec2(c * centered.x - s * centered.y, s * centered.x + c * centered.y);
+  vUv = vUv * vec2(uUvScaleX, uUvScaleY) + vec2(uUvOffsetX, uUvOffsetY) + 0.5;
+}`,
     )
     shader.vertexShader = shader.vertexShader.replace(
       '#include <displacementmap_vertex>',
@@ -245,7 +270,7 @@ function createMaterial(): THREE.MeshPhysicalMaterial {
     )
   }
 
-  mat.customProgramCacheKey = () => 'lsm-v3'
+  mat.customProgramCacheKey = () => 'lsm-v4'
 
   return mat
 }
@@ -298,12 +323,20 @@ function applySpec(mat: THREE.MeshPhysicalMaterial, spec: MaterialShaderSpec) {
   mat.needsUpdate = true
 }
 
-export function LayeredShaderMaterial({ spec }: { spec: MaterialShaderSpec }) {
+export function LayeredShaderMaterial({ spec, uvMapping }: { spec: MaterialShaderSpec; uvMapping?: SurfaceUvMapping }) {
   const mat = useMemo(() => createMaterial(), [])
 
   useLayoutEffect(() => {
     applySpec(mat, spec)
-  }, [mat, spec])
+    const u = (mat as unknown as { _lsmUniforms: Uniforms })._lsmUniforms
+    if (u) {
+      u.uUvScaleX.value = uvMapping?.scaleX ?? 1
+      u.uUvScaleY.value = uvMapping?.scaleY ?? 1
+      u.uUvOffsetX.value = uvMapping?.offsetX ?? 0
+      u.uUvOffsetY.value = uvMapping?.offsetY ?? 0
+      u.uUvRotation.value = uvMapping?.rotation ?? 0
+    }
+  }, [mat, spec, uvMapping])
 
   useLayoutEffect(() => {
     return () => { mat.dispose() }

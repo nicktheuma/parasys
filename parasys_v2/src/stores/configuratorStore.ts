@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MaterialShaderSpec, ParamGraphSettings, PublicMat, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type { MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
 import { clampDimMm, DIM_MM } from '@/lib/configuratorDimensions'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
 import { resolveGraphDrivenDims } from '@/lib/paramGraphEval'
@@ -18,6 +18,7 @@ export type ConfiguratorStore = {
   paramGraph: ParamGraphSettings | null
   templateParamOverrides: Record<string, TemplateParametricPreset> | null
   paramLimits: Record<string, TemplateParamLimits> | null
+  uvMappings: Record<string, SurfaceUvMapping> | null
   showDimensions: boolean
   loadErr: string | null
 
@@ -27,6 +28,7 @@ export type ConfiguratorStore = {
   setDim: (axis: 'width' | 'depth' | 'height', value: number) => void
   setMaterialId: (id: string | null) => void
   setTemplateParam: (key: string, preset: TemplateParametricPreset) => void
+  setUvMapping: (surfaceKey: string, mapping: SurfaceUvMapping) => void
   toggleDimensions: () => void
   loadConfigurator: (data: {
     id: string
@@ -38,6 +40,7 @@ export type ConfiguratorStore = {
       paramGraph?: ParamGraphSettings | null
       templateParams?: Record<string, TemplateParametricPreset> | null
       paramLimits?: Record<string, TemplateParamLimits> | null
+      uvMappings?: Record<string, SurfaceUvMapping> | null
     } | null
   }) => void
   setLoadErr: (err: string | null) => void
@@ -71,6 +74,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   paramGraph: null,
   templateParamOverrides: null,
   paramLimits: null,
+  uvMappings: null,
   showDimensions: true,
   loadErr: null,
   driven: deriveDriven(null, DIM_MM.width.default, DIM_MM.depth.default, DIM_MM.height.default),
@@ -103,6 +107,15 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     }))
   },
 
+  setUvMapping(surfaceKey, mapping) {
+    set((s) => ({
+      uvMappings: {
+        ...(s.uvMappings ?? {}),
+        [surfaceKey]: { ...(s.uvMappings?.[surfaceKey] ?? {}), ...mapping },
+      },
+    }))
+  },
+
   toggleDimensions() {
     set((s) => ({ showDimensions: !s.showDimensions }))
   },
@@ -127,6 +140,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       paramGraph: pg,
       templateParamOverrides: data.settings?.templateParams ?? null,
       paramLimits: data.settings?.paramLimits ?? null,
+      uvMappings: data.settings?.uvMappings ?? null,
       loadErr: null,
       driven: deriveDriven(pg, w, dp, h),
       materialSpec: deriveMaterialSpec(mats, mid),

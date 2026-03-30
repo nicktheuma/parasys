@@ -1,10 +1,10 @@
-import { type FormEvent, useCallback, useState } from 'react'
+import { type FormEvent, useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import { DIM_MM } from '@/lib/configuratorDimensions'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { getTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
-import type { TemplateParametricPreset, TemplateParamLimits, ParamRange } from '@shared/types'
+import type { TemplateParametricPreset, TemplateParamLimits, ParamRange, SurfaceUvMapping } from '@shared/types'
 import styles from './adminSettingsPanel.module.css'
 
 type NumericParamKey = Exclude<keyof TemplateParametricPreset, 'interlockEnabled'>
@@ -22,6 +22,27 @@ function limitKey(k: NumericParamKey): keyof TemplateParamLimits {
   return k as keyof TemplateParamLimits
 }
 
+function computeSurfaceKeys(dividers: number, shelves: number): { id: string; label: string }[] {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const keys: { id: string; label: string }[] = []
+  keys.push({ id: `back-${pad(0)}`, label: 'Back panel' })
+  for (let i = 0; i < dividers + 2; i++) {
+    keys.push({ id: `vertical-${pad(i)}`, label: `Vertical ${i + 1}` })
+  }
+  for (let i = 0; i < shelves; i++) {
+    keys.push({ id: `shelf-${pad(i)}`, label: `Shelf ${i + 1}` })
+  }
+  return keys
+}
+
+const UV_FIELDS: { key: keyof SurfaceUvMapping; label: string; min: number; max: number; step: number; fallback: number }[] = [
+  { key: 'scaleX', label: 'Scale X', min: 0.01, max: 20, step: 0.01, fallback: 1 },
+  { key: 'scaleY', label: 'Scale Y', min: 0.01, max: 20, step: 0.01, fallback: 1 },
+  { key: 'offsetX', label: 'Offset X', min: -10, max: 10, step: 0.01, fallback: 0 },
+  { key: 'offsetY', label: 'Offset Y', min: -10, max: 10, step: 0.01, fallback: 0 },
+  { key: 'rotation', label: 'Rotation', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
+]
+
 export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const {
@@ -32,8 +53,10 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     heightMm,
     templateParamOverrides,
     paramLimits,
+    uvMappings,
     setDim,
     setTemplateParam,
+    setUvMapping,
   } = useConfiguratorStore()
 
   const defaults = getTemplateParametricPreset(templateKey)
@@ -41,10 +64,17 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const merged: TemplateParametricPreset = { ...defaults, ...overrides }
   const limits: TemplateParamLimits = paramLimits?.[templateKey] ?? {}
 
+  const surfaceKeys = useMemo(
+    () => computeSurfaceKeys(merged.dividers ?? 2, merged.shelves ?? 2),
+    [merged.dividers, merged.shelves],
+  )
+
   const [localLimits, setLocalLimits] = useState<TemplateParamLimits>(limits)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [showLimits, setShowLimits] = useState(false)
+  const [showUv, setShowUv] = useState(false)
+  const [expandedUv, setExpandedUv] = useState<string | null>(null)
 
   const setParam = useCallback(
     (key: NumericParamKey, value: number | undefined) => {
@@ -68,6 +98,10 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setLocalLimits({ ...localLimits, [lk]: next })
   }
 
+  function onUvChange(surfaceId: string, field: keyof SurfaceUvMapping, raw: number) {
+    setUvMapping(surfaceId, { [field]: raw })
+  }
+
   async function onSave(e: FormEvent) {
     e.preventDefault()
     if (!configuratorId) return
@@ -83,6 +117,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             defaultDims: { widthMm, depthMm, heightMm },
             templateParams: { [templateKey]: merged },
             paramLimits: { [templateKey]: localLimits },
+            uvMappings: uvMappings ?? {},
           },
         }),
       },
@@ -211,6 +246,68 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
           />
           <span>Interlock enabled</span>
         </label>
+
+        <div className={styles.sectionRow}>
+          <p className={styles.sectionTitle}>UV Mapping</p>
+          <button
+            type="button"
+            className={styles.toggleLimits}
+            onClick={() => setShowUv((v) => !v)}
+          >
+            {showUv ? 'Hide UV' : 'Edit UV'}
+          </button>
+        </div>
+
+        {showUv ? (
+          <div className={styles.uvSection}>
+            {surfaceKeys.map(({ id, label }) => {
+              const isOpen = expandedUv === id
+              const current = uvMappings?.[id]
+              return (
+                <div key={id} className={styles.uvSurface}>
+                  <button
+                    type="button"
+                    className={styles.uvSurfaceHead}
+                    onClick={() => setExpandedUv(isOpen ? null : id)}
+                  >
+                    <span>{label}</span>
+                    <span className={styles.uvToggle}>{isOpen ? '\u25B2' : '\u25BC'}</span>
+                  </button>
+                  {isOpen ? (
+                    <div className={styles.uvFields}>
+                      {UV_FIELDS.map((f) => {
+                        const val = current?.[f.key] ?? f.fallback
+                        return (
+                          <label key={f.key} className={styles.dimRow}>
+                            <span className={styles.dimLabel}>{f.label}</span>
+                            <input
+                              type="range"
+                              className={styles.range}
+                              min={f.min}
+                              max={f.max}
+                              step={f.step}
+                              value={val}
+                              onChange={(e) => onUvChange(id, f.key, Number(e.target.value))}
+                            />
+                            <input
+                              type="number"
+                              className={styles.numInput}
+                              min={f.min}
+                              max={f.max}
+                              step={f.step}
+                              value={val}
+                              onChange={(e) => onUvChange(id, f.key, Number(e.target.value))}
+                            />
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
 
         <div className={styles.actions}>
           <button type="submit" className={styles.saveBtn} disabled={saving || !configuratorId}>

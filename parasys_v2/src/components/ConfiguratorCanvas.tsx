@@ -11,7 +11,7 @@ import styles from '@/routes/configuratorPublic.module.css'
 const CONTACT_SHADOW_POS: [number, number, number] = [0.086, -0.15, 0]
 
 export function ConfiguratorCanvas() {
-  const { templateKey, driven, materialSpec, materialId, templateParamOverrides } =
+  const { templateKey, driven, materialSpec, materialId, templateParamOverrides, uvMappings } =
     useConfiguratorStore()
 
   const stageKey = `${templateKey}-${materialId ?? 'none'}`
@@ -50,6 +50,7 @@ export function ConfiguratorCanvas() {
               heightMm={driven.heightMm}
               materialSpec={materialSpec}
               templateParamOverrides={templateParamOverrides}
+              uvMappings={uvMappings}
             />
             <DimensionsOverlay3D />
           </Stage>

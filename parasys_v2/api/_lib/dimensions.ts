@@ -149,5 +149,26 @@ export function normalizeSettings(
     if (Object.keys(cleanLimits).length > 0) out.paramLimits = cleanLimits
   }
 
+  const uvm = input.uvMappings
+  if (uvm && typeof uvm === 'object') {
+    const cleanUv: NonNullable<ConfiguratorSettingsRow['uvMappings']> = {}
+    const nf = (v: unknown): number | undefined =>
+      typeof v === 'number' && Number.isFinite(v) ? v : undefined
+    for (const [surfaceKey, raw] of Object.entries(uvm)) {
+      if (!raw || typeof raw !== 'object') continue
+      const src = raw as Record<string, unknown>
+      const entry = {
+        scaleX: nf(src.scaleX),
+        scaleY: nf(src.scaleY),
+        offsetX: nf(src.offsetX),
+        offsetY: nf(src.offsetY),
+        rotation: nf(src.rotation),
+      }
+      const hasValue = Object.values(entry).some((v) => v !== undefined)
+      if (hasValue) cleanUv[surfaceKey] = entry
+    }
+    if (Object.keys(cleanUv).length > 0) out.uvMappings = cleanUv
+  }
+
   return Object.keys(out).length > 0 ? out : null
 }

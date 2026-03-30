@@ -1,5 +1,5 @@
 import { mmToM } from '@/lib/configuratorDimensions'
-import type { MaterialShaderSpec, TemplateParametricPreset } from '@shared/types'
+import type { MaterialShaderSpec, SurfaceUvMapping, TemplateParametricPreset } from '@shared/types'
 import { getTemplateRenderer } from './templates/registry'
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
   heightMm: number
   materialSpec: MaterialShaderSpec
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
+  uvMappings?: Record<string, SurfaceUvMapping> | null
 }
 
 export function TemplateProduct({
@@ -18,6 +19,7 @@ export function TemplateProduct({
   heightMm,
   materialSpec,
   templateParamOverrides,
+  uvMappings,
 }: Props) {
   const wm = mmToM(widthMm)
   const hm = mmToM(heightMm)
@@ -30,6 +32,7 @@ export function TemplateProduct({
       dm={dm}
       materialSpec={materialSpec}
       templateParamOverrides={templateParamOverrides}
+      uvMappings={uvMappings}
       templateKey={templateKey}
     />
   )

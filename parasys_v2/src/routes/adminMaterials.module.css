@@ -179,3 +179,63 @@
   color: var(--muted);
   vertical-align: middle;
 }
+
+.liDisabled {
+  opacity: 0.55;
+}
+
+.disabledBadge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(198, 40, 40, 0.08);
+  border: 1px solid var(--danger);
+  font-size: 0.68rem;
+  color: var(--danger);
+  vertical-align: middle;
+}
+
+.matActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.secondary {
+  font: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.secondary:hover {
+  border-color: var(--accent-dim);
+}
+
+.enableBtn {
+  font: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #2e7d32;
+  background: rgba(46, 125, 50, 0.08);
+  color: #2e7d32;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.assignSelect {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  max-width: 140px;
+}

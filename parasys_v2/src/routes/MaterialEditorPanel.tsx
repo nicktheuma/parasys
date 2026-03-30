@@ -204,13 +204,13 @@ export function MaterialEditorPanel({
                 </label>
                 <label className={styles.row}>
                   Scale X
-                  <input type="range" min={0.1} max={24} step={0.1} value={layer.noiseScale}
+                  <input type="range" min={0.1} max={200} step={0.1} value={layer.noiseScale}
                     onChange={(e) => updateLayer(i, { noiseScale: Number(e.target.value) })} />
                   <span className={styles.num}>{layer.noiseScale.toFixed(1)}</span>
                 </label>
                 <label className={styles.row}>
                   Scale Y
-                  <input type="range" min={0} max={24} step={0.1} value={layer.noiseScaleY ?? 0}
+                  <input type="range" min={0} max={200} step={0.1} value={layer.noiseScaleY ?? 0}
                     onChange={(e) => {
                       const v = Number(e.target.value)
                       updateLayer(i, { noiseScaleY: v > 0 ? v : undefined })
@@ -219,7 +219,7 @@ export function MaterialEditorPanel({
                 </label>
                 <label className={styles.row}>
                   Scale Z
-                  <input type="range" min={0} max={24} step={0.1} value={layer.noiseScaleZ ?? 0}
+                  <input type="range" min={0} max={200} step={0.1} value={layer.noiseScaleZ ?? 0}
                     onChange={(e) => {
                       const v = Number(e.target.value)
                       updateLayer(i, { noiseScaleZ: v > 0 ? v : undefined })

@@ -2,7 +2,7 @@ import { ParametricPanelProduct } from '@/features/parametric/mvp1/ParametricPan
 import { mergeTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
 import type { TemplateProps } from './types'
 
-export function PanelTemplate({ wm, hm, dm, materialSpec, templateParamOverrides, templateKey }: TemplateProps) {
+export function PanelTemplate({ wm, hm, dm, materialSpec, templateParamOverrides, uvMappings, templateKey }: TemplateProps) {
   const preset = mergeTemplateParametricPreset(templateKey, templateParamOverrides?.[templateKey] ?? null)
   return (
     <ParametricPanelProduct
@@ -10,6 +10,7 @@ export function PanelTemplate({ wm, hm, dm, materialSpec, templateParamOverrides
       heightM={hm}
       depthM={dm}
       materialSpec={materialSpec}
+      uvMappings={uvMappings}
       dividers={preset?.dividers}
       shelves={preset?.shelves}
       edgeOffset={preset?.edgeOffset}

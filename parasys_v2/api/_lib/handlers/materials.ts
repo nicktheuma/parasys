@@ -1,7 +1,7 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import type { MaterialShaderSpec } from '../../../db/schema'
 import { getDb } from '../../../db/index'
-import { configurators, materials } from '../../../db/schema'
+import { configurators, materials, materialAssignments } from '../../../db/schema'
 import { defaultMaterialShader, normalizeMaterialShader } from '../materialShaderNormalize'
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/
@@ -13,6 +13,7 @@ export type MaterialRow = {
   name: string
   colorHex: string
   shader: MaterialShaderSpec | null
+  enabled: boolean
   createdAt: string
 }
 
@@ -24,6 +25,7 @@ function mapRow(r: typeof materials.$inferSelect): MaterialRow {
     name: r.name,
     colorHex: r.colorHex,
     shader: r.shader ?? null,
+    enabled: r.enabled,
     createdAt: r.createdAt.toISOString(),
   }
 }
@@ -112,6 +114,7 @@ export async function updateMaterial(
     name?: string
     colorHex?: string
     shader?: unknown | null
+    enabled?: boolean
   },
 ): Promise<{ ok: true; item: MaterialRow } | { ok: false; status: number; error: string }> {
   const db = getDb()
@@ -153,6 +156,9 @@ export async function updateMaterial(
       updates.shader = normalizeMaterialShader(patch.shader, nextHex)
     }
   }
+  if (patch.enabled !== undefined) {
+    updates.enabled = patch.enabled
+  }
 
   if (Object.keys(updates).length === 0) {
     return { ok: true, item: mapRow(row0) }
@@ -185,4 +191,70 @@ export async function deleteMaterial(
     return { ok: false, status: 404, error: 'Not found' }
   }
   return { ok: true }
+}
+
+export async function assignMaterial(
+  materialId: string,
+  configuratorId: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) return { ok: false, status: 503, error: 'Database not configured' }
+  const existing = await db
+    .select({ id: materialAssignments.id })
+    .from(materialAssignments)
+    .where(and(eq(materialAssignments.materialId, materialId), eq(materialAssignments.configuratorId, configuratorId)))
+    .limit(1)
+  if (existing[0]) return { ok: true }
+  await db.insert(materialAssignments).values({ materialId, configuratorId })
+  return { ok: true }
+}
+
+export async function unassignMaterial(
+  materialId: string,
+  configuratorId: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const db = getDb()
+  if (!db) return { ok: false, status: 503, error: 'Database not configured' }
+  await db
+    .delete(materialAssignments)
+    .where(and(eq(materialAssignments.materialId, materialId), eq(materialAssignments.configuratorId, configuratorId)))
+  return { ok: true }
+}
+
+export async function getAssignedConfiguratorIds(
+  materialId: string,
+): Promise<string[]> {
+  const db = getDb()
+  if (!db) return []
+  const rows = await db
+    .select({ configuratorId: materialAssignments.configuratorId })
+    .from(materialAssignments)
+    .where(eq(materialAssignments.materialId, materialId))
+  return rows.map((r) => r.configuratorId)
+}
+
+export async function listMaterialsForPublicConfigurator(
+  configuratorId: string,
+): Promise<MaterialRow[]> {
+  const db = getDb()
+  if (!db) return []
+  const assignedIds = await db
+    .select({ materialId: materialAssignments.materialId })
+    .from(materialAssignments)
+    .where(eq(materialAssignments.configuratorId, configuratorId))
+  const assignedMatIds = assignedIds.map((r) => r.materialId)
+
+  const condition = assignedMatIds.length > 0
+    ? and(eq(materials.enabled, true), or(
+        eq(materials.configuratorId, configuratorId),
+        inArray(materials.id, assignedMatIds),
+      ))
+    : and(eq(materials.enabled, true), eq(materials.configuratorId, configuratorId))
+
+  const rows = await db
+    .select()
+    .from(materials)
+    .where(condition!)
+    .orderBy(desc(materials.createdAt))
+  return rows.map(mapRow)
 }

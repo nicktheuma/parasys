@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import type { MaterialShaderSpec, TemplateParametricPreset } from '@shared/types'
+import type { MaterialShaderSpec, SurfaceUvMapping, TemplateParametricPreset } from '@shared/types'
 
 export type TemplateProps = {
   wm: number
@@ -7,6 +7,7 @@ export type TemplateProps = {
   dm: number
   materialSpec: MaterialShaderSpec
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
+  uvMappings?: Record<string, SurfaceUvMapping> | null
   templateKey: string
 }
 

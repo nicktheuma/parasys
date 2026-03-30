@@ -13,6 +13,7 @@ export type {
   ParamGraphNodeType,
   ParamGraphSettings,
   ParamRange,
+  SurfaceUvMapping,
   TemplateParametricPreset,
   TemplateParamLimits,
   UserRole,
