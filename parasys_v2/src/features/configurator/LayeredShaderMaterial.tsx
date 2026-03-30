@@ -106,21 +106,31 @@ function colorBlock(i: number): string {
 }
 
 const uvTransformGlsl = /* glsl */ `
+vec3 _lsm_rotX(vec3 p, float a) {
+  float c = cos(a), s = sin(a);
+  return vec3(p.x, c*p.y - s*p.z, s*p.y + c*p.z);
+}
+vec3 _lsm_rotY(vec3 p, float a) {
+  float c = cos(a), s = sin(a);
+  return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z);
+}
+vec3 _lsm_rotZ(vec3 p, float a) {
+  float c = cos(a), s = sin(a);
+  return vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z);
+}
 vec3 _lsm_uvTransform(vec3 p, int fi) {
-  vec2 sc; vec2 off; float rot;
+  vec2 sc; vec2 off; vec3 rot;
   if (fi == 1) { sc = uUvScale[1]; off = uUvOff[1]; rot = uUvRot[1]; }
   else if (fi == 2) { sc = uUvScale[2]; off = uUvOff[2]; rot = uUvRot[2]; }
   else if (fi == 3) { sc = uUvScale[3]; off = uUvOff[3]; rot = uUvRot[3]; }
   else if (fi == 4) { sc = uUvScale[4]; off = uUvOff[4]; rot = uUvRot[4]; }
   else if (fi == 5) { sc = uUvScale[5]; off = uUvOff[5]; rot = uUvRot[5]; }
   else { sc = uUvScale[0]; off = uUvOff[0]; rot = uUvRot[0]; }
-  float c = cos(rot);
-  float s = sin(rot);
-  vec3 q = p;
-  float rx = c * q.x - s * q.z;
-  float rz = s * q.x + c * q.z;
-  q.x = rx * sc.x + off.x;
-  q.z = rz * sc.y + off.y;
+  vec3 q = _lsm_rotX(p, rot.x);
+  q = _lsm_rotY(q, rot.y);
+  q = _lsm_rotZ(q, rot.z);
+  q.x = q.x * sc.x + off.x;
+  q.z = q.z * sc.y + off.y;
   return q;
 }
 `
@@ -209,7 +219,7 @@ function buildUniforms(): Uniforms {
     uAoFactor: { value: 1.0 },
     uUvScale: { value: Array.from({ length: 6 }, () => new THREE.Vector2(1, 1)) },
     uUvOff: { value: Array.from({ length: 6 }, () => new THREE.Vector2(0, 0)) },
-    uUvRot: { value: new Float32Array(6) },
+    uUvRot: { value: Array.from({ length: 6 }, () => new THREE.Vector3(0, 0, 0)) },
   }
   for (let i = 0; i < 3; i++) {
     const L = `uL${i}`
@@ -272,7 +282,7 @@ void main() {`,
 varying float vFaceGroup;
 uniform vec2 uUvScale[6];
 uniform vec2 uUvOff[6];
-uniform float uUvRot[6];
+uniform vec3 uUvRot[6];
 ${layerUniforms}
 ${noiseGlsl}
 ${uvTransformGlsl}
@@ -290,7 +300,7 @@ void main() {`,
     )
   }
 
-  mat.customProgramCacheKey = () => 'lsm-v5'
+  mat.customProgramCacheKey = () => 'lsm-v6'
 
   return mat
 }
@@ -359,12 +369,16 @@ export function LayeredShaderMaterial({
       const maps = uvFaceMappings ?? IDENTITY_FACE_MAPPINGS
       const scaleArr = u.uUvScale.value as THREE.Vector2[]
       const offArr = u.uUvOff.value as THREE.Vector2[]
-      const rotArr = u.uUvRot.value as Float32Array
+      const rotArr = u.uUvRot.value as THREE.Vector3[]
       for (let i = 0; i < 6; i++) {
         const m = maps[i] ?? {}
         scaleArr[i].set(m.scaleX ?? 1, m.scaleY ?? 1)
         offArr[i].set(m.offsetX ?? 0, m.offsetY ?? 0)
-        rotArr[i] = m.rotation ?? 0
+        rotArr[i].set(
+          m.rotationX ?? 0,
+          m.rotationY ?? m.rotation ?? 0,
+          m.rotationZ ?? 0,
+        )
       }
     }
   }, [mat, spec, uvFaceMappings])

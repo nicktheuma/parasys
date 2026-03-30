@@ -56,7 +56,9 @@ const UV_FIELDS: { key: keyof SurfaceUvMapping; label: string; min: number; max:
   { key: 'scaleY', label: 'Scale Y', min: 0.01, max: 20, step: 0.01, fallback: 1 },
   { key: 'offsetX', label: 'Offset X', min: -10, max: 10, step: 0.01, fallback: 0 },
   { key: 'offsetY', label: 'Offset Y', min: -10, max: 10, step: 0.01, fallback: 0 },
-  { key: 'rotation', label: 'Rotation', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
+  { key: 'rotationX', label: 'Rotation X', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
+  { key: 'rotationY', label: 'Rotation Y', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
+  { key: 'rotationZ', label: 'Rotation Z', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
 ]
 
 function uvCompoundKey(surfaceKind: string, materialId: string, faceGroup: FaceGroup): string {

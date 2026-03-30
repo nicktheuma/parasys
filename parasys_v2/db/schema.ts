@@ -95,6 +95,9 @@ export type SurfaceUvMapping = {
   offsetX?: number
   offsetY?: number
   rotation?: number
+  rotationX?: number
+  rotationY?: number
+  rotationZ?: number
 }
 
 export type DimLimits = {

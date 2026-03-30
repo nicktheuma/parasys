@@ -181,6 +181,9 @@ export function normalizeSettings(
         offsetX: nf(src.offsetX),
         offsetY: nf(src.offsetY),
         rotation: nf(src.rotation),
+        rotationX: nf(src.rotationX),
+        rotationY: nf(src.rotationY),
+        rotationZ: nf(src.rotationZ),
       }
       const hasValue = Object.values(entry).some((v) => v !== undefined)
       if (hasValue) cleanUv[surfaceKey] = entry
