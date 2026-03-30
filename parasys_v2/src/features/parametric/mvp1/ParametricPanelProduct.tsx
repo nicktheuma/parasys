@@ -96,7 +96,7 @@ export function ParametricPanelProduct({
   const mid = materialId ?? ''
 
   return (
-    <group>
+    <group position={[0, heightM / 2, 0]}>
       {panelMeshes.map(({ panelSpec, geometry }) => {
         const faceMaps = getUvFaceMappings(uvMappings ?? null, panelSpec.kind, mid)
         return (

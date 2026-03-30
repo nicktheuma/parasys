@@ -135,24 +135,20 @@ export function ConfiguratorPublic() {
 
       <ConfiguratorCanvas adminMode={showAdminPanel} />
 
-      <footer className={styles.footer}>
-        <p className={styles.hint}>
-          Click and drag dimension labels to resize. Click to type a value. Toggle visibility with the eye icon.
-        </p>
-      </footer>
-
-      <PublicControlsMvp
-        materials={materials}
-        materialId={materialId}
-        onMaterialChange={setMaterialId}
-        showDimensions={showDimensions}
-        onToggleDimensions={toggleDimensions}
-        allowFreeDownload={allowFreeDownload}
-        freeBusy={pkg.freeBusy}
-        checkoutBusy={pkg.checkoutBusy}
-        onDownload={() => void pkg.downloadFree()}
-        onBuy={() => void pkg.buyPackage()}
-      />
+      {!showAdminPanel ? (
+        <PublicControlsMvp
+          materials={materials}
+          materialId={materialId}
+          onMaterialChange={setMaterialId}
+          showDimensions={showDimensions}
+          onToggleDimensions={toggleDimensions}
+          allowFreeDownload={allowFreeDownload}
+          freeBusy={pkg.freeBusy}
+          checkoutBusy={pkg.checkoutBusy}
+          onDownload={() => void pkg.downloadFree()}
+          onBuy={() => void pkg.buyPackage()}
+        />
+      ) : null}
 
       {showAdminPanel ? (
         <aside className={styles.adminOverlay}>

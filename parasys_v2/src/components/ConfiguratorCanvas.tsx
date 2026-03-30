@@ -8,7 +8,7 @@ import { CanvasErrorBoundary } from './CanvasErrorBoundary'
 import { DimensionsOverlay3D } from './DimensionsOverlay3D'
 import styles from '@/routes/configuratorPublic.module.css'
 
-const CONTACT_SHADOW_POS: [number, number, number] = [0.086, -0.15, 0]
+const CONTACT_SHADOW_POS: [number, number, number] = [0, -0.001, 0]
 
 export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
   const { templateKey, driven, materialSpec, materialId, templateParamOverrides, uvMappings } =

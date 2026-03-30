@@ -30,8 +30,8 @@ export function DimensionsOverlay3D() {
     <group name="DimensionsOverlay3D">
       {/* Width: along X, top-back edge */}
       <DimensionLine
-        start={[-w / 2, h / 2, -d / 2]}
-        end={[w / 2, h / 2, -d / 2]}
+        start={[-w / 2, h, -d / 2]}
+        end={[w / 2, h, -d / 2]}
         label={widthMm}
         setDimension={widthLocked ? undefined : (v) => setDim('width', v)}
         min={DIM_MM.width.min}
@@ -43,10 +43,10 @@ export function DimensionsOverlay3D() {
         uiScale={uiScale}
       />
 
-      {/* Height: along Y, right-back edge */}
+      {/* Height: along Y, right-back edge (bottom=0, top=h) */}
       <DimensionLine
-        start={[w / 2, -h / 2, -d / 2]}
-        end={[w / 2, h / 2, -d / 2]}
+        start={[w / 2, 0, -d / 2]}
+        end={[w / 2, h, -d / 2]}
         label={heightMm}
         setDimension={heightLocked ? undefined : (v) => setDim('height', v)}
         min={DIM_MM.height.min}
@@ -60,8 +60,8 @@ export function DimensionsOverlay3D() {
 
       {/* Depth: along Z, right-bottom edge */}
       <DimensionLine
-        start={[w / 2, -h / 2, d / 2]}
-        end={[w / 2, -h / 2, -d / 2]}
+        start={[w / 2, 0, d / 2]}
+        end={[w / 2, 0, -d / 2]}
         label={depthMm}
         setDimension={depthLocked ? undefined : (v) => setDim('depth', v)}
         min={DIM_MM.depth.min}
