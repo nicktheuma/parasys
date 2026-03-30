@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
-import { Suspense } from 'react'
+import { Suspense, useLayoutEffect, useRef } from 'react'
+import type { DirectionalLight } from 'three'
 import * as THREE from 'three'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { CanvasErrorBoundary } from './CanvasErrorBoundary'
@@ -12,6 +13,26 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
     useConfiguratorStore()
 
   const stageKey = adminMode ? templateKey : `${templateKey}-${materialId ?? 'none'}`
+  const fillLightRef = useRef<DirectionalLight>(null)
+
+  useLayoutEffect(() => {
+    const l = fillLightRef.current
+    if (!l) return
+    const sh = l.shadow
+    sh.mapSize.set(2048, 2048)
+    sh.radius = 6
+    sh.bias = -0.00025
+    sh.normalBias = 0.035
+    const cam = sh.camera
+    cam.near = 0.1
+    cam.far = 12
+    const extent = 3.5
+    cam.left = -extent
+    cam.right = extent
+    cam.top = extent
+    cam.bottom = -extent
+    cam.updateProjectionMatrix()
+  }, [])
 
   return (
     <div className={`${styles.canvasWrap} ${adminMode ? styles.canvasWrapAdmin : ''}`}>
@@ -37,14 +58,16 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
 
           {/* Three-point studio lighting */}
           <directionalLight
+            ref={fillLightRef}
             castShadow
             position={[3, 4, 2]}
             intensity={1.8}
             color="#fff5e6"
-            shadow-mapSize={[1024, 1024]}
+            shadow-mapSize={[2048, 2048]}
             shadow-camera-near={0.1}
-            shadow-camera-far={10}
-            shadow-bias={-0.0005}
+            shadow-camera-far={12}
+            shadow-bias={-0.00025}
+            shadow-normalBias={0.035}
           />
           <directionalLight
             position={[-2, 2, 3]}

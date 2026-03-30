@@ -1,6 +1,7 @@
 import { Bounds, Center, ContactShadows, useBounds } from '@react-three/drei'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
+import type { SpotLight } from 'three'
 import { TemplateProduct } from '@/features/configurator/TemplateProduct'
 import type { MaterialShaderSpec, SurfaceUvMapping, TemplateParametricPreset } from '@shared/types'
 import { DimensionsOverlay3D } from '@/components/DimensionsOverlay3D'
@@ -69,25 +70,37 @@ export function ConfiguratorStageContent({
       scale: Math.max(18, radius * 5),
       far: Math.max(12, radius * 8),
       opacity: 0.82,
-      blur: 1.75,
-      resolution: 1024,
+      blur: 2.25,
+      resolution: 2048,
       color: '#000000' as const,
       smooth: true,
     }),
     [radius],
   )
 
+  const keyLightRef = useRef<SpotLight>(null)
+  useLayoutEffect(() => {
+    const l = keyLightRef.current
+    if (!l) return
+    const sh = l.shadow
+    sh.mapSize.set(4096, 4096)
+    sh.radius = 8
+    sh.bias = -0.00008
+    sh.normalBias = 0.02
+  }, [])
+
   return (
     <group key={stageKey}>
       <ambientLight intensity={1.2 / 3} />
       <spotLight
+        ref={keyLightRef}
         penumbra={1}
         position={[PRESET.main[0] * radius, PRESET.main[1] * radius, PRESET.main[2] * radius]}
         intensity={1.2 * 2}
         castShadow
-        shadow-bias={-0.0001}
-        shadow-normalBias={0}
-        shadow-mapSize={2048}
+        shadow-bias={-0.00008}
+        shadow-normalBias={0.02}
+        shadow-mapSize={4096}
       />
       <pointLight
         position={[PRESET.fill[0] * radius, PRESET.fill[1] * radius, PRESET.fill[2] * radius]}
