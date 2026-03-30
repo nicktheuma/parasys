@@ -178,6 +178,7 @@ export function normalizeSettings(
       const entry = {
         scaleX: nf(src.scaleX),
         scaleY: nf(src.scaleY),
+        scaleZ: nf(src.scaleZ),
         offsetX: nf(src.offsetX),
         offsetY: nf(src.offsetY),
         rotation: nf(src.rotation),

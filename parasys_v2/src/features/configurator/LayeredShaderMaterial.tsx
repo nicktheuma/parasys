@@ -119,7 +119,7 @@ vec3 _lsm_rotZ(vec3 p, float a) {
   return vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z);
 }
 vec3 _lsm_uvTransform(vec3 p, int fi) {
-  vec2 sc; vec2 off; vec3 rot;
+  vec3 sc; vec2 off; vec3 rot;
   if (fi == 1) { sc = uUvScale[1]; off = uUvOff[1]; rot = uUvRot[1]; }
   else if (fi == 2) { sc = uUvScale[2]; off = uUvOff[2]; rot = uUvRot[2]; }
   else if (fi == 3) { sc = uUvScale[3]; off = uUvOff[3]; rot = uUvRot[3]; }
@@ -129,8 +129,7 @@ vec3 _lsm_uvTransform(vec3 p, int fi) {
   vec3 q = _lsm_rotX(p, rot.x);
   q = _lsm_rotY(q, rot.y);
   q = _lsm_rotZ(q, rot.z);
-  q.x = q.x * sc.x + off.x;
-  q.z = q.z * sc.y + off.y;
+  q = q * sc + vec3(off.x, 0.0, off.y);
   return q;
 }
 `
@@ -217,7 +216,7 @@ function buildUniforms(): Uniforms {
   const u: Uniforms = {
     uLayerCount: { value: 0 },
     uAoFactor: { value: 1.0 },
-    uUvScale: { value: Array.from({ length: 6 }, () => new THREE.Vector2(1, 1)) },
+    uUvScale: { value: Array.from({ length: 6 }, () => new THREE.Vector3(1, 1, 1)) },
     uUvOff: { value: Array.from({ length: 6 }, () => new THREE.Vector2(0, 0)) },
     uUvRot: { value: Array.from({ length: 6 }, () => new THREE.Vector3(0, 0, 0)) },
   }
@@ -280,7 +279,7 @@ void main() {`,
       'void main() {',
       `varying vec3 vWorldPosition;
 varying float vFaceGroup;
-uniform vec2 uUvScale[6];
+uniform vec3 uUvScale[6];
 uniform vec2 uUvOff[6];
 uniform vec3 uUvRot[6];
 ${layerUniforms}
@@ -300,7 +299,7 @@ void main() {`,
     )
   }
 
-  mat.customProgramCacheKey = () => 'lsm-v6'
+  mat.customProgramCacheKey = () => 'lsm-v7'
 
   return mat
 }
@@ -367,12 +366,12 @@ export function LayeredShaderMaterial({
     const u = (mat as unknown as { _lsmUniforms: Uniforms })._lsmUniforms
     if (u) {
       const maps = uvFaceMappings ?? IDENTITY_FACE_MAPPINGS
-      const scaleArr = u.uUvScale.value as THREE.Vector2[]
+      const scaleArr = u.uUvScale.value as THREE.Vector3[]
       const offArr = u.uUvOff.value as THREE.Vector2[]
       const rotArr = u.uUvRot.value as THREE.Vector3[]
       for (let i = 0; i < 6; i++) {
         const m = maps[i] ?? {}
-        scaleArr[i].set(m.scaleX ?? 1, m.scaleY ?? 1)
+        scaleArr[i].set(m.scaleX ?? 1, m.scaleY ?? 1, m.scaleZ ?? 1)
         offArr[i].set(m.offsetX ?? 0, m.offsetY ?? 0)
         rotArr[i].set(
           m.rotationX ?? 0,

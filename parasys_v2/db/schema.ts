@@ -92,6 +92,7 @@ export const FACE_GROUPS: FaceGroup[] = ['front', 'back', 'right', 'left', 'top'
 export type SurfaceUvMapping = {
   scaleX?: number
   scaleY?: number
+  scaleZ?: number
   offsetX?: number
   offsetY?: number
   rotation?: number

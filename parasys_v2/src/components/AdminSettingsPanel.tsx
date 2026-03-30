@@ -54,6 +54,7 @@ const FACE_LABELS: Record<FaceGroup, string> = {
 const UV_FIELDS: { key: keyof SurfaceUvMapping; label: string; min: number; max: number; step: number; fallback: number }[] = [
   { key: 'scaleX', label: 'Scale X', min: 0.01, max: 20, step: 0.01, fallback: 1 },
   { key: 'scaleY', label: 'Scale Y', min: 0.01, max: 20, step: 0.01, fallback: 1 },
+  { key: 'scaleZ', label: 'Scale Z', min: 0.01, max: 20, step: 0.01, fallback: 1 },
   { key: 'offsetX', label: 'Offset X', min: -10, max: 10, step: 0.01, fallback: 0 },
   { key: 'offsetY', label: 'Offset Y', min: -10, max: 10, step: 0.01, fallback: 0 },
   { key: 'rotationX', label: 'Rotation X', min: -Math.PI, max: Math.PI, step: 0.01, fallback: 0 },
