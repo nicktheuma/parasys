@@ -13,6 +13,8 @@ export type TemplateProps = {
   dm: number
   materialSpec: MaterialShaderSpec
   materialId: string | null
+  materialHydrated?: boolean
+  adminMode?: boolean
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
   templateKey: string

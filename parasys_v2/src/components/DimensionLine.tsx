@@ -22,6 +22,35 @@ type DimensionLineProps = {
   uiScale?: number
   uiScaleMin?: number
   uiScaleMax?: number
+  endpointScale?: number
+  endpointType?: 'dot' | 'arrow' | 'diagonal' | 'cross'
+  lineColor?: string
+  textColor?: string
+  hoverColor?: string
+  showUnits?: boolean
+  unitSystem?: 'mm' | 'm' | 'ft_in'
+  textGapScale?: number
+  labelPrefix?: string
+}
+
+function formatDimensionLabel(
+  mm: number,
+  unitSystem: 'mm' | 'm' | 'ft_in',
+  showUnits: boolean,
+): string {
+  if (unitSystem === 'm') {
+    const v = (mm / 1000).toFixed(3).replace(/\.?0+$/, '')
+    return showUnits ? `${v}m` : v
+  }
+  if (unitSystem === 'ft_in') {
+    const totalInches = mm / 25.4
+    const feet = Math.floor(totalInches / 12)
+    const inches = Math.max(0, totalInches - feet * 12)
+    const inchText = inches.toFixed(1).replace(/\.0$/, '')
+    return showUnits ? `${feet}' ${inchText}"` : `${feet} ${inchText}`
+  }
+  const v = String(Math.round(mm))
+  return showUnits ? `${v}mm` : v
 }
 
 export function DimensionLine({
@@ -36,8 +65,17 @@ export function DimensionLine({
   anchorGap = 0.005,
   fontSize = 0.01,
   uiScale = 1,
-  uiScaleMin = 0.45,
-  uiScaleMax = 4.2,
+  uiScaleMin = 0.65,
+  uiScaleMax = 8,
+  endpointScale = 1,
+  endpointType = 'dot',
+  lineColor = DIM_COLOR,
+  textColor = DIM_COLOR,
+  hoverColor = HOVER_COLOR,
+  showUnits = true,
+  unitSystem = 'mm',
+  textGapScale = 1,
+  labelPrefix,
 }: DimensionLineProps) {
   const diff = new THREE.Vector3(
     endProp[0] - startProp[0],
@@ -48,7 +86,10 @@ export function DimensionLine({
   const dimGapVec = new THREE.Vector3()
   const anchorGapVec = new THREE.Vector3()
   const centerGapVec = new THREE.Vector3()
-  const centerGap = Math.max(fontSize * 1.8, 0.001)
+  const valueText = formatDimensionLabel(label, unitSystem, showUnits)
+  const labelText = labelPrefix && labelPrefix.trim().length > 0 ? `${labelPrefix}: ${valueText}` : valueText
+  const labelLen = Math.max(4, labelText.length)
+  const centerGap = Math.max(fontSize * (1.9 + labelLen * 0.45) * textGapScale, 0.002)
 
   if (diff.x === 0 && diff.z === 0) {
     dimGapVec.set(dimensionGap, 0, 0)
@@ -91,6 +132,7 @@ export function DimensionLine({
 
   const dragging = useRef(false)
   const startX = useRef(0)
+  const startY = useRef(0)
   const startLabel = useRef(label)
   const totalMovement = useRef(0)
   const editOrigin = useRef({ x: 0, y: 0 })
@@ -101,13 +143,19 @@ export function DimensionLine({
   const billboardRef = useRef<THREE.Group>(null)
   const tempWorldPos = useRef(new THREE.Vector3())
   const { controls, camera } = useThree()
+  const isVerticalDimension = Math.abs(diff.y) > Math.abs(diff.x) && Math.abs(diff.y) > Math.abs(diff.z)
 
   useFrame(() => {
     if (!billboardRef.current) return
     billboardRef.current.getWorldPosition(tempWorldPos.current)
     const distance = camera.position.distanceTo(tempWorldPos.current)
     const distanceScale = THREE.MathUtils.clamp(distance * 0.12, 0.7, 3)
-    const finalScale = THREE.MathUtils.clamp(distanceScale * uiScale, uiScaleMin, uiScaleMax)
+    const minLegibleScale = 12 / Math.max(1, fontSize * 1000)
+    const finalScale = THREE.MathUtils.clamp(
+      distanceScale * uiScale,
+      Math.max(uiScaleMin, minLegibleScale),
+      uiScaleMax,
+    )
     billboardRef.current.scale.setScalar(finalScale)
   })
 
@@ -118,13 +166,17 @@ export function DimensionLine({
     dragging.current = true
     try { e.target?.setPointerCapture?.(e.pointerId!) } catch { /* noop */ }
     startX.current = e.nativeEvent?.clientX ?? 0
+    startY.current = e.nativeEvent?.clientY ?? 0
     startLabel.current = label
     totalMovement.current = 0
     if (controls) (controls as unknown as { enabled: boolean }).enabled = false
 
     const handleGlobalMove = (moveEvt: MouseEvent) => {
       if (!dragging.current) return
-      totalMovement.current = Math.abs(moveEvt.clientX - startX.current)
+      totalMovement.current = Math.max(
+        Math.abs(moveEvt.clientX - startX.current),
+        Math.abs(moveEvt.clientY - startY.current),
+      )
     }
 
     const handleGlobalUp = (upEvt: MouseEvent) => {
@@ -148,9 +200,12 @@ export function DimensionLine({
     const e = evt as unknown as { stopPropagation: () => void; nativeEvent?: MouseEvent }
     e.stopPropagation()
     const clientX = e.nativeEvent?.clientX ?? 0
+    const clientY = e.nativeEvent?.clientY ?? 0
     const screenDx = clientX - startX.current
-    totalMovement.current = Math.abs(screenDx)
-    const mmDelta = screenDx * 2
+    const screenDy = startY.current - clientY
+    totalMovement.current = Math.max(Math.abs(screenDx), Math.abs(screenDy))
+    const signedPixels = isVerticalDimension ? screenDy : screenDx
+    const mmDelta = signedPixels * 2
     const newMm = startLabel.current + mmDelta
     const snapped = Math.min(max, Math.max(min, Math.round(newMm / step) * step))
     if (snapped !== label) setDimension(snapped)
@@ -197,7 +252,55 @@ export function DimensionLine({
     return () => document.removeEventListener('mousemove', onMove)
   }, [isEditing])
 
-  const color = hovered ? HOVER_COLOR : DIM_COLOR
+  const color = hovered ? hoverColor : lineColor
+  const labelColor = hovered ? hoverColor : textColor
+  const endpointRadius = Math.max(0.0015, fontSize * 0.18 * endpointScale)
+  const lineDir = new THREE.Vector3().subVectors(e, s).normalize()
+  const endpointHalf = Math.max(endpointRadius * 2.4, 0.004)
+
+  const endpointGlyph = (pos: THREE.Vector3, sign: 1 | -1, key: string) => {
+    const along = lineDir.clone().multiplyScalar(sign)
+    const perp = new THREE.Vector3(0, 1, 0)
+    if (Math.abs(along.dot(perp)) > 0.9) perp.set(1, 0, 0)
+    perp.cross(along).normalize()
+    if (endpointType === 'cross') {
+      const p1 = pos.clone().add(along.clone().multiplyScalar(endpointHalf))
+      const p2 = pos.clone().add(along.clone().multiplyScalar(-endpointHalf))
+      const p3 = pos.clone().add(perp.clone().multiplyScalar(endpointHalf))
+      const p4 = pos.clone().add(perp.clone().multiplyScalar(-endpointHalf))
+      return (
+        <group key={key}>
+          <Line points={[p1, p2]} color={color} lineWidth={1} />
+          <Line points={[p3, p4]} color={color} lineWidth={1} />
+        </group>
+      )
+    }
+    if (endpointType === 'diagonal') {
+      const d1 = pos
+        .clone()
+        .add(along.clone().multiplyScalar(endpointHalf))
+        .add(perp.clone().multiplyScalar(endpointHalf))
+      const d2 = pos
+        .clone()
+        .add(along.clone().multiplyScalar(-endpointHalf))
+        .add(perp.clone().multiplyScalar(-endpointHalf))
+      return <Line key={key} points={[d1, d2]} color={color} lineWidth={1} />
+    }
+    if (endpointType === 'arrow') {
+      return (
+        <mesh key={key} position={[pos.x, pos.y, pos.z]} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), along)}>
+          <coneGeometry args={[endpointRadius * 1.35, endpointRadius * 3.3, 10]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      )
+    }
+    return (
+      <mesh key={key} position={[pos.x, pos.y, pos.z]}>
+        <sphereGeometry args={[endpointRadius, 12, 12]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+    )
+  }
 
   return (
     <group>
@@ -206,6 +309,8 @@ export function DimensionLine({
 
       <Line points={[[s.x, s.y, s.z], witnessStart]} color={color} lineWidth={1} />
       <Line points={[[e.x, e.y, e.z], witnessEnd]} color={color} lineWidth={1} />
+      {endpointGlyph(s, -1, 'ep-s')}
+      {endpointGlyph(e, 1, 'ep-e')}
 
       <Billboard
         ref={billboardRef}
@@ -229,7 +334,7 @@ export function DimensionLine({
               setHovered(false)
             }}
           >
-            <planeGeometry args={[0.08, 0.03]} />
+            <planeGeometry args={[0.12, 0.045]} />
             <meshBasicMaterial transparent opacity={0} />
           </mesh>
 
@@ -255,8 +360,8 @@ export function DimensionLine({
                   padding: `${fontSize * 1000 * 0.2}px ${fontSize * 1000 * 0.3}px`,
                   borderRadius: '4px',
                   backgroundColor: '#ffffffee',
-                  color: HOVER_COLOR,
-                  border: `1px solid ${DIM_COLOR}`,
+                  color: hoverColor,
+                  border: `1px solid ${lineColor}`,
                   textAlign: 'center',
                   fontFamily: 'inherit',
                   outline: 'none',
@@ -266,11 +371,11 @@ export function DimensionLine({
           ) : (
             <Text
               fontSize={fontSize}
-              color={color}
+              color={labelColor}
               anchorX="center"
               anchorY="middle"
             >
-              {Math.round(label)}mm
+              {labelText}
             </Text>
           )}
         </group>

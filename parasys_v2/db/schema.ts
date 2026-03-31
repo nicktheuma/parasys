@@ -110,6 +110,64 @@ export type DimLimits = {
   heightMm?: ParamRange
 }
 
+export type DimensionUiSettings = {
+  /** Relative scale of dimension lines and spacing offsets. */
+  lineScale?: number
+  /** Relative scale of dimension text labels and hit zones. */
+  textScale?: number
+  /** Relative scale of dimension endpoints/markers. */
+  endpointScale?: number
+  /** Endpoint marker shape style. */
+  endpointType?: 'dot' | 'arrow' | 'diagonal' | 'cross'
+  /** Dimension line and marker color. */
+  lineColor?: string
+  /** Dimension text color. */
+  textColor?: string
+  /** Selected-panel outline color. */
+  highlightOutlineColor?: string
+  /** Selected-panel face overlay color. */
+  highlightFaceColor?: string
+  /** Reuse line color for text when enabled. */
+  lockTextColorToLine?: boolean
+  /** Reuse outline color for selected face tint when enabled. */
+  lockFaceColorToOutline?: boolean
+  /** Show units in dimension text labels. */
+  showUnits?: boolean
+  /** Unit system used by dimension text labels. */
+  unitSystem?: 'mm' | 'm' | 'ft_in'
+  /** Extra whitespace scale between dimension text and line segments. */
+  textGapScale?: number
+  /** Per-axis offset scales (dimension line distance from source points). */
+  gapScaleWidth?: number
+  gapScaleHeight?: number
+  gapScaleDepth?: number
+  /** Extra user-defined dimensions created from picked source points. */
+  customDimensions?: Array<{
+    id: string
+    name?: string
+    start: [number, number, number]
+    end: [number, number, number]
+    gapScale?: number
+    startAnchor?: { panelId: string; vertexIndex: number }
+    endAnchor?: { panelId: string; vertexIndex: number }
+  }>
+  /** Developer vertex debug marker color. */
+  debugVertexColor?: string
+  /** Developer vertex debug marker size (m). */
+  debugVertexSize?: number
+  /** Point-pick marker size (m). */
+  pickPointSize?: number
+}
+
+export type CameraSettings = {
+  /** Standard startup camera view; custom uses explicit position/target. */
+  preset?: 'front' | 'top' | 'side' | 'iso' | 'custom'
+  /** Relative camera distance from product radius for presets. */
+  distanceFactor?: number
+  position?: [number, number, number]
+  target?: [number, number, number]
+}
+
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
 /** One adjustable light; position is world-space for canvas directionals, unit multipliers × bbox radius for stage spot/point */
 export type SceneLightSettings = {
@@ -142,6 +200,8 @@ export type ConfiguratorSettingsRow = {
   /** Public configurator opens with this material selected when valid and in the material list */
   defaultMaterialId?: string | null
   dimLimits?: DimLimits | null
+  dimensionUi?: DimensionUiSettings | null
+  camera?: CameraSettings | null
   paramGraph?: ParamGraphSettings | null
   templateParams?: Record<string, TemplateParametricPreset> | null
   paramLimits?: Record<string, TemplateParamLimits> | null
@@ -153,19 +213,56 @@ export type ConfiguratorSettingsRow = {
 
 export type PropHorizontalAlign = 'center' | 'left' | 'right'
 export type PropDepthAlign = 'center' | 'front' | 'back'
+export type PropPlacementKind = 'library' | 'primitive'
+export type PropPrimitiveType = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'icosahedron'
 
 /** One instance of a library prop placed on an anchor (e.g. shelf:2) */
 export type ConfiguratorPropPlacement = {
   id: string
-  propLibraryId: string
+  kind?: PropPlacementKind
+  propLibraryId?: string
+  primitiveType?: PropPrimitiveType
   anchorId: string
   /** Extra multiplier on auto-fit scale (clamped in app) */
   scaleBias?: number
+  /** Per-axis scale multipliers (mainly for primitive manual placements). */
+  scaleX?: number
+  scaleY?: number
+  scaleZ?: number
   materialSpec?: MaterialShaderSpec | null
   /** Horizontal placement along shelf width (X); default center */
   alignX?: PropHorizontalAlign
   /** Depth placement along shelf (Z, +Z = front) */
   alignZ?: PropDepthAlign
+  /** Extra normalized offsets in slot-space for randomized placement (−1..1). */
+  offsetX?: number
+  offsetZ?: number
+  /** Repeat instances along each axis on the shelf (1 = single). */
+  arrayCountX?: number
+  arrayCountY?: number
+  arrayCountZ?: number
+  /** Legacy 0..1 random uniform scale variation (maps to increment if increment unset). */
+  arrayScaleJitter?: number
+  /** Max ± scale deviation per array instance (0..0.5 → e.g. 0.1 ≈ ±10%). */
+  arrayScaleJitterIncrement?: number
+  /** Extra spacing between array instances (m); 0 = auto-distribute in slot. */
+  arraySpacingX?: number
+  arraySpacingY?: number
+  arraySpacingZ?: number
+  /** Manual position offset in scene space (m). */
+  positionOffsetX?: number
+  positionOffsetY?: number
+  positionOffsetZ?: number
+  /** Euler rotation (radians) for primitives; GLB props use same pivot. */
+  rotationX?: number
+  rotationY?: number
+  rotationZ?: number
+  /** Placements with the same non-empty id move/scale as a group relative to the pivot (lexically first id). */
+  groupId?: string
+  /** Offset from pivot placement’s first array cell (m). Ignored on pivot. */
+  groupOffsetX?: number
+  groupOffsetY?: number
+  groupOffsetZ?: number
 }
 
 export type ConfiguratorPropsSettings = {
@@ -174,6 +271,13 @@ export type ConfiguratorPropsSettings = {
   density?: number
   /** Prop library ids used for auto-fill (round-robin); if empty, all enabled props are considered */
   palettePropIds?: string[]
+  /** Deterministic seed used to randomize auto-fill placements. */
+  autoSeed?: number
+  /** 0..2 amount of random size variation for auto-filled props. */
+  autoScaleJitter?: number
+  /** Min/max random spawn jitter amplitude (0..1) for auto-filled props. */
+  autoSpawnJitterMin?: number
+  autoSpawnJitterMax?: number
 }
 
 export type PropKind = 'placeholder_cube' | 'glb'

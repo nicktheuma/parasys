@@ -27,13 +27,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     depthMm?: number
     heightMm?: number
     format?: string
+    renderedPages?: {
+      planPngDataUrl?: string | null
+      sectionPngDataUrl?: string | null
+      elevationPngDataUrl?: string | null
+    } | null
   }>(req)
   const format = parseFormat(body.format)
   const r = await buildDesignAsset(format, body.slug ?? '', {
     widthMm: body.widthMm,
     depthMm: body.depthMm,
     heightMm: body.heightMm,
-  })
+  }, { renderedPages: body.renderedPages ?? null })
   if (!r.ok) {
     json(res, r.status, { error: r.error })
     return

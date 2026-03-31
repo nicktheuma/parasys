@@ -12,7 +12,9 @@ import {
 } from '@/lib/configuratorLighting'
 import { copyUvMappingsBetweenMaterials } from '@/lib/uvMappingsCopy'
 import type {
+  CameraSettings,
   ConfiguratorPropPlacement,
+  DimensionUiSettings,
   TemplateParametricPreset,
   TemplateParamLimits,
   ParamRange,
@@ -25,6 +27,8 @@ import type { BlendMode, MaterialShaderLayer, MaterialShaderSpec, NoiseType } fr
 import { ColorSwatchInput } from './ColorSwatchInput'
 import { MatSliderRow, MatSliderRowScaleOptional } from './MatSliderControls'
 import {
+  AdminTabCameraIcon,
+  AdminTabDimOverlayIcon,
   AdminTabDimsIcon,
   AdminTabLightingIcon,
   AdminTabMaterialsIcon,
@@ -35,10 +39,22 @@ import {
 import { FACE_GROUPS } from '@shared/types'
 import { PANEL_TEMPLATE_KEYS } from '@/features/configurator/templates/registry'
 import { anchorLabelList, panelAnchorsFromDimsMm } from '@/features/configurator/props/panelPropAnchors'
+import {
+  clampIntCount,
+  clampPropSigned,
+  clampPropUnsigned,
+  clampRotationDeg,
+  PROP_ROTATION_DEG_MAX,
+  PROP_ROTATION_DEG_MIN,
+  PROP_SETTING_MAX,
+  PROP_SETTING_MIN,
+  PROP_SIGNED_MAX,
+  PROP_SIGNED_MIN,
+} from '@/features/configurator/props/propSettingsLimits'
 import type { PropLibraryItem } from '@/features/configurator/props/types'
 import styles from './adminSettingsPanel.module.css'
 
-type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv' | 'lighting' | 'props'
+type Tab = 'dimensions' | 'dimensionOverlay' | 'camera' | 'parameters' | 'materials' | 'uv' | 'lighting' | 'props'
 
 type NumericParamKey = Exclude<
   keyof TemplateParametricPreset,
@@ -151,6 +167,8 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     heightMm,
     templateParamOverrides,
     dimLimits,
+    dimensionUi,
+    camera,
     paramLimits,
     uvMappings,
     lighting,
@@ -168,9 +186,23 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setMaterialSpec,
     setMaterials,
     setLightingEditorPick,
+    setCameraEditorEnabled,
+    setDimensionEditorEnabled,
+    setPanelSelectionEnabled,
+    setDimensionPickMode,
+    setShowVertexDebug,
+    showVertexDebug,
+    dimensionPickMode,
+    dimensionPickPendingPoint,
     propsConfig,
+    selectedPropPlacementId,
+    setSelectedPropPlacementId,
     setPropsPlacements,
     setPropsConfig,
+    setDimensionUi,
+    setCamera,
+    previewCameraStartView,
+    removeCustomDimension,
   } = useConfiguratorStore()
 
   const [tab, setTab] = useState<Tab>('dimensions')
@@ -186,6 +218,32 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
   const [localLimits, setLocalLimits] = useState<TemplateParamLimits>(limits)
   const [localDimLimits, setLocalDimLimits] = useState<DimLimits>(dimLimits ?? {})
+  const [localDimensionUi, setLocalDimensionUi] = useState<DimensionUiSettings>(
+    dimensionUi ?? {
+      lineScale: 1,
+      textScale: 1,
+      endpointScale: 1,
+      endpointType: 'dot',
+      lineColor: '#747474',
+      textColor: '#747474',
+      highlightOutlineColor: '#ffd84d',
+      highlightFaceColor: '#fff07a',
+      lockTextColorToLine: false,
+      lockFaceColorToOutline: false,
+      showUnits: true,
+      unitSystem: 'mm',
+      textGapScale: 1,
+      gapScaleWidth: 1,
+      gapScaleHeight: 1,
+      gapScaleDepth: 1,
+      debugVertexColor: '#111111',
+      debugVertexSize: 0.0036,
+      pickPointSize: 0.012,
+    },
+  )
+  const [localCamera, setLocalCamera] = useState<CameraSettings>(
+    camera ?? { preset: 'front', distanceFactor: 2.6 },
+  )
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [uvSurfaceKind, setUvSurfaceKind] = useState('back')
@@ -233,6 +291,9 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
   function removePlacementRow(id: string) {
     const cur = useConfiguratorStore.getState().propsConfig?.placements ?? []
+    if (useConfiguratorStore.getState().selectedPropPlacementId === id) {
+      setSelectedPropPlacementId(null)
+    }
     setPropsPlacements(cur.filter((p) => p.id !== id))
   }
 
@@ -242,7 +303,34 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     const firstAnchor = shelfAnchorOptions[0]?.id ?? 'shelf:0'
     setPropsPlacements([
       ...cur,
-      { id: crypto.randomUUID(), propLibraryId: firstProp, anchorId: firstAnchor, scaleBias: 1 },
+      {
+        id: crypto.randomUUID(),
+        kind: 'primitive',
+        primitiveType: 'box',
+        propLibraryId: firstProp || undefined,
+        anchorId: firstAnchor,
+        scaleBias: 1,
+        scaleX: 1,
+        scaleY: 1,
+        scaleZ: 1,
+        arrayCountX: 1,
+        arrayCountY: 1,
+        arrayCountZ: 1,
+        arrayScaleJitter: 0,
+        arrayScaleJitterIncrement: 0,
+        arraySpacingX: 0,
+        arraySpacingY: 0,
+        arraySpacingZ: 0,
+        positionOffsetX: 0,
+        positionOffsetY: 0,
+        positionOffsetZ: 0,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        groupOffsetX: 0,
+        groupOffsetY: 0,
+        groupOffsetZ: 0,
+      },
     ])
   }
 
@@ -270,12 +358,65 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     if (tab === 'lighting') setLightingEditorPick(lightingPick)
     else setLightingEditorPick(null)
   }, [tab, lightingPick, setLightingEditorPick])
+  useEffect(() => {
+    setCameraEditorEnabled(tab === 'camera')
+  }, [tab, setCameraEditorEnabled])
+  useEffect(() => {
+    setDimensionEditorEnabled(tab === 'dimensionOverlay')
+  }, [tab, setDimensionEditorEnabled])
+  useEffect(() => {
+    setPanelSelectionEnabled(tab !== 'dimensionOverlay')
+  }, [tab, setPanelSelectionEnabled])
+  useEffect(() => {
+    if (tab !== 'dimensionOverlay') setDimensionPickMode(false)
+  }, [tab, setDimensionPickMode])
+
+  useEffect(() => {
+    setLocalDimensionUi(
+      dimensionUi ?? {
+        lineScale: 1,
+        textScale: 1,
+        endpointScale: 1,
+        endpointType: 'dot',
+        lineColor: '#747474',
+        textColor: '#747474',
+        highlightOutlineColor: '#ffd84d',
+        highlightFaceColor: '#fff07a',
+        lockTextColorToLine: false,
+        lockFaceColorToOutline: false,
+        showUnits: true,
+        unitSystem: 'mm',
+        textGapScale: 1,
+        gapScaleWidth: 1,
+        gapScaleHeight: 1,
+        gapScaleDepth: 1,
+        debugVertexColor: '#111111',
+        debugVertexSize: 0.0036,
+        pickPointSize: 0.012,
+      },
+    )
+  }, [dimensionUi])
+  useEffect(() => {
+    setLocalCamera(camera ?? { preset: 'front', distanceFactor: 2.6 })
+  }, [camera])
 
   useEffect(
     () => () => {
       setLightingEditorPick(null)
+      setCameraEditorEnabled(false)
+      setDimensionEditorEnabled(false)
+      setPanelSelectionEnabled(true)
+      setDimensionPickMode(false)
+      setSelectedPropPlacementId(null)
     },
-    [setLightingEditorPick],
+    [
+      setLightingEditorPick,
+      setCameraEditorEnabled,
+      setDimensionEditorEnabled,
+      setPanelSelectionEnabled,
+      setDimensionPickMode,
+      setSelectedPropPlacementId,
+    ],
   )
 
   // Materials tab state
@@ -379,6 +520,8 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             defaultDims: { widthMm, depthMm, heightMm },
             defaultMaterialId,
             dimLimits: localDimLimits,
+            dimensionUi: localDimensionUi,
+            camera: localCamera,
             templateParams: { [templateKey]: merged },
             paramLimits: { [templateKey]: localLimits },
             uvMappings: uvMappings ?? {},
@@ -568,6 +711,13 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
   const [showDimLimits, setShowDimLimits] = useState(false)
   const [showParamLimits, setShowParamLimits] = useState(false)
+  const [debugMarkerLimits, setDebugMarkerLimits] = useState({
+    vertexMin: 0.001,
+    vertexMax: 0.03,
+    pickMin: 0.001,
+    pickMax: 0.03,
+  })
+  const [cameraDistanceLimits, setCameraDistanceLimits] = useState({ min: 0.6, max: 10 })
 
   return (
     <div className={styles.panel}>
@@ -583,7 +733,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         {/* ── DIMENSIONS TAB ── */}
         {tab === 'dimensions' ? (
           <div className={styles.tabContent}>
-            <p className={styles.sectionTitle}>Dimensions (mm)</p>
+            <p className={styles.sectionTitle}>Bounding box (mm)</p>
             {DIM_AXES.map((axis) => {
               const mm = dimMmForAxis(axis)
               const dlk = dimLimitKey(axis)
@@ -661,6 +811,495 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                 })}
               </div>
             ) : null}
+            <p className={styles.sectionTitle}>Selection Highlight</p>
+            <label className={styles.matFieldWide}>
+              <span>Selection outline colour</span>
+              <span className={styles.matColourSpan}>
+                <ColorSwatchInput
+                  value={localDimensionUi.highlightOutlineColor ?? '#ffd84d'}
+                  onChange={(v) => {
+                    const next = { ...localDimensionUi, highlightOutlineColor: v }
+                    setLocalDimensionUi(next)
+                    setDimensionUi({ highlightOutlineColor: v })
+                  }}
+                  aria-label="Selection outline colour"
+                />
+              </span>
+            </label>
+            <label className={styles.matFieldWide}>
+              <span>Selection face colour</span>
+              <span className={styles.matColourSpan}>
+                <ColorSwatchInput
+                  value={localDimensionUi.highlightFaceColor ?? '#fff07a'}
+                  onChange={(v) => {
+                    const next = { ...localDimensionUi, highlightFaceColor: v }
+                    setLocalDimensionUi(next)
+                    setDimensionUi({ highlightFaceColor: v })
+                  }}
+                  aria-label="Selection face colour"
+                />
+              </span>
+            </label>
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={localDimensionUi.lockFaceColorToOutline ?? false}
+                onChange={(e) => {
+                  const v = e.target.checked
+                  const next = { ...localDimensionUi, lockFaceColorToOutline: v }
+                  setLocalDimensionUi(next)
+                  setDimensionUi({ lockFaceColorToOutline: v })
+                }}
+              />
+              <span>Use outline colour for selection face</span>
+            </label>
+          </div>
+        ) : null}
+
+        {/* ── DIMENSION OVERLAY TAB ── */}
+        {tab === 'dimensionOverlay' ? (
+          <div className={styles.tabContent}>
+            <p className={styles.sectionTitle}>Dimension Overlay</p>
+            <p className={styles.hint}>
+              Overlay editing is active in scene. Panel selection and product transform gizmos are disabled.
+            </p>
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Line scale"
+              min={0.4}
+              max={3}
+              step={0.05}
+              value={localDimensionUi.lineScale ?? 1}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, lineScale: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ lineScale: v })
+              }}
+            />
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Text size scale"
+              min={0.4}
+              max={3}
+              step={0.05}
+              value={localDimensionUi.textScale ?? 1}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, textScale: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ textScale: v })
+              }}
+            />
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Text gap whitespace scale"
+              min={0.5}
+              max={4}
+              step={0.05}
+              value={localDimensionUi.textGapScale ?? 1}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, textGapScale: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ textGapScale: v })
+              }}
+            />
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Endpoint scale"
+              min={0.4}
+              max={3}
+              step={0.05}
+              value={localDimensionUi.endpointScale ?? 1}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, endpointScale: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ endpointScale: v })
+              }}
+            />
+            <label className={styles.dimRow}>
+              <span className={styles.dimLabel}>Endpoint style</span>
+              <select
+                className={styles.matSelect}
+                value={localDimensionUi.endpointType ?? 'dot'}
+                onChange={(e) => {
+                  const v = e.target.value as 'dot' | 'arrow' | 'diagonal' | 'cross'
+                  const next = { ...localDimensionUi, endpointType: v }
+                  setLocalDimensionUi(next)
+                  setDimensionUi({ endpointType: v })
+                }}
+              >
+                <option value="dot">Dots</option>
+                <option value="arrow">Arrows</option>
+                <option value="diagonal">Diagonal ticks</option>
+                <option value="cross">Crosses</option>
+              </select>
+            </label>
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={localDimensionUi.showUnits ?? true}
+                onChange={(e) => {
+                  const v = e.target.checked
+                  const next = { ...localDimensionUi, showUnits: v }
+                  setLocalDimensionUi(next)
+                  setDimensionUi({ showUnits: v })
+                }}
+              />
+              <span>Show units in dimension text</span>
+            </label>
+            <label className={styles.dimRow}>
+              <span className={styles.dimLabel}>Units</span>
+              <select
+                className={styles.matSelect}
+                value={localDimensionUi.unitSystem ?? 'mm'}
+                onChange={(e) => {
+                  const v = e.target.value as 'mm' | 'm' | 'ft_in'
+                  const next = { ...localDimensionUi, unitSystem: v }
+                  setLocalDimensionUi(next)
+                  setDimensionUi({ unitSystem: v })
+                }}
+              >
+                <option value="mm">Millimetres (mm)</option>
+                <option value="m">Meters (m)</option>
+                <option value="ft_in">Feet and inches</option>
+              </select>
+            </label>
+            <label className={styles.matFieldWide}>
+              <span>Dimension line colour</span>
+              <span className={styles.matColourSpan}>
+                <ColorSwatchInput
+                  value={localDimensionUi.lineColor ?? '#747474'}
+                  onChange={(v) => {
+                    const next = { ...localDimensionUi, lineColor: v }
+                    setLocalDimensionUi(next)
+                    setDimensionUi({ lineColor: v })
+                  }}
+                  aria-label="Dimension line colour"
+                />
+              </span>
+            </label>
+            <label className={styles.matFieldWide}>
+              <span>Dimension text colour</span>
+              <span className={styles.matColourSpan}>
+                <ColorSwatchInput
+                  value={localDimensionUi.textColor ?? '#747474'}
+                  onChange={(v) => {
+                    const next = { ...localDimensionUi, textColor: v }
+                    setLocalDimensionUi(next)
+                    setDimensionUi({ textColor: v })
+                  }}
+                  aria-label="Dimension text colour"
+                />
+              </span>
+            </label>
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={localDimensionUi.lockTextColorToLine ?? false}
+                onChange={(e) => {
+                  const v = e.target.checked
+                  const next = { ...localDimensionUi, lockTextColorToLine: v }
+                  setLocalDimensionUi(next)
+                  setDimensionUi({ lockTextColorToLine: v })
+                }}
+              />
+              <span>Use line colour for text</span>
+            </label>
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.saveBtn}
+                onClick={() => setDimensionPickMode(!dimensionPickMode)}
+              >
+                {dimensionPickMode ? 'Stop point picking' : 'Add dimension by picking 2 points'}
+              </button>
+              {dimensionPickPendingPoint ? (
+                <span className={styles.hint}>First point saved. Pick second point.</span>
+              ) : null}
+            </div>
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={showVertexDebug}
+                onChange={(e) => setShowVertexDebug(e.target.checked)}
+              />
+              <span>Developer: show all panel vertices</span>
+            </label>
+            <label className={styles.matFieldWide}>
+              <span>Developer vertex colour</span>
+              <span className={styles.matColourSpan}>
+                <ColorSwatchInput
+                  value={localDimensionUi.debugVertexColor ?? '#111111'}
+                  onChange={(v) => {
+                    const next = { ...localDimensionUi, debugVertexColor: v }
+                    setLocalDimensionUi(next)
+                    setDimensionUi({ debugVertexColor: v })
+                  }}
+                  aria-label="Developer vertex colour"
+                />
+              </span>
+            </label>
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Developer vertex size"
+              min={debugMarkerLimits.vertexMin}
+              max={debugMarkerLimits.vertexMax}
+              step={0.0005}
+              value={localDimensionUi.debugVertexSize ?? 0.0036}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, debugVertexSize: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ debugVertexSize: v })
+              }}
+            />
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Pick marker size"
+              min={debugMarkerLimits.pickMin}
+              max={debugMarkerLimits.pickMax}
+              step={0.0005}
+              value={localDimensionUi.pickPointSize ?? 0.012}
+              onChange={(v) => {
+                const next = { ...localDimensionUi, pickPointSize: v }
+                setLocalDimensionUi(next)
+                setDimensionUi({ pickPointSize: v })
+              }}
+            />
+            <div className={styles.limitsRow}>
+              <label className={styles.limitLabel}>
+                Vertex size min
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.0005}
+                  value={debugMarkerLimits.vertexMin}
+                  onChange={(e) =>
+                    setDebugMarkerLimits((s) => ({ ...s, vertexMin: Number(e.target.value) || 0.001 }))
+                  }
+                />
+              </label>
+              <label className={styles.limitLabel}>
+                Vertex size max
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.0005}
+                  value={debugMarkerLimits.vertexMax}
+                  onChange={(e) =>
+                    setDebugMarkerLimits((s) => ({ ...s, vertexMax: Number(e.target.value) || 0.03 }))
+                  }
+                />
+              </label>
+            </div>
+            <div className={styles.limitsRow}>
+              <label className={styles.limitLabel}>
+                Pick size min
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.0005}
+                  value={debugMarkerLimits.pickMin}
+                  onChange={(e) =>
+                    setDebugMarkerLimits((s) => ({ ...s, pickMin: Number(e.target.value) || 0.001 }))
+                  }
+                />
+              </label>
+              <label className={styles.limitLabel}>
+                Pick size max
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.0005}
+                  value={debugMarkerLimits.pickMax}
+                  onChange={(e) =>
+                    setDebugMarkerLimits((s) => ({ ...s, pickMax: Number(e.target.value) || 0.03 }))
+                  }
+                />
+              </label>
+            </div>
+            <div className={styles.propPaletteGrid}>
+              {(localDimensionUi.customDimensions ?? []).map((cd) => (
+                <div key={cd.id} className={styles.propCard}>
+                  <label className={styles.limitLabel}>
+                    Name
+                    <input
+                      type="text"
+                      className={styles.limitInput}
+                      value={cd.name ?? ''}
+                      placeholder={cd.id.slice(0, 8)}
+                      onChange={(e) => {
+                        const nm = e.target.value
+                        const next = (localDimensionUi.customDimensions ?? []).map((row) =>
+                          row.id === cd.id ? { ...row, name: nm } : row,
+                        )
+                        const upd = { ...localDimensionUi, customDimensions: next }
+                        setLocalDimensionUi(upd)
+                        setDimensionUi({ customDimensions: next })
+                      }}
+                    />
+                  </label>
+                  <label className={styles.limitLabel}>
+                    Line position
+                    <input
+                      type="range"
+                      className={styles.range}
+                      min={0.2}
+                      max={6}
+                      step={0.05}
+                      value={cd.gapScale ?? 1}
+                      onChange={(e) => {
+                        const v = Number(e.target.value)
+                        const next = (localDimensionUi.customDimensions ?? []).map((row) =>
+                          row.id === cd.id ? { ...row, gapScale: v } : row,
+                        )
+                        const upd = { ...localDimensionUi, customDimensions: next }
+                        setLocalDimensionUi(upd)
+                        setDimensionUi({ customDimensions: next })
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className={styles.limitInput}
+                      min={0.2}
+                      max={6}
+                      step={0.05}
+                      value={cd.gapScale ?? 1}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 1
+                        const next = (localDimensionUi.customDimensions ?? []).map((row) =>
+                          row.id === cd.id ? { ...row, gapScale: v } : row,
+                        )
+                        const upd = { ...localDimensionUi, customDimensions: next }
+                        setLocalDimensionUi(upd)
+                        setDimensionUi({ customDimensions: next })
+                      }}
+                    />
+                  </label>
+                  <button type="button" className={styles.backBtn} onClick={() => removeCustomDimension(cd.id)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── CAMERA TAB ── */}
+        {tab === 'camera' ? (
+          <div className={styles.tabContent}>
+            <p className={styles.sectionTitle}>Initial Camera</p>
+            <label className={styles.dimRow}>
+              <span className={styles.dimLabel}>View preset</span>
+              <select
+                className={styles.matSelect}
+                value={localCamera.preset ?? 'front'}
+                onChange={(e) => {
+                  const preset = e.target.value as 'front' | 'top' | 'side' | 'iso' | 'custom'
+                  const next = { ...localCamera, preset }
+                  setLocalCamera(next)
+                  setCamera({ preset })
+                }}
+              >
+                <option value="front">Front</option>
+                <option value="top">Top</option>
+                <option value="side">Side</option>
+                <option value="iso">Isometric</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <MatSliderRow
+              className={styles.matFieldRow}
+              label="Distance to product"
+              min={cameraDistanceLimits.min}
+              max={cameraDistanceLimits.max}
+              step={0.05}
+              value={localCamera.distanceFactor ?? 2.6}
+              onChange={(v) => {
+                const next = { ...localCamera, distanceFactor: v }
+                setLocalCamera(next)
+                setCamera({ distanceFactor: v })
+                previewCameraStartView()
+              }}
+            />
+            <button
+              type="button"
+              className={styles.saveBtn}
+              onClick={() => previewCameraStartView()}
+            >
+              Preview saved starting view
+            </button>
+            <div className={styles.limitsRow}>
+              <label className={styles.limitLabel}>
+                Distance min
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.05}
+                  value={cameraDistanceLimits.min}
+                  onChange={(e) => setCameraDistanceLimits((s) => ({ ...s, min: Number(e.target.value) || 0 }))}
+                />
+              </label>
+              <label className={styles.limitLabel}>
+                Distance max
+                <input
+                  type="number"
+                  className={styles.limitInput}
+                  step={0.05}
+                  value={cameraDistanceLimits.max}
+                  onChange={(e) => setCameraDistanceLimits((s) => ({ ...s, max: Number(e.target.value) || 0 }))}
+                />
+              </label>
+            </div>
+            <p className={styles.hint}>
+              In this tab, scene gizmos appear for camera position and target. Drag them to adjust interactively.
+            </p>
+            <div className={styles.propRow}>
+              {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+                <label key={`cam-pos-${axis}`} className={styles.limitLabel}>
+                  Cam {axis}
+                  <input
+                    type="number"
+                    className={styles.limitInput}
+                    step={0.01}
+                    value={localCamera.position?.[i] ?? ''}
+                    onChange={(e) => {
+                      const cur: [number, number, number] = [
+                        localCamera.position?.[0] ?? 0,
+                        localCamera.position?.[1] ?? 0,
+                        localCamera.position?.[2] ?? 0,
+                      ]
+                      cur[i] = Number(e.target.value) || 0
+                      const next = { ...localCamera, position: cur }
+                      setLocalCamera(next)
+                      setCamera({ position: cur, preset: 'custom' })
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className={styles.propRow}>
+              {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+                <label key={`cam-target-${axis}`} className={styles.limitLabel}>
+                  Target {axis}
+                  <input
+                    type="number"
+                    className={styles.limitInput}
+                    step={0.01}
+                    value={localCamera.target?.[i] ?? ''}
+                    onChange={(e) => {
+                      const cur: [number, number, number] = [
+                        localCamera.target?.[0] ?? 0,
+                        localCamera.target?.[1] ?? 0,
+                        localCamera.target?.[2] ?? 0,
+                      ]
+                      cur[i] = Number(e.target.value) || 0
+                      const next = { ...localCamera, target: cur }
+                      setLocalCamera(next)
+                      setCamera({ target: cur, preset: 'custom' })
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -1736,7 +2375,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
           <div className={styles.tabContent}>
             <p className={styles.sectionTitle}>Decorative props</p>
             <p className={styles.hint}>
-              Placeholder cubes auto-scale to each shelf footprint. Edit the global library under{' '}
+              Manual rows can use either library props or built-in primitives. Edit the global library under{' '}
               <button type="button" className={styles.inlineLink} onClick={() => navigate('/admin/props')}>
                 Admin → Props
               </button>
@@ -1751,16 +2390,67 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               <>
                 <p className={styles.hint}>
                   Auto-fill adds props from the palette across shelf positions (3×3 horizontal × depth per
-                  shelf). Manual placements are listed below; density 0 uses only manual rows.
+                  shelf) using randomized slots, prop choice, and size variation. Manual placements are listed
+                  below; density 0 uses only manual rows.
                 </p>
                 <MatSliderRow
                   className={styles.matFieldRow}
-                  label="Auto-fill density"
-                  min={0}
-                  max={1}
+                  label="Auto-fill density (0 = manual only; 10 = full)"
+                  min={PROP_SETTING_MIN}
+                  max={PROP_SETTING_MAX}
                   step={0.02}
                   value={propsConfig?.density ?? 0}
-                  onChange={(v) => setPropsConfig({ density: v })}
+                  onChange={(v) => setPropsConfig({ density: clampPropUnsigned(v) })}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Auto-fill randomness seed"
+                  min={PROP_SETTING_MIN}
+                  max={PROP_SETTING_MAX}
+                  step={0.02}
+                  value={propsConfig?.autoSeed ?? 1}
+                  onChange={(v) => setPropsConfig({ autoSeed: clampPropUnsigned(v) })}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Auto-fill size jitter"
+                  min={PROP_SETTING_MIN}
+                  max={PROP_SETTING_MAX}
+                  step={0.02}
+                  value={propsConfig?.autoScaleJitter ?? 2.25}
+                  onChange={(v) => setPropsConfig({ autoScaleJitter: clampPropUnsigned(v) })}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Auto-fill spawn jitter min"
+                  min={0}
+                  max={PROP_SETTING_MAX}
+                  step={0.02}
+                  value={propsConfig?.autoSpawnJitterMin ?? 0}
+                  onChange={(v) => {
+                    const curMax = propsConfig?.autoSpawnJitterMax ?? 3.5
+                    const nv = Math.min(v, curMax)
+                    setPropsConfig({
+                      autoSpawnJitterMin: nv,
+                      autoSpawnJitterMax: Math.max(curMax, nv),
+                    })
+                  }}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Auto-fill spawn jitter max"
+                  min={0}
+                  max={PROP_SETTING_MAX}
+                  step={0.02}
+                  value={propsConfig?.autoSpawnJitterMax ?? 3.5}
+                  onChange={(v) => {
+                    const curMin = propsConfig?.autoSpawnJitterMin ?? 0
+                    const nv = Math.max(v, curMin)
+                    setPropsConfig({
+                      autoSpawnJitterMin: Math.min(curMin, v),
+                      autoSpawnJitterMax: nv,
+                    })
+                  }}
                 />
                 <p className={styles.dimLabel}>Palette for auto-fill (empty = all library props)</p>
                 <div className={styles.propPaletteGrid}>
@@ -1784,18 +2474,49 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                 ) : null}
                 {placements.map((pl) => {
                   const override = Boolean(pl.materialSpec)
+                  const sourceValue =
+                    pl.kind === 'primitive'
+                      ? `primitive:${pl.primitiveType ?? 'box'}`
+                      : `library:${pl.propLibraryId ?? ''}`
                   return (
-                    <div key={pl.id} className={styles.propCard}>
+                    <div
+                      key={pl.id}
+                      className={`${styles.propCard}${selectedPropPlacementId === pl.id ? ` ${styles.propCardSelected}` : ''}`}
+                      data-prop-placement-id={pl.id}
+                    >
                       <div className={styles.propRow}>
                         <div className={styles.propField}>
-                          <span className={styles.dimLabel}>Prop</span>
+                          <span className={styles.dimLabel}>Prop source</span>
                           <select
                             className={styles.matSelect}
-                            value={pl.propLibraryId}
-                            onChange={(e) => patchPlacement(pl.id, { propLibraryId: e.target.value })}
+                            value={sourceValue}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (v.startsWith('primitive:')) {
+                                const primitiveType = v.slice('primitive:'.length) as
+                                  | 'box'
+                                  | 'sphere'
+                                  | 'cylinder'
+                                  | 'cone'
+                                  | 'torus'
+                                  | 'icosahedron'
+                                patchPlacement(pl.id, { kind: 'primitive', primitiveType })
+                              } else {
+                                patchPlacement(pl.id, {
+                                  kind: 'library',
+                                  propLibraryId: v.slice('library:'.length),
+                                })
+                              }
+                            }}
                           >
+                            <option value="primitive:box">Primitive: Box</option>
+                            <option value="primitive:sphere">Primitive: Sphere</option>
+                            <option value="primitive:cylinder">Primitive: Cylinder</option>
+                            <option value="primitive:cone">Primitive: Cone</option>
+                            <option value="primitive:torus">Primitive: Torus</option>
+                            <option value="primitive:icosahedron">Primitive: Icosahedron</option>
                             {catalogForPlace.map((c) => (
-                              <option key={c.id} value={c.id}>
+                              <option key={c.id} value={`library:${c.id}`}>
                                 {c.name} ({c.kind})
                               </option>
                             ))}
@@ -1847,18 +2568,221 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                             <option value="front">Front (+Z)</option>
                           </select>
                         </div>
-                        <div className={styles.propField}>
-                          <span className={styles.dimLabel}>Scale bias</span>
-                          <input
-                            type="number"
-                            className={styles.numInput}
-                            min={0.05}
-                            max={24}
+                        <div className={styles.propSliders}>
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Scale bias"
+                            min={PROP_SETTING_MIN}
+                            max={PROP_SETTING_MAX}
                             step={0.05}
                             value={pl.scaleBias ?? 1}
-                            onChange={(e) =>
-                              patchPlacement(pl.id, { scaleBias: Number(e.target.value) || 1 })
+                            onChange={(v) => patchPlacement(pl.id, { scaleBias: clampPropUnsigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Scale X"
+                            min={PROP_SETTING_MIN}
+                            max={PROP_SETTING_MAX}
+                            step={0.05}
+                            value={pl.scaleX ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { scaleX: clampPropUnsigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Scale Y"
+                            min={PROP_SETTING_MIN}
+                            max={PROP_SETTING_MAX}
+                            step={0.05}
+                            value={pl.scaleY ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { scaleY: clampPropUnsigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Scale Z"
+                            min={PROP_SETTING_MIN}
+                            max={PROP_SETTING_MAX}
+                            step={0.05}
+                            value={pl.scaleZ ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { scaleZ: clampPropUnsigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array count X"
+                            min={1}
+                            max={10}
+                            step={1}
+                            value={pl.arrayCountX ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { arrayCountX: clampIntCount(v, 1, 10) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array count Y"
+                            min={1}
+                            max={10}
+                            step={1}
+                            value={pl.arrayCountY ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { arrayCountY: clampIntCount(v, 1, 10) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array count Z"
+                            min={1}
+                            max={10}
+                            step={1}
+                            value={pl.arrayCountZ ?? 1}
+                            onChange={(v) => patchPlacement(pl.id, { arrayCountZ: clampIntCount(v, 1, 10) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array scale jitter (±)"
+                            min={0}
+                            max={PROP_SETTING_MAX}
+                            step={0.01}
+                            value={pl.arrayScaleJitterIncrement ?? (pl.arrayScaleJitter ?? 0) * 0.5}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, {
+                                arrayScaleJitterIncrement: v <= 0 ? 0 : clampPropUnsigned(v),
+                                arrayScaleJitter: undefined,
+                              })
                             }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array spacing X (m)"
+                            min={0}
+                            max={PROP_SETTING_MAX}
+                            step={0.005}
+                            value={pl.arraySpacingX ?? 0}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { arraySpacingX: v <= 0 ? 0 : clampPropUnsigned(v) })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array spacing Y (m)"
+                            min={0}
+                            max={PROP_SETTING_MAX}
+                            step={0.005}
+                            value={pl.arraySpacingY ?? 0}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { arraySpacingY: v <= 0 ? 0 : clampPropUnsigned(v) })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Array spacing Z (m)"
+                            min={0}
+                            max={PROP_SETTING_MAX}
+                            step={0.005}
+                            value={pl.arraySpacingZ ?? 0}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { arraySpacingZ: v <= 0 ? 0 : clampPropUnsigned(v) })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Position offset X (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.positionOffsetX ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { positionOffsetX: clampPropSigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Position offset Y (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.positionOffsetY ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { positionOffsetY: clampPropSigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Position offset Z (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.positionOffsetZ ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { positionOffsetZ: clampPropSigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Rotation X (deg)"
+                            min={PROP_ROTATION_DEG_MIN}
+                            max={PROP_ROTATION_DEG_MAX}
+                            step={0.5}
+                            value={((pl.rotationX ?? 0) * 180) / Math.PI}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { rotationX: (clampRotationDeg(v) * Math.PI) / 180 })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Rotation Y (deg)"
+                            min={PROP_ROTATION_DEG_MIN}
+                            max={PROP_ROTATION_DEG_MAX}
+                            step={0.5}
+                            value={((pl.rotationY ?? 0) * 180) / Math.PI}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { rotationY: (clampRotationDeg(v) * Math.PI) / 180 })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Rotation Z (deg)"
+                            min={PROP_ROTATION_DEG_MIN}
+                            max={PROP_ROTATION_DEG_MAX}
+                            step={0.5}
+                            value={((pl.rotationZ ?? 0) * 180) / Math.PI}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, { rotationZ: (clampRotationDeg(v) * Math.PI) / 180 })
+                            }
+                          />
+                          <label className={styles.propField}>
+                            <span className={styles.dimLabel}>Prop group id</span>
+                            <input
+                              type="text"
+                              className={styles.limitInput}
+                              placeholder="(optional) shared id"
+                              value={pl.groupId ?? ''}
+                              onChange={(e) =>
+                                patchPlacement(pl.id, {
+                                  groupId: e.target.value.trim() || undefined,
+                                })
+                              }
+                            />
+                          </label>
+                          <p className={styles.hint}>
+                            Same group id: pivot is the first row (by id); others use group offset from pivot’s
+                            first cell.
+                          </p>
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Group offset X (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.groupOffsetX ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { groupOffsetX: clampPropSigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Group offset Y (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.groupOffsetY ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { groupOffsetY: clampPropSigned(v) })}
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Group offset Z (m)"
+                            min={PROP_SIGNED_MIN}
+                            max={PROP_SIGNED_MAX}
+                            step={0.002}
+                            value={pl.groupOffsetZ ?? 0}
+                            onChange={(v) => patchPlacement(pl.id, { groupOffsetZ: clampPropSigned(v) })}
                           />
                         </div>
                         <button
@@ -1928,7 +2852,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   className={styles.saveBtn}
-                  disabled={!panelPropsOk || catalogForPlace.length === 0}
+                  disabled={!panelPropsOk}
                   onClick={addPlacementRow}
                 >
                   Add manual placement
@@ -1962,7 +2886,9 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
         <div className={styles.tabsRail} role="tablist" aria-label="Admin panel sections">
           {(
             [
-              ['dimensions', 'Dimensions', AdminTabDimsIcon] as const,
+              ['dimensions', 'Bounding box', AdminTabDimsIcon] as const,
+              ['dimensionOverlay', 'Dimension Overlay', AdminTabDimOverlayIcon] as const,
+              ['camera', 'Camera', AdminTabCameraIcon] as const,
               ['parameters', 'Parameters', AdminTabParamsIcon] as const,
               ['materials', 'Materials', AdminTabMaterialsIcon] as const,
               ['uv', 'UV mapping', AdminTabUvIcon] as const,

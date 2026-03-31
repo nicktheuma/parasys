@@ -9,10 +9,23 @@ const MATCAP_URL =
 /**
  * Fallback surface when no catalog material is selected (no materials, or no admin default).
  */
-export function MatcapGreyMaterial() {
+export function MatcapGreyMaterial({
+  opacity = 1,
+}: {
+  opacity?: number
+}) {
   const tex = useTexture(MATCAP_URL) as THREE.Texture
   useLayoutEffect(() => {
     tex.colorSpace = THREE.SRGBColorSpace
   }, [tex])
-  return <meshMatcapMaterial matcap={tex} color="#8a8a8a" toneMapped={false} />
+  return (
+    <meshMatcapMaterial
+      matcap={tex}
+      color="#8a8a8a"
+      toneMapped={false}
+      transparent={opacity < 1}
+      opacity={opacity}
+      depthWrite={opacity >= 1}
+    />
+  )
 }

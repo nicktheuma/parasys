@@ -4,9 +4,11 @@ export { FACE_GROUPS } from '../db/schema'
 
 export type {
   BlendMode,
+  CameraSettings,
   ConfiguratorLightingSettings,
   ConfiguratorPropPlacement,
   ConfiguratorPropsSettings,
+  DimensionUiSettings,
   PropDepthAlign,
   PropHorizontalAlign,
   ConfiguratorSettingsRow,

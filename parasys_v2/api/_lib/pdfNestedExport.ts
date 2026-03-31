@@ -18,6 +18,55 @@ const intersectsRect = (left, right) => !(
 
 const estimateTextWidthMm = (text, fontSizeMm) => text.length * fontSizeMm * 0.56
 
+const stampDrawingFooterTopDown = ({
+  page,
+  pageWidthMm,
+  pageHeightMm,
+  pagePaddingMm,
+  font,
+  fontBold,
+  projectTitle,
+  slug,
+  sheetNum,
+  totalSheets,
+  dateIso,
+}) => {
+  const title = String(projectTitle || '').slice(0, 72)
+  const line2 = `${slug ? `${slug} · ` : ''}Sheet ${sheetNum} of ${totalSheets}`
+  const titleSize = 3.6
+  const metaSize = 3.35
+  const y1 = pageHeightMm - pagePaddingMm - 3.5
+  const y2 = pageHeightMm - pagePaddingMm - 3.5 - 4.8
+
+  page.drawText(title, {
+    x: mmToPt(pagePaddingMm),
+    y: mmToPt(pageHeightMm - y1),
+    size: mmToPt(titleSize),
+    font: fontBold,
+    color: rgb(0.1, 0.12, 0.16),
+  })
+
+  const w2 = font.widthOfTextAtSize(line2, mmToPt(metaSize))
+  page.drawText(line2, {
+    x: mmToPt(pageWidthMm - pagePaddingMm) - w2,
+    y: mmToPt(pageHeightMm - y1),
+    size: mmToPt(metaSize),
+    font,
+    color: rgb(0.22, 0.25, 0.31),
+  })
+
+  if (dateIso) {
+    const w3 = font.widthOfTextAtSize(dateIso, mmToPt(metaSize))
+    page.drawText(dateIso, {
+      x: mmToPt(pageWidthMm - pagePaddingMm) - w3,
+      y: mmToPt(pageHeightMm - y2),
+      size: mmToPt(metaSize),
+      font,
+      color: rgb(0.38, 0.42, 0.46),
+    })
+  }
+}
+
 const normalizePdfPageFormat = (value) => {
   const normalized = String(value || 'SHEET').trim().toUpperCase()
   if (normalized === 'A4' || normalized === 'A3') return normalized
@@ -274,7 +323,14 @@ const drawLoopScaled = ({
   }
 }
 
-const choosePaperPageSize = ({ format, sheetWidthMm, sheetHeightMm, pagePaddingMm, headerBandHeightMm }) => {
+const choosePaperPageSize = ({
+  format,
+  sheetWidthMm,
+  sheetHeightMm,
+  pagePaddingMm,
+  headerBandHeightMm,
+  footerBandMm = 0,
+}) => {
   const base = PDF_PAGE_SIZES_MM[format]
   const candidates = [
     { widthMm: base.widthMm, heightMm: base.heightMm },
@@ -285,7 +341,8 @@ const choosePaperPageSize = ({ format, sheetWidthMm, sheetHeightMm, pagePaddingM
 
   candidates.forEach((candidate) => {
     const contentWidth = candidate.widthMm - (pagePaddingMm * 2)
-    const contentHeight = candidate.heightMm - ((pagePaddingMm * 2) + headerBandHeightMm)
+    const contentHeight =
+      candidate.heightMm - ((pagePaddingMm * 2) + headerBandHeightMm + footerBandMm)
     if (contentWidth <= 0 || contentHeight <= 0) return
 
     const scale = Math.min(contentWidth / sheetWidthMm, contentHeight / sheetHeightMm)
@@ -322,6 +379,8 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
 
   const pdfDocument = await PDFDocument.create()
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica)
+  const fontBold = await pdfDocument.embedFont(StandardFonts.HelveticaBold)
+  const footerBandMmA4 = overrides.drawingMeta ? 16 : 0
 
   if (pdfPageFormat === 'A4' || pdfPageFormat === 'A3') {
     const paperSize = PDF_PAGE_SIZES_MM[pdfPageFormat]
@@ -340,6 +399,7 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
         sheetHeightMm: options.sheetHeightMm,
         pagePaddingMm: paperPadding,
         headerBandHeightMm: paperHeaderBand,
+        footerBandMm: footerBandMmA4,
       })
 
       if (!pagePlan) {
@@ -465,6 +525,29 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
           color: rgb(0.12, 0.16, 0.23),
         })
       })
+
+      if (overrides.drawingMeta) {
+        const dm = overrides.drawingMeta
+        const totalSheets = typeof dm.totalSheets === 'number' ? dm.totalSheets : sheetCount
+        const sheetStart =
+          typeof dm.sheetStartIndex1Based === 'number'
+            ? dm.sheetStartIndex1Based
+            : (dm.includeCoverSheet === true ? 2 : 1)
+        const sheetNum = sheetStart + sheetIndex
+        stampDrawingFooterTopDown({
+          page,
+          pageWidthMm: pagePlan.widthMm,
+          pageHeightMm: pagePlan.heightMm,
+          pagePaddingMm: paperPadding,
+          font,
+          fontBold,
+          projectTitle: dm.projectTitle,
+          slug: dm.slug,
+          sheetNum,
+          totalSheets,
+          dateIso: dm.dateIso,
+        })
+      }
     }
 
     const pdfBytes = await pdfDocument.save()
@@ -490,8 +573,9 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
     const sheetHeight = singleSheetFootprint.height
     const sheetOriginX = pagePadding
     const sheetOriginYTopDown = pagePadding + headerBandHeight
+    const footerBandCompact = overrides.drawingMeta ? 14 : 0
     const pageWidth = sheetWidth + (pagePadding * 2)
-    const pageHeight = sheetHeight + (pagePadding * 2) + headerBandHeight
+    const pageHeight = sheetHeight + (pagePadding * 2) + headerBandHeight + footerBandCompact
     const page = pdfDocument.addPage([mmToPt(pageWidth), mmToPt(pageHeight)])
     const noteText = `Sheet 1 (${formatMm(sheetWidth)} x ${formatMm(sheetHeight)}) | Max sheet: ${formatMm(options.sheetWidthMm)} x ${formatMm(options.sheetHeightMm)}`
     const noteBox = {
@@ -585,6 +669,29 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
       })
     })
 
+    if (overrides.drawingMeta) {
+      const dm = overrides.drawingMeta
+      const totalSheets = typeof dm.totalSheets === 'number' ? dm.totalSheets : sheetCount
+      const sheetStart =
+        typeof dm.sheetStartIndex1Based === 'number'
+          ? dm.sheetStartIndex1Based
+          : (dm.includeCoverSheet === true ? 2 : 1)
+      const sheetNum = sheetStart
+      stampDrawingFooterTopDown({
+        page,
+        pageWidthMm: pageWidth,
+        pageHeightMm: pageHeight,
+        pagePaddingMm: pagePadding,
+        font,
+        fontBold,
+        projectTitle: dm.projectTitle,
+        slug: dm.slug,
+        sheetNum,
+        totalSheets,
+        dateIso: dm.dateIso,
+      })
+    }
+
     const pdfBytes = await pdfDocument.save()
     return {
       pdfBytes,
@@ -592,9 +699,10 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
     }
   }
 
+  const footerBandSheet = overrides.drawingMeta ? 14 : 0
   for (let sheetIndex = 0; sheetIndex < sheetCount; sheetIndex += 1) {
     const pageWidth = options.sheetWidthMm + (pagePadding * 2)
-    const pageHeight = options.sheetHeightMm + (pagePadding * 2) + headerBandHeight
+    const pageHeight = options.sheetHeightMm + (pagePadding * 2) + headerBandHeight + footerBandSheet
     const sheetOriginX = pagePadding
     const sheetOriginYTopDown = pagePadding + headerBandHeight
     const page = pdfDocument.addPage([mmToPt(pageWidth), mmToPt(pageHeight)])
@@ -732,6 +840,29 @@ export async function buildNestedPdfBytes(panelSpecs, overrides = {}) {
         color: rgb(0.12, 0.16, 0.23),
       })
     })
+
+    if (overrides.drawingMeta) {
+      const dm = overrides.drawingMeta
+      const totalSheets = typeof dm.totalSheets === 'number' ? dm.totalSheets : sheetCount
+      const sheetStart =
+        typeof dm.sheetStartIndex1Based === 'number'
+          ? dm.sheetStartIndex1Based
+          : (dm.includeCoverSheet === true ? 2 : 1)
+      const sheetNum = sheetStart + sheetIndex
+      stampDrawingFooterTopDown({
+        page,
+        pageWidthMm: pageWidth,
+        pageHeightMm: pageHeight,
+        pagePaddingMm: pagePadding,
+        font,
+        fontBold,
+        projectTitle: dm.projectTitle,
+        slug: dm.slug,
+        sheetNum,
+        totalSheets,
+        dateIso: dm.dateIso,
+      })
+    }
   }
 
   const pdfBytes = await pdfDocument.save()

@@ -9,6 +9,8 @@ export function PanelTemplate({
   dm,
   materialSpec,
   materialId,
+  materialHydrated,
+  adminMode,
   templateParamOverrides,
   uvMappings,
   templateKey,
@@ -27,6 +29,8 @@ export function PanelTemplate({
         depthM={dm}
         materialSpec={materialSpec}
         materialId={materialId}
+        materialHydrated={materialHydrated}
+        adminMode={adminMode}
         uvMappings={uvMappings}
         dividers={preset?.dividers}
         shelves={preset?.shelves}
@@ -48,6 +52,7 @@ export function PanelTemplate({
         templateParamOverrides={templateParamOverrides ?? null}
         propsConfig={propsConfig}
         propLibrary={propLibrary ?? []}
+        adminMode={adminMode}
       />
     </>
   )

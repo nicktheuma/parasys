@@ -16,6 +16,8 @@ type Props = {
   onDownloadPdf: () => void
   onDownloadStl: () => void
   onBuy: () => void
+  /** Panel-based manufacturing estimate (EUR); omitted when unavailable */
+  productionPriceFormatted?: string | null
 }
 
 export function PublicControlsMvp(props: Props) {
@@ -74,6 +76,16 @@ export function PublicControlsMvp(props: Props) {
           <button type="button" className={styles.publicButton} onClick={props.onBuy} disabled={props.checkoutBusy}>
             {props.checkoutBusy ? 'Redirecting...' : 'Buy'}
           </button>
+        </div>
+      ) : null}
+
+      {props.productionPriceFormatted ? (
+        <div
+          className={styles.productionEstimate}
+          title="Indicative production cost from sheet count, cut length, and assembly complexity (not a quote)."
+        >
+          <span className={styles.productionEstimateLabel}>Est. production</span>
+          <span className={styles.productionEstimateValue}>{props.productionPriceFormatted}</span>
         </div>
       ) : null}
 

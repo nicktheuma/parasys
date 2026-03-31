@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import type {
@@ -14,6 +14,8 @@ import type {
 import type { PropLibraryItem } from '@/features/configurator/props/types'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { useDesignPackage } from '@/hooks/useDesignPackage'
+import { mergeTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
+import { estimateProductionCostEur, formatProductionCostEur } from '@/lib/productionCostEstimate'
 import { ConfiguratorCanvas } from '@/components/ConfiguratorCanvas'
 import { AdminSettingsPanel } from '@/components/AdminSettingsPanel'
 import { PublicControlsMvp } from './PublicControlsMvp'
@@ -27,7 +29,7 @@ export function ConfiguratorPublic() {
 
   const allowFreeDownload = import.meta.env.VITE_ALLOW_FREE_DESIGN_PACKAGE === 'true'
 
-  const { productName, materials, materialId, showDimensions, loadErr } =
+  const { productName, materials, materialId, showDimensions, loadErr, driven, templateKey, templateParamOverrides } =
     useConfiguratorStore()
   const { loadConfigurator, hydrateSelectedMaterialSpec, setLoadErr, setMaterialId, toggleDimensions, setPropLibrary } =
     useConfiguratorStore()
@@ -36,6 +38,26 @@ export function ConfiguratorPublic() {
   const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const pkg = useDesignPackage(slug)
+
+  const productionPriceFormatted = useMemo(() => {
+    const merged = mergeTemplateParametricPreset(templateKey, templateParamOverrides?.[templateKey] ?? null)
+    const breakdown = estimateProductionCostEur({
+      templateKey,
+      widthMm: driven.widthMm,
+      depthMm: driven.depthMm,
+      heightMm: driven.heightMm,
+      templateParamsForTemplate: templateParamOverrides?.[templateKey] ?? null,
+      templateMergedOverride: merged,
+    })
+    if (!breakdown) return null
+    return formatProductionCostEur(breakdown.totalEur)
+  }, [
+    templateKey,
+    driven.widthMm,
+    driven.depthMm,
+    driven.heightMm,
+    templateParamOverrides,
+  ])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -83,10 +105,10 @@ export function ConfiguratorPublic() {
       const item = r.data.item
       loadConfigurator(item, { deferMaterialHydration: true })
       setReady(true)
-      // Prioritize geometry-first first paint; hydrate admin-selected material immediately after.
+      // Prioritize geometry-first first paint; hydrate admin-selected material just after first frame.
       setTimeout(() => {
         if (!cancelled) hydrateSelectedMaterialSpec()
-      }, 0)
+      }, 120)
       const catalog = item.propsCatalog
       if (Array.isArray(catalog)) {
         setPropLibrary(catalog)
@@ -189,6 +211,7 @@ export function ConfiguratorPublic() {
           onDownloadPdf={() => void pkg.downloadFree('pdf')}
           onDownloadStl={() => void pkg.downloadFree('stl')}
           onBuy={() => void pkg.buyPackage()}
+          productionPriceFormatted={productionPriceFormatted}
         />
       ) : null}
 

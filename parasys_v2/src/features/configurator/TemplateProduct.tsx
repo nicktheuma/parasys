@@ -15,6 +15,8 @@ type Props = {
   heightMm: number
   materialSpec: MaterialShaderSpec
   materialId: string | null
+  materialHydrated?: boolean
+  adminMode?: boolean
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
   propsConfig?: ConfiguratorPropsSettings | null
@@ -28,6 +30,8 @@ export function TemplateProduct({
   heightMm,
   materialSpec,
   materialId,
+  materialHydrated,
+  adminMode,
   templateParamOverrides,
   uvMappings,
   propsConfig,
@@ -44,6 +48,8 @@ export function TemplateProduct({
       dm={dm}
       materialSpec={materialSpec}
       materialId={materialId}
+      materialHydrated={materialHydrated}
+      adminMode={adminMode}
       templateParamOverrides={templateParamOverrides}
       uvMappings={uvMappings}
       templateKey={templateKey}

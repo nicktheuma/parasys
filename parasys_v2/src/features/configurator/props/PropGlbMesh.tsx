@@ -1,4 +1,5 @@
 import { useGLTF } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
@@ -9,6 +10,11 @@ type Props = {
   scale: number
   position: [number, number, number]
   materialSpec: MaterialShaderSpec
+  /** Euler rotation (radians), default 0 */
+  rotation?: [number, number, number]
+  /** Admin pick */
+  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void
+  selected?: boolean
 }
 
 function applySpecToScene(root: THREE.Object3D, spec: MaterialShaderSpec) {
@@ -33,17 +39,32 @@ function applySpecToScene(root: THREE.Object3D, spec: MaterialShaderSpec) {
 /**
  * GLB instance: clone scene, apply PBR approximated from shader spec (layered noise is box-only).
  */
-export function PropGlbMesh({ url, scale, position, materialSpec }: Props) {
+export function PropGlbMesh({
+  url,
+  scale,
+  position,
+  materialSpec,
+  rotation = [0, 0, 0],
+  onPointerDown,
+  selected = false,
+}: Props) {
   const { scene } = useGLTF(url)
   const rootRef = useRef<THREE.Group>(null)
   const root = useMemo(() => scene.clone(true), [scene])
+  const visScale = selected ? scale * 1.045 : scale
 
   useLayoutEffect(() => {
     applySpecToScene(root, materialSpec)
   }, [root, materialSpec])
 
   return (
-    <group ref={rootRef} position={position} scale={scale}>
+    <group
+      ref={rootRef}
+      position={position}
+      scale={visScale}
+      rotation={rotation}
+      onPointerDown={onPointerDown}
+    >
       <primitive object={root} />
     </group>
   )

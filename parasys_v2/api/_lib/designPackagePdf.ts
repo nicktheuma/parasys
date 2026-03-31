@@ -3,6 +3,14 @@ import { PDFDocument, StandardFonts, type PDFPage, rgb } from 'pdf-lib'
 import { buildPanelProfile } from '../../src/features/parametric/mvp1/profileBuilder.ts'
 import type { PanelSpec } from '../../src/features/parametric/mvp1/panelSpecs.ts'
 import type { NestingPanelInput } from './nesting'
+import {
+  A4_PT,
+  drawInnerFramePt,
+  drawMinimalSheetFooterPt,
+  drawOuterFramePt,
+  drawTextPt,
+  drawViewCaptionTopLeftPt,
+} from './pdfDrawingStyles.js'
 import { buildNestedPdfBytes } from './pdfNestedExport.js'
 
 const MM_TO_PT = 72 / 25.4
@@ -10,6 +18,8 @@ const MM_TO_PT = 72 / 25.4
 export function mmToPt(mm: number): number {
   return mm * MM_TO_PT
 }
+
+type PdfFont = Awaited<ReturnType<PDFDocument['embedFont']>>
 
 function drawLine(
   page: PDFPage,
@@ -27,56 +37,6 @@ function drawLine(
   })
 }
 
-function drawText(
-  page: PDFPage,
-  text: string,
-  x: number,
-  y: number,
-  size: number,
-  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
-) {
-  page.drawText(text, { x, y, size, font, color: rgb(0.08, 0.1, 0.14) })
-}
-
-/** Horizontal dimension: extension lines + line + label centered */
-function drawHorizontalDim(
-  page: PDFPage,
-  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
-  x0: number,
-  y0: number,
-  widthPt: number,
-  labelMm: number,
-  tick = 6,
-) {
-  const y1 = y0 + tick
-  const y2 = y0 - tick
-  drawLine(page, x0, y0, x0 + widthPt, y0, 0.35)
-  drawLine(page, x0, y1, x0, y2)
-  drawLine(page, x0 + widthPt, y1, x0 + widthPt, y2)
-  const text = `${Math.round(labelMm)} mm`
-  const tw = font.widthOfTextAtSize(text, 8)
-  drawText(page, text, x0 + widthPt / 2 - tw / 2, y0 + 10, 8, font)
-}
-
-function drawVerticalDim(
-  page: PDFPage,
-  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
-  x0: number,
-  y0: number,
-  heightPt: number,
-  labelMm: number,
-  tick = 6,
-) {
-  const x1 = x0 - tick
-  const x2 = x0 + tick
-  drawLine(page, x0, y0, x0, y0 + heightPt, 0.35)
-  drawLine(page, x1, y0, x2, y0)
-  drawLine(page, x1, y0 + heightPt, x2, y0 + heightPt)
-  const text = `${Math.round(labelMm)} mm`
-  const tw = font.widthOfTextAtSize(text, 8)
-  drawText(page, text, x0 - tw - 12, y0 + heightPt / 2 - 3, 8, font)
-}
-
 function drawRectOutline(
   page: PDFPage,
   x: number,
@@ -89,8 +49,6 @@ function drawRectOutline(
   drawLine(page, x + w, y + h, x, y + h)
   drawLine(page, x, y + h, x, y)
 }
-
-type PdfFont = Awaited<ReturnType<PDFDocument['embedFont']>>
 
 function panelsToNestingInput(
   panels: PanelSpec[],
@@ -124,14 +82,16 @@ function panelsToNestingInput(
 }
 
 function addFallbackPartsGridPage(doc: PDFDocument, panels: PanelSpec[], font: PdfFont, fontBold: PdfFont) {
-  const p2 = doc.addPage([612, 792])
-  let y = 740
-  drawText(p2, 'Parts — flat outlines (fallback grid)', 50, y, 14, fontBold)
+  const p2 = doc.addPage([A4_PT.width, A4_PT.height])
+  drawOuterFramePt(p2, A4_PT.width, A4_PT.height, 36)
+  drawInnerFramePt(p2, A4_PT.width, A4_PT.height, 36)
+  let y = 760
+  drawTextPt(p2, 'Parts — flat outlines (fallback grid)', 48, y, 14, fontBold)
   y -= 18
-  drawText(
+  drawTextPt(
     p2,
     'Nested sheet export was skipped (e.g. panel larger than stock). Rectangles show cut sizes in mm.',
-    50,
+    48,
     y,
     9,
     font,
@@ -139,16 +99,16 @@ function addFallbackPartsGridPage(doc: PDFDocument, panels: PanelSpec[], font: P
   y -= 28
 
   const cols = 2
-  const cellW = 240
-  const cellH = 130
-  const gapX = 24
-  const gapY = 20
+  const cellW = 230
+  const cellH = 125
+  const gapX = 22
+  const gapY = 18
   const originY = y
 
   panels.forEach((panel, i) => {
     const col = i % cols
     const row = Math.floor(i / cols)
-    const cellLeft = 50 + col * (cellW + gapX)
+    const cellLeft = 48 + col * (cellW + gapX)
     const cellTop = originY - row * (cellH + gapY)
 
     const faceWmm = panel.width * 1000
@@ -160,9 +120,9 @@ function addFallbackPartsGridPage(doc: PDFDocument, panels: PanelSpec[], font: P
     const rectLeft = cellLeft + (cellW - rw) / 2
     const rectBottom = cellTop - cellH + 40
 
-    drawText(p2, `${panel.kind} · ${panel.id}`, cellLeft, cellTop - 4, 9, fontBold)
+    drawTextPt(p2, `${panel.kind} · ${panel.id}`, cellLeft, cellTop - 4, 9, fontBold)
     drawRectOutline(p2, rectLeft, rectBottom, rw, rh)
-    drawText(
+    drawTextPt(
       p2,
       `Face: ${faceWmm.toFixed(1)} × ${faceHmm.toFixed(1)} mm · t = ${tmm.toFixed(2)} mm`,
       cellLeft,
@@ -174,14 +134,16 @@ function addFallbackPartsGridPage(doc: PDFDocument, panels: PanelSpec[], font: P
 }
 
 function addNoPanelsPartsPage(doc: PDFDocument, font: PdfFont, fontBold: PdfFont) {
-  const p2 = doc.addPage([612, 792])
-  let y = 740
-  drawText(p2, 'Parts', 50, y, 14, fontBold)
+  const p2 = doc.addPage([A4_PT.width, A4_PT.height])
+  drawOuterFramePt(p2, A4_PT.width, A4_PT.height, 36)
+  drawInnerFramePt(p2, A4_PT.width, A4_PT.height, 36)
+  let y = 760
+  drawTextPt(p2, 'Parts', 48, y, 14, fontBold)
   y -= 24
-  drawText(
+  drawTextPt(
     p2,
     'No panel breakdown for this template — export the STL solid for manufacturing reference.',
-    50,
+    48,
     y,
     10,
     font,
@@ -200,72 +162,21 @@ export async function buildManufacturingPdf(args: {
   heightMm: number
   panels: PanelSpec[] | null
   templateMerged?: TemplateParametricPreset | null
+  renderedPages?: {
+    planPngDataUrl?: string | null
+    sectionPngDataUrl?: string | null
+    elevationPngDataUrl?: string | null
+  } | null
 }): Promise<Buffer> {
-  const doc = await PDFDocument.create()
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
-
+  const dateIso = new Date().toISOString().slice(0, 10)
   const { widthMm: W, depthMm: D, heightMm: H } = args
-
-  // ── Page 1: title + orthographic views ──
-  const p1 = doc.addPage([612, 792])
-  let y = 740
-  drawText(p1, 'Parasys — manufacturing drawings', 50, y, 16, fontBold)
-  y -= 22
-  drawText(p1, args.name, 50, y, 12, font)
-  y -= 16
-  drawText(p1, `Configurator: ${args.slug} · Template: ${args.templateKey}`, 50, y, 9, font)
-  y -= 28
-  drawText(p1, `Overall (mm): W ${Math.round(W)} × D ${Math.round(D)} × H ${Math.round(H)}`, 50, y, 11, font)
-  y -= 36
-
-  /** Two columns (plan | front), then end elevation centered below — fits letter width */
-  const colLeft = 50
-  const colMid = 320
-  const maxBox = 230
-
-  const planScale = Math.min(maxBox / mmToPt(W), maxBox / mmToPt(D), 2.5)
-  const planW = mmToPt(W) * planScale
-  const planD = mmToPt(D) * planScale
-  const planBottom = y - planD - 44
-
-  drawText(p1, 'Plan (top view)', colLeft, planBottom + planD + 16, 10, fontBold)
-  drawRectOutline(p1, colLeft, planBottom, planW, planD)
-  drawHorizontalDim(p1, font, colLeft, planBottom - 16, planW, W)
-  drawVerticalDim(p1, font, colLeft - 20, planBottom, planD, D)
-
-  const feScale = Math.min(maxBox / mmToPt(W), maxBox / mmToPt(H), 2.5)
-  const feW = mmToPt(W) * feScale
-  const feH = mmToPt(H) * feScale
-  const feBottom = planBottom + (planD - feH) / 2
-  drawText(p1, 'Front elevation', colMid, feBottom + feH + 16, 10, fontBold)
-  drawRectOutline(p1, colMid, feBottom, feW, feH)
-  drawHorizontalDim(p1, font, colMid, feBottom - 16, feW, W)
-  drawVerticalDim(p1, font, colMid - 20, feBottom, feH, H)
-
-  const eeScale = Math.min(200 / mmToPt(D), 220 / mmToPt(H), 2.5)
-  const eeW = mmToPt(D) * eeScale
-  const eeH = mmToPt(H) * eeScale
-  const eeLeft = (612 - eeW) / 2
-  const eeBottom = planBottom - 56 - eeH
-  drawText(p1, 'End elevation (right)', eeLeft, eeBottom + eeH + 16, 10, fontBold)
-  drawRectOutline(p1, eeLeft, eeBottom, eeW, eeH)
-  drawHorizontalDim(p1, font, eeLeft, eeBottom - 16, eeW, D)
-  drawVerticalDim(p1, font, eeLeft - 20, eeBottom, eeH, H)
-
-  y = eeBottom - 48
-  drawText(
-    p1,
-    'Views are schematic orthographic projections. Verify critical dimensions on site.',
-    50,
-    y,
-    8,
-    font,
-  )
-
   const widthM = W / 1000
   const depthM = D / 1000
   const heightM = H / 1000
+
+  let nestedPdfBytes: Uint8Array | null = null
+  let nestedPageCount = 0
+  const frontMatterPages = 4
 
   if (args.panels && args.panels.length > 0) {
     const nestingInput = panelsToNestingInput(
@@ -276,11 +187,125 @@ export async function buildManufacturingPdf(args: {
       heightM,
     )
     try {
-      const { pdfBytes } = await buildNestedPdfBytes(nestingInput, { pdfPageFormat: 'SHEET' })
-      const nestedDoc = await PDFDocument.load(pdfBytes)
+      const { pdfBytes, nesting } = await buildNestedPdfBytes(nestingInput, {
+        pdfPageFormat: 'A4',
+        drawingMeta: {
+          projectTitle: args.name,
+          slug: args.slug,
+          dateIso,
+          sheetStartIndex1Based: frontMatterPages + 1,
+          totalSheets: frontMatterPages + nesting.sheetCount,
+        },
+      })
+      nestedPdfBytes = pdfBytes
+      nestedPageCount = nesting.sheetCount
+    } catch {
+      nestedPdfBytes = null
+    }
+  }
+
+  const totalSheets =
+    args.panels && args.panels.length > 0
+      ? nestedPdfBytes
+        ? frontMatterPages + nestedPageCount
+        : frontMatterPages + 1
+      : frontMatterPages + 1
+
+  const doc = await PDFDocument.create()
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
+
+  const PW = A4_PT.width
+  const PH = A4_PT.height
+  const margin = 48
+  const captionBand = 26
+
+  async function embedPngCoverFill(
+    page: PDFPage,
+    pngBytes: Buffer,
+    content: { x: number; y: number; w: number; h: number },
+  ) {
+    const png = await doc.embedPng(pngBytes)
+    const iw = png.width
+    const ih = png.height
+    const s = Math.max(content.w / iw, content.h / ih)
+    const dw = iw * s
+    const dh = ih * s
+    const x = content.x + (content.w - dw) / 2
+    const y = content.y + (content.h - dh) / 2
+    page.drawImage(png, { x, y, width: dw, height: dh })
+  }
+
+  // Page 1: black cover
+  const cover = doc.addPage([PW, PH])
+  cover.drawRectangle({ x: 0, y: 0, width: PW, height: PH, color: rgb(0, 0, 0) })
+  cover.drawText('PARASYS', {
+    x: margin,
+    y: PH - margin - 52,
+    size: 26,
+    font: fontBold,
+    color: rgb(1, 1, 1),
+  })
+  cover.drawText(args.name, {
+    x: margin,
+    y: PH - margin - 92,
+    size: 16,
+    font,
+    color: rgb(0.92, 0.94, 0.97),
+  })
+  cover.drawText(`${args.slug} · ${dateIso}`, {
+    x: margin,
+    y: PH - margin - 116,
+    size: 10,
+    font,
+    color: rgb(0.7, 0.72, 0.76),
+  })
+
+  // View pages: plan / section / elevation (separate sheets)
+  const viewPages: Array<{ title: string; dataUrl?: string | null }> = [
+    { title: 'Plan', dataUrl: args.renderedPages?.planPngDataUrl ?? null },
+    { title: 'Section', dataUrl: args.renderedPages?.sectionPngDataUrl ?? null },
+    { title: 'Elevation', dataUrl: args.renderedPages?.elevationPngDataUrl ?? null },
+  ]
+
+  for (let i = 0; i < viewPages.length; i += 1) {
+    const v = viewPages[i]
+    const page = doc.addPage([PW, PH])
+    drawOuterFramePt(page, PW, PH, margin, 0.5)
+
+    drawViewCaptionTopLeftPt(page, PH, margin, v.title, fontBold)
+
+    const contentW = PW - 2 * margin
+    const contentH = PH - 2 * margin - captionBand
+    const content = { x: margin, y: margin, w: contentW, h: contentH }
+
+    const imgUrl = v.dataUrl
+    if (imgUrl && imgUrl.startsWith('data:image/png')) {
+      const pngBytes = Buffer.from(imgUrl.split(',')[1] ?? '', 'base64')
+      await embedPngCoverFill(page, pngBytes, content)
+    } else {
+      const boxW = 320
+      const boxH = 240
+      const left = margin + (contentW - boxW) / 2
+      const bottom = margin + (contentH - boxH) / 2
+      drawRectOutline(page, left, bottom, boxW, boxH)
+      drawTextPt(page, `Overall: ${Math.round(W)} × ${Math.round(D)} × ${Math.round(H)} mm`, left, bottom - 14, 8, font)
+    }
+
+    drawMinimalSheetFooterPt(
+      page,
+      margin,
+      `${args.slug} · Sheet ${2 + i} of ${totalSheets} · ${dateIso}`,
+      font,
+    )
+  }
+
+  if (args.panels && args.panels.length > 0) {
+    if (nestedPdfBytes) {
+      const nestedDoc = await PDFDocument.load(nestedPdfBytes)
       const copied = await doc.copyPages(nestedDoc, nestedDoc.getPageIndices())
       copied.forEach((page) => doc.addPage(page))
-    } catch {
+    } else {
       addFallbackPartsGridPage(doc, args.panels, font, fontBold)
     }
   } else {

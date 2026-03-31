@@ -1,11 +1,9 @@
-import type { ConfiguratorSettingsRow } from '../../../db/schema'
+import { computePanelSpecsForDesignPackage } from '../../../src/lib/panelSpecsForDesignPackage.ts'
 import { mergeTemplateParametricPreset } from '../../../src/features/parametric/mvp1/templateParametricPresets.ts'
 import { buildManufacturingPdf } from '../designPackagePdf.js'
 import { buildPlaceholderStlBox, buildStlFromPanels } from '../designPackageStl.js'
 import { resolveDimsMm } from '../dimensions.js'
 import { getConfiguratorBySlug } from './configurators.js'
-import { generatePanelSpecs } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
-import type { PanelSpec } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
 
 export type DesignAssetFormat = 'pdf' | 'stl'
 
@@ -19,42 +17,6 @@ function safeFilePart(s: string): string {
   return t || 'configurator'
 }
 
-/** Templates that use ParametricPanelProduct / generatePanelSpecs */
-const PANEL_TEMPLATE_KEYS = new Set([
-  'open_shelf',
-  'wardrobe',
-  'media_unit',
-  'tv_console',
-  'sideboard',
-  'kitchen_island',
-  'bedside_table',
-])
-
-function computePanelSpecs(
-  templateKey: string,
-  widthM: number,
-  depthM: number,
-  heightM: number,
-  settings: ConfiguratorSettingsRow | null | undefined,
-): PanelSpec[] | null {
-  if (!PANEL_TEMPLATE_KEYS.has(templateKey)) return null
-  const merged = mergeTemplateParametricPreset(templateKey, settings?.templateParams?.[templateKey] ?? null)
-  if (!merged) return null
-  const materialThickness = Math.max(0.002, Math.min(widthM, depthM, heightM) * 0.03)
-  const slotOffsetFactor = merged.slotOffsetFactor ?? 0.5
-  const slotOffset = materialThickness * slotOffsetFactor
-  return generatePanelSpecs({
-    width: widthM,
-    height: heightM,
-    depth: depthM,
-    dividers: merged.dividers ?? 2,
-    shelves: merged.shelves ?? 2,
-    edgeOffset: merged.edgeOffset ?? 0,
-    slotOffset,
-    materialThickness,
-  })
-}
-
 /**
  * Single-file export: PDF (drawings + parts sheet) or STL (assembled panels or placeholder box).
  */
@@ -62,6 +24,13 @@ export async function buildDesignAsset(
   format: DesignAssetFormat,
   slug: string,
   dimsInput?: { widthMm?: number; depthMm?: number; heightMm?: number } | null,
+  opts?: {
+    renderedPages?: {
+      planPngDataUrl?: string | null
+      sectionPngDataUrl?: string | null
+      elevationPngDataUrl?: string | null
+    } | null
+  } | null,
 ): Promise<
   | { ok: true; buffer: Buffer; filename: string; contentType: string }
   | { ok: false; status: number; error: string }
@@ -84,7 +53,13 @@ export async function buildDesignAsset(
   const heightM = heightMm / 1000
   const depthM = depthMm / 1000
 
-  const panels = computePanelSpecs(c.item.templateKey, widthM, depthM, heightM, c.item.settings)
+  const panels = computePanelSpecsForDesignPackage(
+    c.item.templateKey,
+    widthM,
+    depthM,
+    heightM,
+    c.item.settings?.templateParams?.[c.item.templateKey] ?? null,
+  )
   const templateMerged = mergeTemplateParametricPreset(
     c.item.templateKey,
     c.item.settings?.templateParams?.[c.item.templateKey] ?? null,
@@ -101,6 +76,7 @@ export async function buildDesignAsset(
       heightMm,
       panels,
       templateMerged,
+      renderedPages: opts?.renderedPages ?? null,
     })
     return {
       ok: true,

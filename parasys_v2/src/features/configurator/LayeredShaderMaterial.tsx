@@ -379,15 +379,20 @@ function applySpec(mat: THREE.MeshPhysicalMaterial, spec: MaterialShaderSpec) {
 export function LayeredShaderMaterial({
   spec,
   uvFaceMappings,
+  opacity = 1,
 }: {
   spec: MaterialShaderSpec
   uvFaceMappings?: SurfaceUvMapping[]
+  opacity?: number
 }) {
   const mat = useMemo(() => createMaterial(), [])
   const invalidate = useThree((s) => s.invalidate)
 
   useLayoutEffect(() => {
     applySpec(mat, spec)
+    mat.opacity = opacity
+    mat.transparent = opacity < 1
+    mat.depthWrite = opacity >= 1
     const u = (mat as unknown as { _lsmUniforms: Uniforms })._lsmUniforms
     if (u) {
       const maps = uvFaceMappings ?? IDENTITY_FACE_MAPPINGS
@@ -406,7 +411,7 @@ export function LayeredShaderMaterial({
       }
     }
     invalidate()
-  }, [mat, spec, uvFaceMappings, invalidate])
+  }, [mat, spec, uvFaceMappings, opacity, invalidate])
 
   useLayoutEffect(() => {
     return () => { mat.dispose() }

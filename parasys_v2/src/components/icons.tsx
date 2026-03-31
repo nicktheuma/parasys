@@ -101,3 +101,25 @@ export function AdminTabPropsIcon({ size = 18, color = 'currentColor', className
     </svg>
   )
 }
+
+/** Admin panel tab: camera */
+export function AdminTabCameraIcon({ size = 18, color = 'currentColor', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.65} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="7" width="18" height="12" rx="2" />
+      <path d="M9 7l1.8-2h2.4L15 7" />
+      <circle cx="12" cy="13" r="3.2" />
+    </svg>
+  )
+}
+
+/** Admin panel tab: dimension overlays */
+export function AdminTabDimOverlayIcon({ size = 18, color = 'currentColor', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.65} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <circle cx="12" cy="12" r="2.2" />
+      <path d="M6 8l-3 4 3 4M18 8l3 4-3 4" />
+    </svg>
+  )
+}

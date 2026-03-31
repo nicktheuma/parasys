@@ -5,7 +5,9 @@ import * as THREE from 'three'
 import type { SpotLight } from 'three'
 import { TemplateProduct } from '@/features/configurator/TemplateProduct'
 import type { ResolvedConfiguratorLighting } from '@/lib/configuratorLighting'
+import { useConfiguratorStore } from '@/stores/configuratorStore'
 import type {
+  CameraSettings,
   ConfiguratorPropsSettings,
   MaterialShaderSpec,
   SurfaceUvMapping,
@@ -24,6 +26,9 @@ type Props = {
   heightMm: number
   materialSpec: MaterialShaderSpec
   materialId: string | null
+  materialHydrated?: boolean
+  adminMode?: boolean
+  cameraSettings?: CameraSettings | null
   templateParamOverrides: Record<string, TemplateParametricPreset> | null
   uvMappings: Record<string, SurfaceUvMapping> | null
   propsConfig: ConfiguratorPropsSettings | null
@@ -37,98 +42,9 @@ type Props = {
 }
 
 /**
- * World +Z is the customer-facing side (open shelf / sofa seat / table long edge convention).
- * drei Bounds.fit() keeps the current camera→center ray; we set that ray to +Z (slightly elevated)
- * before fit so the product loads front-on.
- */
-const FRONT_VIEW_DIR = new THREE.Vector3(0, 0.28, 1).normalize()
-
-/**
  * Must be listed **after** `Center` (and after `ProductCenterReader` is fine) so Bounds
  * measures the laid-out product; otherwise the first fit uses an empty/wrong box.
  */
-function FitOnceOnStageKey({ stageKey, radius }: { stageKey: string; radius: number }) {
-  const bounds = useBounds()
-  const camera = useThree((s) => s.camera)
-  const controls = useThree((s) => s.controls) as unknown as
-    | { target: THREE.Vector3; update: () => void }
-    | undefined
-  const invalidate = useThree((s) => s.invalidate)
-
-  const fittedRef = useRef<{ key: string; done: boolean }>({ key: '', done: false })
-
-  useLayoutEffect(() => {
-    if (fittedRef.current.key !== stageKey) {
-      fittedRef.current = { key: stageKey, done: false }
-    }
-    if (radius <= 0.001 || fittedRef.current.done) return
-    bounds.refresh()
-    const { center, distance } = bounds.getSize()
-    camera.position.copy(center).addScaledVector(FRONT_VIEW_DIR, distance)
-    bounds.fit()
-    if (controls) {
-      controls.target.copy(center)
-      controls.update()
-    }
-    fittedRef.current.done = true
-    invalidate()
-  }, [bounds, camera, controls, invalidate, stageKey, radius])
-
-  return null
-}
-
-function DebouncedRefitIfOutOfView({
-  triggerKey,
-  radius,
-}: {
-  triggerKey: string
-  radius: number
-}) {
-  const bounds = useBounds()
-  const camera = useThree((s) => s.camera)
-  const controls = useThree((s) => s.controls) as unknown as
-    | { target: THREE.Vector3; update: () => void }
-    | undefined
-  const invalidate = useThree((s) => s.invalidate)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useLayoutEffect(() => {
-    if (radius <= 0.001) return
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      bounds.refresh()
-      const { box, center, distance } = bounds.getSize()
-      const points = [
-        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
-        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
-        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
-        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
-        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
-        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
-        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
-        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
-      ]
-      const outOfView = points.some((p) => {
-        const ndc = p.clone().project(camera)
-        return ndc.z > 1 || ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1
-      })
-      if (!outOfView) return
-      camera.position.copy(center).addScaledVector(FRONT_VIEW_DIR, distance)
-      bounds.fit()
-      if (controls) {
-        controls.target.copy(center)
-        controls.update()
-      }
-      invalidate()
-    }, 220)
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [bounds, camera, controls, invalidate, triggerKey, radius])
-
-  return null
-}
-
 /**
  * Runs after sibling Center lays out; refreshes Bounds and writes world bbox center for lighting.
  */
@@ -174,6 +90,9 @@ export function ConfiguratorStageContent({
   heightMm,
   materialSpec,
   materialId,
+  materialHydrated,
+  adminMode,
+  cameraSettings,
   templateParamOverrides,
   uvMappings,
   propsConfig,
@@ -264,6 +183,68 @@ export function ConfiguratorStageContent({
     sh.camera.updateProjectionMatrix()
   }, [radius])
 
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as unknown as
+    | { target: THREE.Vector3; update: () => void }
+    | undefined
+  const cameraPreviewNonce = useConfiguratorStore((s) => s.cameraPreviewNonce)
+  const appliedCameraStageRef = useRef<string>('')
+  const appliedPreviewNonceRef = useRef<number>(-1)
+  const shouldApplyByPreview = cameraPreviewNonce !== appliedPreviewNonceRef.current
+  const shouldApplyByStage = appliedCameraStageRef.current !== `${stageKey}|${templateKey}`
+  const lastDistanceRef = useRef<number | null>(null)
+  const distanceNow = cameraSettings?.distanceFactor ?? 2.6
+  const shouldApplyByDistance = lastDistanceRef.current == null || Math.abs(lastDistanceRef.current - distanceNow) > 1e-6
+  useLayoutEffect(() => {
+    if (!controls || radius <= 0.001) return
+    if (!shouldApplyByPreview && !shouldApplyByStage && !shouldApplyByDistance) return
+
+    const preset = cameraSettings?.preset ?? 'front'
+    const dist = Math.max(0.6, Math.min(10, cameraSettings?.distanceFactor ?? 2.6))
+    const d = Math.max(radius * dist, 0.7)
+    let target = productCenter.clone()
+    let pos: THREE.Vector3
+    if (preset === 'custom' && cameraSettings?.position && cameraSettings?.target) {
+      const basePos = new THREE.Vector3(...cameraSettings.position)
+      target = new THREE.Vector3(...cameraSettings.target)
+      const v = basePos.clone().sub(target)
+      if (v.lengthSq() < 1e-8) {
+        pos = target.clone().add(new THREE.Vector3(0, 0.24, 1).normalize().multiplyScalar(d))
+      } else {
+        pos = target.clone().add(v.normalize().multiplyScalar(d))
+      }
+    } else {
+      const dir =
+        preset === 'top'
+          ? new THREE.Vector3(0, 1, 0.01)
+          : preset === 'side'
+            ? new THREE.Vector3(1, 0.2, 0)
+            : preset === 'iso'
+              ? new THREE.Vector3(1, 0.75, 1)
+              : new THREE.Vector3(0, 0.24, 1)
+      pos = target.clone().addScaledVector(dir.normalize(), d)
+    }
+    camera.position.copy(pos)
+    controls.target.copy(target)
+    controls.update()
+    appliedCameraStageRef.current = `${stageKey}|${templateKey}`
+    appliedPreviewNonceRef.current = cameraPreviewNonce
+    lastDistanceRef.current = distanceNow
+  }, [
+    camera,
+    controls,
+    radius,
+    stageKey,
+    templateKey,
+    cameraSettings,
+    productCenter,
+    cameraPreviewNonce,
+    distanceNow,
+    shouldApplyByPreview,
+    shouldApplyByStage,
+    shouldApplyByDistance,
+  ])
+
   return (
     <group key={stageKey}>
       <ambientLight intensity={resolvedLighting.ambientIntensity} />
@@ -290,6 +271,8 @@ export function ConfiguratorStageContent({
             heightMm={heightMm}
             materialSpec={materialSpec}
             materialId={materialId}
+            materialHydrated={materialHydrated}
+            adminMode={adminMode}
             templateParamOverrides={templateParamOverrides}
             uvMappings={uvMappings}
             propsConfig={propsConfig}
@@ -305,11 +288,7 @@ export function ConfiguratorStageContent({
           templateKey={templateKey}
           onProductCenterChange={onProductCenterChange}
         />
-        <FitOnceOnStageKey stageKey={stageKey} radius={radius} />
-        <DebouncedRefitIfOutOfView
-          triggerKey={`${widthMm}-${depthMm}-${heightMm}`}
-          radius={radius}
-        />
+        {/* Keep user camera stable after interaction/config changes. */}
       </Bounds>
 
       {/* Slightly below y=0 avoids z-fighting with bottom faces; world floor matches bbox bottom */}

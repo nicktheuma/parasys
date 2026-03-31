@@ -32,6 +32,9 @@ export function useDesignPackage(slug: string | undefined) {
       setFreeErr(null)
       setBusy(true)
       try {
+        const cap = useConfiguratorStore.getState().capturePdfViews
+        const renderedPages =
+          format === 'pdf' && cap ? await cap().catch(() => null) : null
         const res = await fetch(apiUrl('/api/design-package/download'), {
           method: 'POST',
           credentials: 'include',
@@ -42,6 +45,7 @@ export function useDesignPackage(slug: string | undefined) {
             depthMm: driven.depthMm,
             heightMm: driven.heightMm,
             format,
+            renderedPages,
           }),
         })
         if (!res.ok) {
