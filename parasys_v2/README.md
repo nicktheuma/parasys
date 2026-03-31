@@ -82,11 +82,24 @@ The API (port **3000**) starts **before** Vite so `/api` is ready when the UI lo
 
 **Stripe webhooks locally:** use Stripe CLI (`stripe listen --forward-to localhost:3000/api/stripe/webhook`) and put the printed signing secret in `STRIPE_WEBHOOK_SECRET`.
 
-## Production (Vercel)
+## Production (public hosting)
 
-- Import the project; set the same environment variables in the Vercel project settings.
-- Add Stripe webhook URL: `https://<your-domain>/api/stripe/webhook`.
-- **Client domain path (reverse proxy):** map `https://client.com/configurator` → your deployed origin so the browser stays on the client host; proxy `/api` if the checkout and session calls must be same-origin.
+**Parasys v2** needs the **Vite app plus `/api` serverless routes** and a **Postgres** database. The old **parasys-mvp** app was static-only and could use **GitHub Pages** (`gh-pages` + `base: '/parasys/'`). For v2, use **Vercel** (or another host that runs Node serverless + static) so `/api/*` and the DB work.
+
+### Vercel (recommended)
+
+1. In [Vercel](https://vercel.com), **New Project** → import this Git repo.
+2. Set **Root Directory** to `parasys_v2` (this repo also contains `parasys-mvp` and assets).
+3. **Environment variables:** copy everything from your local `.env` that the app needs (same keys as [Setup](#setup)). Use production values: `PUBLIC_APP_URL=https://<your-deployment>.vercel.app` (or your custom domain), real `DATABASE_URL`, Stripe secrets, etc.
+4. **Deploy.** `vercel.json` builds the Vite app and rewrites client routes to `index.html` while leaving `/api/*` for serverless handlers.
+5. **Stripe:** Dashboard → Webhooks → endpoint `https://<your-domain>/api/stripe/webhook` with the signing secret in `STRIPE_WEBHOOK_SECRET`.
+6. From the `parasys_v2` folder, after `vercel link`, you can run `npm run deploy` (production) or `npm run deploy:preview`.
+
+**Client domain (reverse proxy):** map `https://client.com/configurator` → your Vercel origin if the browser must stay on the client host; proxy `/api` if checkout and session calls must be same-origin.
+
+### GitHub Pages (static UI only)
+
+Not sufficient by itself: the UI would have no API unless you set `VITE_API_BASE` to a deployed API origin. If you still want a subpath build (same idea as mvp1), set `VITE_BASE_PATH=/parasys` (or your repo path) when running `npm run build`, deploy `dist/` to the `gh-pages` branch, and point `VITE_API_BASE` at your Vercel API URL. Prefer deploying **both** frontend and API on Vercel with `VITE_BASE_PATH` unset.
 
 ## What’s scaffolded vs next
 
@@ -111,4 +124,6 @@ The API (port **3000**) starts **before** Vite so `/api` is ready when the UI lo
 | Dev (Vite + API) | `npm run dev` |
 | Vite only | `npm run dev:vite` |
 | Full Vercel local | `npm run dev:vercel` |
+| Deploy to Vercel (prod) | `npm run deploy` (after `vercel link`) |
+| Deploy preview | `npm run deploy:preview` |
 | DB push (Drizzle) | `npm run db:push` |

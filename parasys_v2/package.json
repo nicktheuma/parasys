@@ -9,6 +9,8 @@
     "dev:vercel": "vercel dev",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "deploy": "vercel deploy --prod",
+    "deploy:preview": "vercel deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

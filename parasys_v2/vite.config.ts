@@ -6,8 +6,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const allowFree =
     env.ALLOW_FREE_DESIGN_PACKAGE === 'true' || env.ALLOW_FREE_DESIGN_PACKAGE === '1'
+  /** GitHub Pages project sites use a subpath (e.g. /parasys/). Vercel uses default "/". */
+  const baseRaw = env.VITE_BASE_PATH?.trim()
+  const base =
+    !baseRaw || baseRaw === '/'
+      ? '/'
+      : baseRaw.endsWith('/')
+        ? baseRaw
+        : `${baseRaw}/`
 
   return {
+    base,
     plugins: [react()],
     define: {
       'import.meta.env.VITE_ALLOW_FREE_DESIGN_PACKAGE': JSON.stringify(allowFree ? 'true' : 'false'),
