@@ -3,6 +3,9 @@ import styles from '@/routes/adminDashboard.module.css'
 export type TplFieldValues = {
   dividers: string
   shelves: string
+  showBackPanel: boolean
+  showVerticalPanels: boolean
+  showShelfPanels: boolean
   edgeOffset: string
   slotOffsetFactor: string
   interlockEnabled: boolean
@@ -13,6 +16,9 @@ export type TplFieldValues = {
 export const EMPTY_TPL_FIELDS: TplFieldValues = {
   dividers: '',
   shelves: '',
+  showBackPanel: true,
+  showVerticalPanels: true,
+  showShelfPanels: true,
   edgeOffset: '',
   slotOffsetFactor: '',
   interlockEnabled: true,
@@ -64,6 +70,32 @@ export function TemplateParamFields({ value, onChange }: Props) {
             onChange={(e) => set('edgeOffset', e.target.value)}
             step="0.001"
             min={0}
+          />
+        </label>
+      </div>
+      <div className={styles.row3}>
+        <label className={styles.label}>
+          <span>Back panel</span>
+          <input
+            type="checkbox"
+            checked={value.showBackPanel}
+            onChange={(e) => set('showBackPanel', e.target.checked)}
+          />
+        </label>
+        <label className={styles.label}>
+          <span>Vertical panels</span>
+          <input
+            type="checkbox"
+            checked={value.showVerticalPanels}
+            onChange={(e) => set('showVerticalPanels', e.target.checked)}
+          />
+        </label>
+        <label className={styles.label}>
+          <span>Shelf panels</span>
+          <input
+            type="checkbox"
+            checked={value.showShelfPanels}
+            onChange={(e) => set('showShelfPanels', e.target.checked)}
           />
         </label>
       </div>

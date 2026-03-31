@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import type { MaterialShaderSpec } from '../../../db/schema'
-import { getDb } from '../../../db/index'
-import { configurators, materials, materialAssignments } from '../../../db/schema'
-import { defaultMaterialShader, normalizeMaterialShader } from '../materialShaderNormalize'
+import { getDb } from '../../../db/index.js'
+import { configurators, materials, materialAssignments } from '../../../db/schema.js'
+import { defaultMaterialShader, normalizeMaterialShader } from '../materialShaderNormalize.js'
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/
 

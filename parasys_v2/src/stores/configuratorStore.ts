@@ -87,7 +87,8 @@ export type ConfiguratorStore = {
       lighting?: ConfiguratorLightingSettings | null
       props?: ConfiguratorPropsSettings | null
     } | null
-  }) => void
+  }, opts?: { deferMaterialHydration?: boolean }) => void
+  hydrateSelectedMaterialSpec: () => void
   setLoadErr: (err: string | null) => void
   /** Replace materials list (e.g. after admin assign); keeps current materialId and refreshes spec */
   setMaterials: (materials: PublicMat[]) => void
@@ -202,7 +203,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     set((s) => ({ showDimensions: !s.showDimensions }))
   },
 
-  loadConfigurator(data) {
+  loadConfigurator(data, opts) {
     const mats = data.materials ?? []
     const rawPreferred = data.settings?.defaultMaterialId ?? null
     const preferred =
@@ -214,6 +215,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     const dp = clampDimMm('depth', d?.depthMm ?? DIM_MM.depth.default)
     const h = clampDimMm('height', d?.heightMm ?? DIM_MM.height.default)
     const pg = data.settings?.paramGraph ?? null
+    const initialSpec = opts?.deferMaterialHydration ? defaultMaterialSpec('#ffffff') : deriveMaterialSpec(mats, mid)
     set({
       configuratorId: data.id,
       productName: data.name,
@@ -234,8 +236,14 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       lightingEditorPick: null,
       loadErr: null,
       driven: deriveDriven(pg, w, dp, h),
-      materialSpec: deriveMaterialSpec(mats, mid),
+      materialSpec: initialSpec,
     })
+  },
+
+  hydrateSelectedMaterialSpec() {
+    set((s) => ({
+      materialSpec: deriveMaterialSpec(s.materials, s.materialId),
+    }))
   },
 
   setLoadErr(err) {

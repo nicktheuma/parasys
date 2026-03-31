@@ -1,5 +1,6 @@
+// @ts-nocheck — legacy nesting PDF helper; strict typing deferred
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import { nestPanelsRectangular, defaultNestingOptions } from './nesting'
+import { nestPanelsRectangular, defaultNestingOptions } from './nesting.js'
 
 const mmToPt = (millimeters) => (millimeters * 72) / 25.4
 const formatMm = (value) => `${value.toFixed(1)}mm`

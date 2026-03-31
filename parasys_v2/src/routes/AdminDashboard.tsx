@@ -20,6 +20,7 @@ type Configurator = {
   templateKey: string
   clientLabel: string | null
   settings: {
+    isPublic?: boolean
     defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
     templateParams?: Record<string, TemplateParametricPreset> | null
     thumbnailSrc?: string | null
@@ -35,7 +36,19 @@ type FormState = {
   w: string
   d: string
   h: string
+  isPublic: boolean
   tpl: TplFieldValues
+}
+
+type EditFormState = {
+  name: string
+  slug: string
+  templateKey: string
+  clientLabel: string
+  w: string
+  d: string
+  h: string
+  isPublic: boolean
 }
 
 const INITIAL_FORM: FormState = {
@@ -46,11 +59,13 @@ const INITIAL_FORM: FormState = {
   w: '',
   d: '',
   h: '',
+  isPublic: true,
   tpl: EMPTY_TPL_FIELDS,
 }
 
 type FormAction =
   | { type: 'set'; field: keyof Omit<FormState, 'tpl'>; value: string }
+  | { type: 'setPublic'; value: boolean }
   | { type: 'setTpl'; value: TplFieldValues }
   | { type: 'reset' }
   | { type: 'switchTemplate'; templateKey: string; existingSettings?: Record<string, TemplateParametricPreset> | null }
@@ -59,6 +74,8 @@ function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
     case 'set':
       return { ...state, [action.field]: action.value }
+    case 'setPublic':
+      return { ...state, isPublic: action.value }
     case 'setTpl':
       return { ...state, tpl: action.value }
     case 'reset':
@@ -77,6 +94,9 @@ function tplFromPreset(p: TemplateParametricPreset | null): TplFieldValues {
   return {
     dividers: p.dividers != null ? String(p.dividers) : '',
     shelves: p.shelves != null ? String(p.shelves) : '',
+    showBackPanel: p.showBackPanel ?? true,
+    showVerticalPanels: p.showVerticalPanels ?? true,
+    showShelfPanels: p.showShelfPanels ?? true,
     edgeOffset: p.edgeOffset != null ? String(p.edgeOffset) : '',
     slotOffsetFactor: p.slotOffsetFactor != null ? String(p.slotOffsetFactor) : '',
     interlockEnabled: p.interlockEnabled ?? true,
@@ -87,14 +107,17 @@ function tplFromPreset(p: TemplateParametricPreset | null): TplFieldValues {
 
 function buildSettingsFromForm(form: FormState):
   | {
+      isPublic?: boolean
       defaultDims?: { widthMm: number; depthMm: number; heightMm: number }
       templateParams?: Record<string, TemplateParametricPreset>
     }
   | undefined {
   const out: {
+    isPublic?: boolean
     defaultDims?: { widthMm: number; depthMm: number; heightMm: number }
     templateParams?: Record<string, TemplateParametricPreset>
   } = {}
+  if (!form.isPublic) out.isPublic = false
 
   const has = form.w.trim() !== '' || form.d.trim() !== '' || form.h.trim() !== ''
   if (has) {
@@ -114,6 +137,9 @@ function buildSettingsFromForm(form: FormState):
   const p: TemplateParametricPreset = {
     dividers: n(form.tpl.dividers),
     shelves: n(form.tpl.shelves),
+    showBackPanel: form.tpl.showBackPanel,
+    showVerticalPanels: form.tpl.showVerticalPanels,
+    showShelfPanels: form.tpl.showShelfPanels,
     edgeOffset: n(form.tpl.edgeOffset),
     slotOffsetFactor: n(form.tpl.slotOffsetFactor),
     interlockEnabled: form.tpl.interlockEnabled,
@@ -137,6 +163,18 @@ export function AdminDashboard() {
   const [createForm, dispatchCreate] = useReducer(formReducer, INITIAL_FORM)
   const [creating, setCreating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editing, setEditing] = useState<Configurator | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState<EditFormState>({
+    name: '',
+    slug: '',
+    templateKey: TEMPLATE_OPTIONS[0].key,
+    clientLabel: '',
+    w: '',
+    d: '',
+    h: '',
+    isPublic: true,
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -192,6 +230,55 @@ export function AdminDashboard() {
     await load()
   }
 
+  function openEdit(c: Configurator) {
+    setEditing(c)
+    setEditForm({
+      name: c.name,
+      slug: c.slug,
+      templateKey: c.templateKey,
+      clientLabel: c.clientLabel ?? '',
+      w: c.settings?.defaultDims?.widthMm != null ? String(c.settings.defaultDims.widthMm) : '',
+      d: c.settings?.defaultDims?.depthMm != null ? String(c.settings.defaultDims.depthMm) : '',
+      h: c.settings?.defaultDims?.heightMm != null ? String(c.settings.defaultDims.heightMm) : '',
+      isPublic: c.settings?.isPublic !== false,
+    })
+  }
+
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    setSavingEdit(true)
+    setError(null)
+    const hasDims = editForm.w.trim() !== '' || editForm.d.trim() !== '' || editForm.h.trim() !== ''
+    const settings: { isPublic?: boolean; defaultDims?: { widthMm: number; depthMm: number; heightMm: number } } = {}
+    if (!editForm.isPublic) settings.isPublic = false
+    if (hasDims) {
+      settings.defaultDims = {
+        widthMm: clampDimMm('width', editForm.w.trim() === '' ? DIM_MM.width.default : Number(editForm.w)),
+        depthMm: clampDimMm('depth', editForm.d.trim() === '' ? DIM_MM.depth.default : Number(editForm.d)),
+        heightMm: clampDimMm('height', editForm.h.trim() === '' ? DIM_MM.height.default : Number(editForm.h)),
+      }
+    }
+    const settingsPatch = Object.keys(settings).length > 0 ? settings : undefined
+    const r = await fetchJson<{ item: Configurator }>(`/api/admin/configurators/${encodeURIComponent(editing.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim().toLowerCase().replace(/\s+/g, '-'),
+        templateKey: editForm.templateKey,
+        clientLabel: editForm.clientLabel.trim() || null,
+        ...(settingsPatch ? { settings: settingsPatch } : {}),
+      }),
+    })
+    setSavingEdit(false)
+    if (!r.ok) {
+      setError(r.error ?? 'Update failed')
+      return
+    }
+    setEditing(null)
+    await load()
+  }
+
   return (
     <div>
       <h1 className={styles.heading}>Product configurators</h1>
@@ -235,6 +322,12 @@ export function AdminDashboard() {
                         <span>{c.clientLabel}</span>
                       </>
                     ) : null}
+                    {c.settings?.isPublic === false ? (
+                      <>
+                        <span aria-hidden="true"> · </span>
+                        <span>private</span>
+                      </>
+                    ) : null}
                   </p>
                   {c.settings?.defaultDims ? (
                     <p className={styles.listDims}>
@@ -259,6 +352,13 @@ export function AdminDashboard() {
                     onClick={() => navigate(`/c/${encodeURIComponent(c.slug)}`)}
                   >
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondary}
+                    onClick={() => openEdit(c)}
+                  >
+                    Edit details
                   </button>
                   <button
                     type="button"
@@ -343,6 +443,14 @@ export function AdminDashboard() {
                   />
                 </label>
               </div>
+              <label className={styles.label}>
+                Public in landing page
+                <input
+                  type="checkbox"
+                  checked={createForm.isPublic}
+                  onChange={(e) => dispatchCreate({ type: 'setPublic', value: e.target.checked })}
+                />
+              </label>
               <p className={styles.dimHint}>
                 Default dimensions (mm, optional)
               </p>
@@ -370,6 +478,101 @@ export function AdminDashboard() {
                 </button>
                 <button type="submit" className={styles.button} disabled={creating}>
                   {creating ? 'Creating\u2026' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className={styles.modalBackdrop} role="presentation" onClick={() => setEditing(null)}>
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-labelledby="edit-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="edit-title" className={styles.modalTitle}>
+              Edit configurator details
+            </h2>
+            <form className={styles.form} onSubmit={onSaveEdit}>
+              <div className={styles.row}>
+                <label className={styles.label}>
+                  Name
+                  <input
+                    className={styles.input}
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((s) => ({ ...s, name: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className={styles.label}>
+                  URL slug
+                  <input
+                    className={styles.input}
+                    value={editForm.slug}
+                    onChange={(e) => setEditForm((s) => ({ ...s, slug: e.target.value }))}
+                    required
+                    pattern="[a-z0-9][a-z0-9-]*"
+                    title="Lowercase letters, numbers, hyphens"
+                  />
+                </label>
+              </div>
+              <div className={styles.row}>
+                <label className={styles.label}>
+                  Template
+                  <select
+                    className={styles.select}
+                    value={editForm.templateKey}
+                    onChange={(e) => setEditForm((s) => ({ ...s, templateKey: e.target.value }))}
+                  >
+                    {TEMPLATE_OPTIONS.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.label}>
+                  Folder / client label (optional)
+                  <input
+                    className={styles.input}
+                    value={editForm.clientLabel}
+                    onChange={(e) => setEditForm((s) => ({ ...s, clientLabel: e.target.value }))}
+                    placeholder="Acme Manufacturing"
+                  />
+                </label>
+              </div>
+              <label className={styles.label}>
+                Public in landing page
+                <input
+                  type="checkbox"
+                  checked={editForm.isPublic}
+                  onChange={(e) => setEditForm((s) => ({ ...s, isPublic: e.target.checked }))}
+                />
+              </label>
+              <p className={styles.dimHint}>Default dimensions (mm, optional)</p>
+              <div className={styles.row3}>
+                <label className={styles.label}>
+                  Width
+                  <input className={styles.input} type="number" value={editForm.w} onChange={(e) => setEditForm((s) => ({ ...s, w: e.target.value }))} min={DIM_MM.width.min} max={DIM_MM.width.max} />
+                </label>
+                <label className={styles.label}>
+                  Depth
+                  <input className={styles.input} type="number" value={editForm.d} onChange={(e) => setEditForm((s) => ({ ...s, d: e.target.value }))} min={DIM_MM.depth.min} max={DIM_MM.depth.max} />
+                </label>
+                <label className={styles.label}>
+                  Height
+                  <input className={styles.input} type="number" value={editForm.h} onChange={(e) => setEditForm((s) => ({ ...s, h: e.target.value }))} min={DIM_MM.height.min} max={DIM_MM.height.max} />
+                </label>
+              </div>
+              <div className={styles.modalActions}>
+                <button type="button" className={styles.secondary} onClick={() => setEditing(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.button} disabled={savingEdit}>
+                  {savingEdit ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
             </form>

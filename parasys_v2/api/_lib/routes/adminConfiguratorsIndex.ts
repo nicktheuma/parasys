@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isAdminRequest } from '../../_lib/auth'
-import { createConfigurator, listConfigurators } from '../../_lib/handlers/configurators'
-import { json, readJsonBody } from '../../_lib/http'
+import { isAdminRequest } from '../auth.js'
+import { createConfigurator, listConfigurators } from '../handlers/configurators.js'
+import { json, readJsonBody } from '../http.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
@@ -29,14 +29,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name?: string
       slug?: string
       templateKey?: string
-      clientLabel?: string
-      settings?: { defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number } } | null
+      clientLabel?: string | null
+      settings?: { isPublic?: boolean; defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number } } | null
     }>(req)
     const r = await createConfigurator({
       name: body.name ?? '',
       slug: body.slug ?? '',
       templateKey: body.templateKey ?? '',
-      clientLabel: body.clientLabel,
+      clientLabel: body.clientLabel === null ? undefined : body.clientLabel,
       settings: body.settings,
     })
     if (!r.ok) {

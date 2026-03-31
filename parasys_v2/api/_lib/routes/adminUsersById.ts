@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireRole } from '../../_lib/auth'
-import { deleteUser, updateUser } from '../../_lib/handlers/users'
-import { json, readJsonBody } from '../../_lib/http'
+import { requireRole } from '../auth.js'
+import { deleteUser, updateUser } from '../handlers/users.js'
+import { json, readJsonBody } from '../http.js'
 
 function routeId(req: VercelRequest): string | null {
   const id = req.query?.id

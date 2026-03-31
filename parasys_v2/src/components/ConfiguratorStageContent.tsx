@@ -47,7 +47,7 @@ const FRONT_VIEW_DIR = new THREE.Vector3(0, 0.28, 1).normalize()
  * Must be listed **after** `Center` (and after `ProductCenterReader` is fine) so Bounds
  * measures the laid-out product; otherwise the first fit uses an empty/wrong box.
  */
-function FitOnceOnStageKey({ stageKey }: { stageKey: string }) {
+function FitOnceOnStageKey({ stageKey, radius }: { stageKey: string; radius: number }) {
   const bounds = useBounds()
   const camera = useThree((s) => s.camera)
   const controls = useThree((s) => s.controls) as unknown as
@@ -55,7 +55,13 @@ function FitOnceOnStageKey({ stageKey }: { stageKey: string }) {
     | undefined
   const invalidate = useThree((s) => s.invalidate)
 
+  const fittedRef = useRef<{ key: string; done: boolean }>({ key: '', done: false })
+
   useLayoutEffect(() => {
+    if (fittedRef.current.key !== stageKey) {
+      fittedRef.current = { key: stageKey, done: false }
+    }
+    if (radius <= 0.001 || fittedRef.current.done) return
     bounds.refresh()
     const { center, distance } = bounds.getSize()
     camera.position.copy(center).addScaledVector(FRONT_VIEW_DIR, distance)
@@ -64,8 +70,61 @@ function FitOnceOnStageKey({ stageKey }: { stageKey: string }) {
       controls.target.copy(center)
       controls.update()
     }
+    fittedRef.current.done = true
     invalidate()
-  }, [bounds, camera, controls, invalidate, stageKey])
+  }, [bounds, camera, controls, invalidate, stageKey, radius])
+
+  return null
+}
+
+function DebouncedRefitIfOutOfView({
+  triggerKey,
+  radius,
+}: {
+  triggerKey: string
+  radius: number
+}) {
+  const bounds = useBounds()
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as unknown as
+    | { target: THREE.Vector3; update: () => void }
+    | undefined
+  const invalidate = useThree((s) => s.invalidate)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useLayoutEffect(() => {
+    if (radius <= 0.001) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      bounds.refresh()
+      const { box, center, distance } = bounds.getSize()
+      const points = [
+        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+      ]
+      const outOfView = points.some((p) => {
+        const ndc = p.clone().project(camera)
+        return ndc.z > 1 || ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1
+      })
+      if (!outOfView) return
+      camera.position.copy(center).addScaledVector(FRONT_VIEW_DIR, distance)
+      bounds.fit()
+      if (controls) {
+        controls.target.copy(center)
+        controls.update()
+      }
+      invalidate()
+    }, 220)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [bounds, camera, controls, invalidate, triggerKey, radius])
 
   return null
 }
@@ -246,7 +305,11 @@ export function ConfiguratorStageContent({
           templateKey={templateKey}
           onProductCenterChange={onProductCenterChange}
         />
-        <FitOnceOnStageKey stageKey={stageKey} />
+        <FitOnceOnStageKey stageKey={stageKey} radius={radius} />
+        <DebouncedRefitIfOutOfView
+          triggerKey={`${widthMm}-${depthMm}-${heightMm}`}
+          radius={radius}
+        />
       </Bounds>
 
       {/* Slightly below y=0 avoids z-fighting with bottom faces; world floor matches bbox bottom */}

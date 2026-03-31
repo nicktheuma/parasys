@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm'
-import { getDb } from '../../../db/index'
+import { getDb } from '../../../db/index.js'
 import type { MaterialShaderSpec, PropKind } from '../../../db/schema'
-import { propLibrary } from '../../../db/schema'
-import { defaultMaterialShader } from '../../../shared/materialDefaults'
+import { propLibrary } from '../../../db/schema.js'
+import { defaultMaterialShader } from '../../../shared/materialDefaults.js'
 
 export type PropLibraryRow = {
   id: string

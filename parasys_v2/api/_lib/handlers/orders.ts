@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm'
-import { getDb } from '../../../db/index'
-import { configurators, orders } from '../../../db/schema'
+import { getDb } from '../../../db/index.js'
+import { configurators, orders } from '../../../db/schema.js'
 
 export type OrderListRow = {
   id: string

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isAdminRequest } from '../../_lib/auth'
-import { deleteConfigurator, updateConfigurator } from '../../_lib/handlers/configurators'
-import { json, readJsonBody } from '../../_lib/http'
+import { isAdminRequest } from '../auth.js'
+import { deleteConfigurator, updateConfigurator } from '../handlers/configurators.js'
+import { json, readJsonBody } from '../http.js'
 
 function routeId(req: VercelRequest): string | null {
   const id = req.query?.id
@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       slug?: string
       templateKey?: string
       clientLabel?: string | null
-      settings?: { defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number } } | null
+      settings?: { isPublic?: boolean; defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number } } | null
     }>(req)
     const r = await updateConfigurator(id, {
       name: body.name,

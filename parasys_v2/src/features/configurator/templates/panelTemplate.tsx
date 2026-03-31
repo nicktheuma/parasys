@@ -30,6 +30,9 @@ export function PanelTemplate({
         uvMappings={uvMappings}
         dividers={preset?.dividers}
         shelves={preset?.shelves}
+        showBackPanel={preset?.showBackPanel}
+        showVerticalPanels={preset?.showVerticalPanels}
+        showShelfPanels={preset?.showShelfPanels}
         edgeOffset={preset?.edgeOffset}
         slotOffsetFactor={preset?.slotOffsetFactor}
         interlockEnabled={preset?.interlockEnabled}

@@ -7,10 +7,10 @@ import type {
   ParamGraphSettings,
   SceneLightSettings,
 } from '../../db/schema'
-import { clampDimMm, DIM_MM } from '../../shared/constants'
+import { clampDimMm, DIM_MM } from '../../shared/constants.js'
 
 export { clampDimMm, DIM_MM }
-export type { DimKey } from '../../shared/constants'
+export type { DimKey } from '../../shared/constants.js'
 
 const MAX_NODES = 200
 const MAX_EDGES = 500
@@ -116,6 +116,7 @@ export function normalizeSettings(
 ): ConfiguratorSettingsRow | null {
   if (!input || typeof input !== 'object') return null
   const out: ConfiguratorSettingsRow = {}
+  if (typeof input.isPublic === 'boolean') out.isPublic = input.isPublic
   const d = input.defaultDims
   if (d && typeof d === 'object') {
     out.defaultDims = {
@@ -162,6 +163,9 @@ export function normalizeSettings(
       const src = raw as {
         dividers?: unknown
         shelves?: unknown
+        showBackPanel?: unknown
+        showVerticalPanels?: unknown
+        showShelfPanels?: unknown
         edgeOffset?: unknown
         slotOffsetFactor?: unknown
         interlockEnabled?: unknown
@@ -173,6 +177,9 @@ export function normalizeSettings(
       clean[key] = {
         dividers: n(src.dividers) !== undefined ? Math.max(0, Math.min(12, Math.round(n(src.dividers)!))) : undefined,
         shelves: n(src.shelves) !== undefined ? Math.max(0, Math.min(12, Math.round(n(src.shelves)!))) : undefined,
+        showBackPanel: typeof src.showBackPanel === 'boolean' ? src.showBackPanel : undefined,
+        showVerticalPanels: typeof src.showVerticalPanels === 'boolean' ? src.showVerticalPanels : undefined,
+        showShelfPanels: typeof src.showShelfPanels === 'boolean' ? src.showShelfPanels : undefined,
         edgeOffset: n(src.edgeOffset),
         slotOffsetFactor: n(src.slotOffsetFactor),
         interlockEnabled: typeof src.interlockEnabled === 'boolean' ? src.interlockEnabled : undefined,

@@ -1,5 +1,5 @@
-import { getDb } from '../../db/index'
-import { auditLog } from '../../db/schema'
+import { getDb } from '../../db/index.js'
+import { auditLog } from '../../db/schema.js'
 
 export async function logAuditEvent(
   userId: string | undefined,

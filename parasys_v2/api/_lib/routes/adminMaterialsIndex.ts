@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isAdminRequest } from '../../_lib/auth'
-import { createMaterial, listAllMaterials, listMaterials } from '../../_lib/handlers/materials'
-import { json, readJsonBody } from '../../_lib/http'
+import { isAdminRequest } from '../auth.js'
+import { createMaterial, listAllMaterials, listMaterials } from '../handlers/materials.js'
+import { json, readJsonBody } from '../http.js'
 
 function queryConfiguratorId(req: VercelRequest): string | null {
   const q = req.query?.configuratorId

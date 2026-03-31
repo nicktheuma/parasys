@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy nesting math; strict typing deferred
 const toMillimeters = (meters: number) => meters * 1000
 
 export const defaultNestingOptions = {

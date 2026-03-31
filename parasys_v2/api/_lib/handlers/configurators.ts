@@ -1,11 +1,11 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import type { ConfiguratorSettingsRow, MaterialShaderSpec, PropKind } from '../../../db/schema'
-import { getDb } from '../../../db/index'
-import { configurators } from '../../../db/schema'
-import { TEMPLATE_KEYS } from '../../../shared/constants'
-import { normalizeSettings } from '../dimensions'
-import { listMaterialsForPublicConfigurator } from './materials'
-import { listPropsPublic } from './props'
+import { getDb } from '../../../db/index.js'
+import { configurators } from '../../../db/schema.js'
+import { TEMPLATE_KEYS } from '../../../shared/constants.js'
+import { normalizeSettings } from '../dimensions.js'
+import { listMaterialsForPublicConfigurator } from './materials.js'
+import { listPropsPublic } from './props.js'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
 
@@ -29,6 +29,10 @@ function mapRow(r: typeof configurators.$inferSelect): ConfiguratorRow {
     settings: normalizeSettings(r.settings),
     createdAt: r.createdAt.toISOString(),
   }
+}
+
+function isPublicSettings(settings: ConfiguratorSettingsRow | null | undefined): boolean {
+  return settings?.isPublic !== false
 }
 
 export async function listConfigurators(): Promise<
@@ -140,6 +144,9 @@ export async function getPublicConfigurator(
 > {
   const r = await getConfiguratorBySlug(slug.trim())
   if (!r.ok) return r
+  if (!isPublicSettings(r.item.settings)) {
+    return { ok: false, status: 404, error: 'Not found' }
+  }
   const db = getDb()
   if (!db) {
     return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
@@ -170,6 +177,30 @@ export async function getPublicConfigurator(
       propsCatalog,
     },
   }
+}
+
+export type PublicConfiguratorListItem = {
+  slug: string
+  name: string
+  templateKey: string
+  clientLabel: string | null
+}
+
+export async function listPublicConfigurators(): Promise<
+  { ok: true; items: PublicConfiguratorListItem[] } | { ok: false; status: number; error: string }
+> {
+  const db = getDb()
+  if (!db) return { ok: false, status: 503, error: 'Database not configured (DATABASE_URL)' }
+  const rows = await db.select().from(configurators).orderBy(desc(configurators.createdAt))
+  const items = rows
+    .filter((r) => isPublicSettings(r.settings))
+    .map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      templateKey: r.templateKey,
+      clientLabel: r.clientLabel ?? null,
+    }))
+  return { ok: true, items }
 }
 
 export async function updateConfigurator(

@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
-import { getDb } from '../../../db/index'
+import { getDb } from '../../../db/index.js'
 import type { OrderDimensionsSnapshot } from '../../../db/schema'
-import { configurators, orders } from '../../../db/schema'
-import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload'
+import { configurators, orders } from '../../../db/schema.js'
+import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload.js'
 
 export async function buildDesignPackageByDownloadToken(
   token: string,

@@ -1,5 +1,7 @@
 import type { MaterialShaderLayer, MaterialShaderSpec } from '../../db/schema'
-export { defaultMaterialShader } from '../../shared/materialDefaults'
+import { defaultMaterialShader } from '../../shared/materialDefaults.js'
+
+export { defaultMaterialShader } from '../../shared/materialDefaults.js'
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/
 

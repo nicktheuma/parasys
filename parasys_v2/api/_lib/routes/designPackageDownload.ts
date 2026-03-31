@@ -3,8 +3,8 @@ import {
   buildDesignAsset,
   isFreeDesignPackageAllowed,
   type DesignAssetFormat,
-} from '../_lib/handlers/designPackageDownload'
-import { json, readJsonBody } from '../_lib/http'
+} from '../handlers/designPackageDownload.js'
+import { json, readJsonBody } from '../http.js'
 
 function parseFormat(raw: unknown): DesignAssetFormat {
   return raw === 'stl' ? 'stl' : 'pdf'

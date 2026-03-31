@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createDesignCheckout } from '../_lib/handlers/stripeCheckout'
-import { json, readJsonBody } from '../_lib/http'
+import { createDesignCheckout } from '../handlers/stripeCheckout.js'
+import { json, readJsonBody } from '../http.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

@@ -1,16 +1,16 @@
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
-import { sendPurchaseReceiptEmail } from '../email'
-import { getDb } from '../../../db/index'
-import { configurators, orders } from '../../../db/schema'
+import { sendPurchaseReceiptEmail } from '../email.js'
+import { getDb } from '../../../db/index.js'
+import { configurators, orders } from '../../../db/schema.js'
 import type { OrderDimensionsSnapshot } from '../../../db/schema'
-import { getConfiguratorBySlug } from './configurators'
+import { getConfiguratorBySlug } from './configurators.js'
 
 export function getStripeClient(): Stripe | null {
   const k = process.env.STRIPE_SECRET_KEY
   if (!k) return null
-  return new Stripe(k, { apiVersion: '2024-11-20.acacia' })
+  return new Stripe(k, { apiVersion: '2025-08-27.basil' })
 }
 
 export async function createDesignCheckout(

@@ -105,7 +105,7 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
     setProductCenter(center.clone())
   }, [])
 
-  const stageKey = adminMode ? templateKey : `${templateKey}-${materialId ?? 'none'}`
+  const stageKey = templateKey
   const showLightingGizmos = Boolean(adminMode && lightingEditorPick != null)
 
   return (

@@ -1,9 +1,9 @@
 import type { ConfiguratorSettingsRow } from '../../../db/schema'
 import { mergeTemplateParametricPreset } from '../../../src/features/parametric/mvp1/templateParametricPresets.ts'
-import { buildManufacturingPdf } from '../designPackagePdf'
-import { buildPlaceholderStlBox, buildStlFromPanels } from '../designPackageStl'
-import { resolveDimsMm } from '../dimensions'
-import { getConfiguratorBySlug } from './configurators'
+import { buildManufacturingPdf } from '../designPackagePdf.js'
+import { buildPlaceholderStlBox, buildStlFromPanels } from '../designPackageStl.js'
+import { resolveDimsMm } from '../dimensions.js'
+import { getConfiguratorBySlug } from './configurators.js'
 import { generatePanelSpecs } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
 import type { PanelSpec } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
 

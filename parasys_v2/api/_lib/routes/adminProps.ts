@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import type { MaterialShaderSpec } from '../../../db/schema'
-import { isAdminRequest } from '../../_lib/auth'
-import { listPropsAdmin, updatePropShader } from '../../_lib/handlers/props'
-import { json, readJsonBody } from '../../_lib/http'
+import { isAdminRequest } from '../auth.js'
+import { listPropsAdmin, updatePropShader } from '../handlers/props.js'
+import { json, readJsonBody } from '../http.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ok = await isAdminRequest(req)

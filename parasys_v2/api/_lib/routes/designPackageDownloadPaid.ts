@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { buildPaidDesignAsset } from '../_lib/handlers/designPackagePaid'
-import type { DesignAssetFormat } from '../_lib/handlers/designPackageDownload'
-import { json, readJsonBody } from '../_lib/http'
+import { buildPaidDesignAsset } from '../handlers/designPackagePaid.js'
+import type { DesignAssetFormat } from '../handlers/designPackageDownload'
+import { json, readJsonBody } from '../http.js'
 
 function parseFormat(raw: unknown): DesignAssetFormat {
   return raw === 'stl' ? 'stl' : 'pdf'

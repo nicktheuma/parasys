@@ -40,7 +40,10 @@ import styles from './adminSettingsPanel.module.css'
 
 type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv' | 'lighting' | 'props'
 
-type NumericParamKey = Exclude<keyof TemplateParametricPreset, 'interlockEnabled'>
+type NumericParamKey = Exclude<
+  keyof TemplateParametricPreset,
+  'interlockEnabled' | 'showBackPanel' | 'showVerticalPanels' | 'showShelfPanels'
+>
 
 const PARAM_DEFS: { key: NumericParamKey; label: string; step: number; fallbackMin: number; fallbackMax: number }[] = [
   { key: 'dividers', label: 'Dividers', step: 1, fallbackMin: 0, fallbackMax: 12 },

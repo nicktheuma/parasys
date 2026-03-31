@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import Stripe from 'stripe'
-import { getDb } from '../../../db/index'
+import { getDb } from '../../../db/index.js'
 import type { OrderDimensionsSnapshot } from '../../../db/schema'
-import { configurators, orders } from '../../../db/schema'
-import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload'
-import { getStripeClient } from './stripeCheckout'
+import { configurators, orders } from '../../../db/schema.js'
+import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload.js'
+import { getStripeClient } from './stripeCheckout.js'
 
 export async function buildPaidDesignAsset(
   format: DesignAssetFormat,

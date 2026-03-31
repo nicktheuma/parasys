@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import type { DesignAssetFormat } from '../_lib/handlers/designPackageDownload'
-import { buildDesignPackageByDownloadToken } from '../_lib/handlers/designPackageByToken'
-import { json } from '../_lib/http'
+import type { DesignAssetFormat } from '../handlers/designPackageDownload'
+import { buildDesignPackageByDownloadToken } from '../handlers/designPackageByToken.js'
+import { json } from '../http.js'
 
 function queryToken(req: VercelRequest): string {
   const q = req.query?.token

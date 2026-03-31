@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isAdminRequest } from '../../_lib/auth'
+import { isAdminRequest } from '../auth.js'
 import {
   assignMaterial,
   deleteMaterial,
   getAssignedConfiguratorIds,
   unassignMaterial,
   updateMaterial,
-} from '../../_lib/handlers/materials'
-import { json, readJsonBody } from '../../_lib/http'
+} from '../handlers/materials.js'
+import { json, readJsonBody } from '../http.js'
 
 function routeId(req: VercelRequest): string | null {
   const id = req.query?.id

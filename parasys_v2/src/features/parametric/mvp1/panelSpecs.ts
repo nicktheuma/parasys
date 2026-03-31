@@ -34,11 +34,26 @@ export function generatePanelSpecs(input: {
   depth: number
   dividers: number
   shelves: number
+  showBackPanel?: boolean
+  showVerticalPanels?: boolean
+  showShelfPanels?: boolean
   edgeOffset: number
   slotOffset: number
   materialThickness: number
 }): PanelSpec[] {
-  const { width, height, depth, dividers, shelves, edgeOffset, slotOffset, materialThickness } = input
+  const {
+    width,
+    height,
+    depth,
+    dividers,
+    shelves,
+    showBackPanel = true,
+    showVerticalPanels = true,
+    showShelfPanels = true,
+    edgeOffset,
+    slotOffset,
+    materialThickness,
+  } = input
   const panels: PanelSpec[] = []
 
   const addPanel = (panel: PanelSpec) => {
@@ -52,59 +67,65 @@ export function generatePanelSpecs(input: {
     })
   }
 
-  addPanel({
-    id: makePanelId('back', 0),
-    kind: 'back',
-    plane: 'XY',
-    width,
-    height,
-    thickness: materialThickness,
-    center: [0, 0, -(depth / 2) + materialThickness / 2],
-    rotation: [0, 0, 0],
-    quantity: 1,
-    cutouts: [],
-  })
-
-  const dividerCount = dividers + 2
-  const verticalSpanX = width - materialThickness - edgeOffset * 2
-  const verticalStep = verticalSpanX / Math.max(1, dividers + 1)
-  const verticalHeight = Math.max(0.001, height + slotOffset * 2 - materialThickness * 2)
-  const verticalDepth = Math.max(0.001, depth - slotOffset)
-
-  for (let index = 0; index < dividerCount; index += 1) {
-    const positionX = -(verticalSpanX / 2) + verticalStep * index
+  if (showBackPanel) {
     addPanel({
-      id: makePanelId('vertical', index),
-      kind: 'vertical',
-      plane: 'YZ',
-      width: verticalDepth,
-      height: verticalHeight,
+      id: makePanelId('back', 0),
+      kind: 'back',
+      plane: 'XY',
+      width,
+      height,
       thickness: materialThickness,
-      center: [positionX, 0, -(slotOffset / 2)],
-      rotation: [0, -Math.PI / 2, 0],
+      center: [0, 0, -(depth / 2) + materialThickness / 2],
+      rotation: [0, 0, 0],
       quantity: 1,
       cutouts: [],
     })
+  }
+
+  const dividerCount = Math.max(2, Math.round(dividers))
+  const verticalSpanX = width - materialThickness - edgeOffset * 2
+  const verticalStep = dividerCount > 1 ? verticalSpanX / (dividerCount - 1) : 0
+  const verticalHeight = Math.max(0.001, height + slotOffset * 2 - materialThickness * 2)
+  const verticalDepth = Math.max(0.001, depth - slotOffset)
+
+  if (showVerticalPanels) {
+    for (let index = 0; index < dividerCount; index += 1) {
+      const positionX = -(verticalSpanX / 2) + verticalStep * index
+      addPanel({
+        id: makePanelId('vertical', index),
+        kind: 'vertical',
+        plane: 'YZ',
+        width: verticalDepth,
+        height: verticalHeight,
+        thickness: materialThickness,
+        center: [positionX, 0, -(slotOffset / 2)],
+        rotation: [0, -Math.PI / 2, 0],
+        quantity: 1,
+        cutouts: [],
+      })
+    }
   }
 
   const shelfCount = shelves + 2
   const verticalInterior = height - materialThickness
   const shelfStep = verticalInterior / Math.max(1, shelves + 1)
 
-  for (let index = 0; index < shelfCount; index += 1) {
-    const positionY = verticalInterior / 2 - shelfStep * index
-    addPanel({
-      id: makePanelId('shelf', index),
-      kind: 'shelf',
-      plane: 'XZ',
-      width,
-      height: depth,
-      thickness: materialThickness,
-      center: [0, positionY, 0],
-      rotation: [Math.PI / 2, 0, 0],
-      quantity: 1,
-      cutouts: [],
-    })
+  if (showShelfPanels) {
+    for (let index = 0; index < shelfCount; index += 1) {
+      const positionY = verticalInterior / 2 - shelfStep * index
+      addPanel({
+        id: makePanelId('shelf', index),
+        kind: 'shelf',
+        plane: 'XZ',
+        width,
+        height: depth,
+        thickness: materialThickness,
+        center: [0, positionY, 0],
+        rotation: [Math.PI / 2, 0, 0],
+        quantity: 1,
+        cutouts: [],
+      })
+    }
   }
 
   return panels

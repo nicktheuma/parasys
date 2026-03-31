@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { desc, eq } from 'drizzle-orm'
-import { getDb } from '../../../db/index'
+import { getDb } from '../../../db/index.js'
 import { type UserRole, users } from '../../../db/schema'
-import { logAuditEvent } from '../auditLog'
+import { logAuditEvent } from '../auditLog.js'
 
 const VALID_ROLES = new Set<UserRole>(['admin', 'editor', 'viewer'])
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

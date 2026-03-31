@@ -94,6 +94,37 @@ The API (port **3000**) starts **before** Vite so `/api` is ready when the UI lo
 4. **Deploy.** `vercel.json` builds the Vite app and rewrites client routes to `index.html` while leaving `/api/*` for serverless handlers.
 5. **Stripe:** Dashboard → Webhooks → endpoint `https://<your-domain>/api/stripe/webhook` with the signing secret in `STRIPE_WEBHOOK_SECRET`.
 6. From the `parasys_v2` folder, after `vercel link`, you can run `npm run deploy` (production) or `npm run deploy:preview`.
+7. Run `npm run verify:deploy -- https://<your-domain>` to fail fast on missing required Vercel env vars or broken core API endpoints.
+
+#### Vercel CLI credentials (this machine / Cursor terminal)
+
+The GitHub integration deploys without your laptop logging in, but **`npx vercel` in a terminal** needs its own auth.
+
+**Option A — Browser login (typical dev laptop)**  
+Run once:
+
+```bash
+cd parasys_v2
+npx vercel login
+```
+
+That stores a session under `%USERPROFILE%\.vercel` (Windows) or `~/.vercel` (macOS/Linux). Then link the folder: `npm run vercel:cli -- link --yes` (or `npx vercel link`).
+
+**Option B — Token (headless, CI, or when login is awkward)**  
+1. Create a token: [Vercel → Account → Tokens](https://vercel.com/account/tokens).  
+2. Copy `parasys_v2/.env.vercel.local.example` → **`.env.vercel.local`** and set `VERCEL_TOKEN=...` (this file is gitignored).  
+3. Use the same npm scripts as usual: `npm run vercel:cli -- whoami`, `npm run deploy`, `npm run dev:vercel`. They run through `scripts/vercel-env-run.mjs`, which loads `.env.vercel.local` before invoking the CLI.
+
+**Option C — Cursor / VS Code terminal env**  
+In **User** settings JSON (Windows: `%APPDATA%\Cursor\User\settings.json`), you can set:
+
+```json
+"terminal.integrated.env.windows": {
+  "VERCEL_TOKEN": "paste-token-from-vercel-dashboard"
+}
+```
+
+Restart the integrated terminal. Prefer **User** settings so the token is not committed. Do not put real tokens in tracked repo files.
 
 **Client domain (reverse proxy):** map `https://client.com/configurator` → your Vercel origin if the browser must stay on the client host; proxy `/api` if checkout and session calls must be same-origin.
 
@@ -124,6 +155,8 @@ Not sufficient by itself: the UI would have no API unless you set `VITE_API_BASE
 | Dev (Vite + API) | `npm run dev` |
 | Vite only | `npm run dev:vite` |
 | Full Vercel local | `npm run dev:vercel` |
-| Deploy to Vercel (prod) | `npm run deploy` (after `vercel link`) |
+| Vercel CLI (any subcommand) | `npm run vercel:cli -- <args>` (loads `.env.vercel.local`) |
+| Deploy to Vercel (prod) | `npm run deploy` (after `vercel link` or `VERCEL_TOKEN`) |
 | Deploy preview | `npm run deploy:preview` |
+| Verify deployed health | `npm run verify:deploy -- https://<your-domain>` |
 | DB push (Drizzle) | `npm run db:push` |

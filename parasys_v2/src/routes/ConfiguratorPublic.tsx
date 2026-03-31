@@ -29,8 +29,9 @@ export function ConfiguratorPublic() {
 
   const { productName, materials, materialId, showDimensions, loadErr } =
     useConfiguratorStore()
-  const { loadConfigurator, setLoadErr, setMaterialId, toggleDimensions, setPropLibrary } =
+  const { loadConfigurator, hydrateSelectedMaterialSpec, setLoadErr, setMaterialId, toggleDimensions, setPropLibrary } =
     useConfiguratorStore()
+  const [ready, setReady] = useState(false)
 
   const [showAdminPanel, setShowAdminPanel] = useState(false)
 
@@ -51,6 +52,7 @@ export function ConfiguratorPublic() {
   useEffect(() => {
     if (!slug) return
     let cancelled = false
+    setReady(false)
     setLoadErr(null)
     void (async () => {
       const r = await fetchJson<{
@@ -79,7 +81,12 @@ export function ConfiguratorPublic() {
         return
       }
       const item = r.data.item
-      loadConfigurator(item)
+      loadConfigurator(item, { deferMaterialHydration: true })
+      setReady(true)
+      // Prioritize geometry-first first paint; hydrate admin-selected material immediately after.
+      setTimeout(() => {
+        if (!cancelled) hydrateSelectedMaterialSpec()
+      }, 0)
       const catalog = item.propsCatalog
       if (Array.isArray(catalog)) {
         setPropLibrary(catalog)
@@ -93,7 +100,7 @@ export function ConfiguratorPublic() {
     return () => {
       cancelled = true
     }
-  }, [slug, loadConfigurator, setLoadErr, setPropLibrary])
+  }, [slug, loadConfigurator, hydrateSelectedMaterialSpec, setLoadErr, setPropLibrary])
 
   return (
     <div className={styles.page}>
@@ -162,7 +169,11 @@ export function ConfiguratorPublic() {
         </p>
       ) : null}
 
-      <ConfiguratorCanvas adminMode={showAdminPanel} />
+      {ready ? (
+        <ConfiguratorCanvas adminMode={showAdminPanel} />
+      ) : (
+        <div className={styles.canvasWrap} aria-busy="true" />
+      )}
 
       {!showAdminPanel ? (
         <PublicControlsMvp

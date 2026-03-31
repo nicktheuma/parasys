@@ -65,6 +65,9 @@ export type ParamGraphSettings = {
 export type TemplateParametricPreset = {
   dividers?: number
   shelves?: number
+  showBackPanel?: boolean
+  showVerticalPanels?: boolean
+  showShelfPanels?: boolean
   edgeOffset?: number
   slotOffsetFactor?: number
   interlockEnabled?: boolean
@@ -131,6 +134,8 @@ export type ConfiguratorLightingSettings = {
 }
 
 export type ConfiguratorSettingsRow = {
+  /** Public listing visibility for landing page; defaults to true when omitted */
+  isPublic?: boolean
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
   /** Optional static image URL for admin lists (same-origin path like `/configurator-thumbnails/x.svg` or https URL) */
   thumbnailSrc?: string | null

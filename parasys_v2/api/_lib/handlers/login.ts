@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
-import { getDb } from '../../../db/index'
-import { users } from '../../../db/schema'
-import { createSessionToken, sessionCookieHeader } from '../session'
-import { verifyAdminPassword } from '../auth'
+import { getDb } from '../../../db/index.js'
+import { users } from '../../../db/schema.js'
+import { createSessionToken, sessionCookieHeader } from '../session.js'
+import { verifyAdminPassword } from '../auth.js'
 
 export async function loginWithPassword(
   password: string,

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import getRawBody from 'raw-body'
-import { handleStripeWebhook } from '../_lib/handlers/stripeCheckout'
-import { json } from '../_lib/http'
+import { handleStripeWebhook } from '../handlers/stripeCheckout.js'
+import { json } from '../http.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

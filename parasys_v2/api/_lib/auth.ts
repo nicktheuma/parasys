@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { UserRole } from '../../db/schema'
-import { readSessionCookie, type SessionPayload, verifySessionToken } from './session'
+import { readSessionCookie, type SessionPayload, verifySessionToken } from './session.js'
 
 function readCookieHeader(req: { headers: { cookie?: string | string[] } }): string | undefined {
   const c = req.headers.cookie

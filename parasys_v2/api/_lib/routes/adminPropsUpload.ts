@@ -3,9 +3,9 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import formidable from 'formidable'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isAdminRequest } from '../../_lib/auth'
-import { createPropGlb, type PropLibraryRow } from '../../_lib/handlers/props'
-import { json } from '../../_lib/http'
+import { isAdminRequest } from '../auth.js'
+import { createPropGlb, type PropLibraryRow } from '../handlers/props.js'
+import { json } from '../http.js'
 
 type MetaEntry = { name: string; bboxMm: [number, number, number] }
 
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let fields: formidable.Fields
   let files: formidable.Files
   try {
-    ;[fields, files] = await form.parse(req as any)
+    ;[fields, files] = await form.parse(req as import('node:http').IncomingMessage)
   } catch {
     json(res, 400, { error: 'Multipart parse failed' })
     return

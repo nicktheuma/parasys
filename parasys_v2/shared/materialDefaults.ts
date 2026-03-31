@@ -1,4 +1,4 @@
-import type { MaterialShaderSpec } from '../db/schema'
+import type { MaterialShaderSpec } from '../db/schema.js'
 
 const HEX_RE = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/
 

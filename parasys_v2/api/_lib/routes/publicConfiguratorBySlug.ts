@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getPublicConfigurator } from '../../_lib/handlers/configurators'
-import { json } from '../../_lib/http'
+import { getPublicConfigurator } from '../handlers/configurators.js'
+import { json } from '../http.js'
 
 function routeSlug(req: VercelRequest): string | null {
   const s = req.query?.slug

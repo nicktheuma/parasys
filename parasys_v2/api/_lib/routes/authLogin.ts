@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { loginWithPassword } from '../_lib/handlers/login'
-import { json, readJsonBody } from '../_lib/http'
+import { loginWithPassword } from '../handlers/login.js'
+import { json, readJsonBody } from '../http.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, type PDFPage, rgb } from 'pdf-lib'
 import { buildPanelProfile } from '../../src/features/parametric/mvp1/profileBuilder.ts'
 import type { PanelSpec } from '../../src/features/parametric/mvp1/panelSpecs.ts'
 import type { NestingPanelInput } from './nesting'
-import { buildNestedPdfBytes } from './pdfNestedExport'
+import { buildNestedPdfBytes } from './pdfNestedExport.js'
 
 const MM_TO_PT = 72 / 25.4
 
