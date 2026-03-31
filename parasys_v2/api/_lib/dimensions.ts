@@ -1,4 +1,10 @@
-import type { ConfiguratorSettingsRow, ParamGraphNode, ParamGraphSettings } from '../../db/schema'
+import type {
+  ConfiguratorLightingSettings,
+  ConfiguratorSettingsRow,
+  ParamGraphNode,
+  ParamGraphSettings,
+  SceneLightSettings,
+} from '../../db/schema'
 import { clampDimMm, DIM_MM } from '../../shared/constants'
 
 export { clampDimMm, DIM_MM }
@@ -195,6 +201,55 @@ export function normalizeSettings(
       if (Object.keys(limObj).length > 0) cleanLimits[key] = limObj
     }
     if (Object.keys(cleanLimits).length > 0) out.paramLimits = cleanLimits
+  }
+
+  const HEX6 = /^#[0-9a-fA-F]{6}$/
+
+  function normLight(raw: unknown): Partial<SceneLightSettings> | undefined {
+    if (!raw || typeof raw !== 'object') return undefined
+    const o = raw as Record<string, unknown>
+    const out: Partial<SceneLightSettings> = {}
+    const pos = o.position
+    if (Array.isArray(pos) && pos.length === 3) {
+      const a = pos.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : NaN))
+      if (a.every((x) => !Number.isNaN(x))) {
+        out.position = [a[0]!, a[1]!, a[2]!]
+      }
+    }
+    if (typeof o.intensity === 'number' && Number.isFinite(o.intensity)) {
+      out.intensity = Math.max(0, Math.min(50, o.intensity))
+    }
+    if (typeof o.color === 'string') {
+      const c = o.color.trim()
+      if (HEX6.test(c)) out.color = c
+    }
+    if (typeof o.softness === 'number' && Number.isFinite(o.softness)) {
+      out.softness = Math.max(0, Math.min(1, o.softness))
+    }
+    return Object.keys(out).length > 0 ? out : undefined
+  }
+
+  const lig = input.lighting
+  if (lig && typeof lig === 'object') {
+    const src = lig as Record<string, unknown>
+    const clean: ConfiguratorLightingSettings = {}
+    if (typeof src.ambientIntensity === 'number' && Number.isFinite(src.ambientIntensity)) {
+      clean.ambientIntensity = Math.max(0, Math.min(12, src.ambientIntensity))
+    }
+    if (typeof src.environmentBlur === 'number' && Number.isFinite(src.environmentBlur)) {
+      clean.environmentBlur = Math.max(0, Math.min(1, src.environmentBlur))
+    }
+    const d0 = normLight(src.directional0)
+    if (d0) clean.directional0 = d0
+    const d1 = normLight(src.directional1)
+    if (d1) clean.directional1 = d1
+    const d2 = normLight(src.directional2)
+    if (d2) clean.directional2 = d2
+    const ks = normLight(src.keySpot)
+    if (ks) clean.keySpot = ks
+    const fp = normLight(src.fillPoint)
+    if (fp) clean.fillPoint = fp
+    if (Object.keys(clean).length > 0) out.lighting = clean
   }
 
   const uvm = input.uvMappings

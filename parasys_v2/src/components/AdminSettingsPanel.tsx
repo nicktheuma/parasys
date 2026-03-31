@@ -5,6 +5,12 @@ import { DIM_MM } from '@/lib/configuratorDimensions'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { getTemplateParametricPreset } from '@/features/parametric/mvp1/templateParametricPresets'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
+import {
+  LIGHTING_TAB_IDS,
+  resolveConfiguratorLighting,
+  type LightingTabId,
+} from '@/lib/configuratorLighting'
+import { copyUvMappingsBetweenMaterials } from '@/lib/uvMappingsCopy'
 import type {
   TemplateParametricPreset,
   TemplateParamLimits,
@@ -16,11 +22,18 @@ import type {
 } from '@shared/types'
 import type { BlendMode, MaterialShaderLayer, MaterialShaderSpec, NoiseType } from '@/lib/materialShader'
 import { ColorSwatchInput } from './ColorSwatchInput'
-import { AdminTabDimsIcon, AdminTabMaterialsIcon, AdminTabParamsIcon, AdminTabUvIcon } from './icons'
+import { MatSliderRow, MatSliderRowScaleOptional } from './MatSliderControls'
+import {
+  AdminTabDimsIcon,
+  AdminTabLightingIcon,
+  AdminTabMaterialsIcon,
+  AdminTabParamsIcon,
+  AdminTabUvIcon,
+} from './icons'
 import { FACE_GROUPS } from '@shared/types'
 import styles from './adminSettingsPanel.module.css'
 
-type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv'
+type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv' | 'lighting'
 
 type NumericParamKey = Exclude<keyof TemplateParametricPreset, 'interlockEnabled'>
 
@@ -90,6 +103,18 @@ function adminMaterialToPublic(m: AdminMaterial): PublicMat {
   }
 }
 
+function formatMatOptionLabel(m: { folder: string; name: string }): string {
+  const f = m.folder.trim()
+  return f ? `${f} / ${m.name}` : m.name
+}
+
+function cloneShaderAndSwatch(source: AdminMaterial): { shader: MaterialShaderSpec; colorHex: string } {
+  const shader = source.shader
+    ? structuredClone(source.shader)
+    : defaultMaterialSpec(source.colorHex)
+  return { shader, colorHex: source.colorHex }
+}
+
 function newLayer(): MaterialShaderLayer {
   return {
     id: `L${Date.now().toString(36)}`,
@@ -120,6 +145,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     dimLimits,
     paramLimits,
     uvMappings,
+    lighting,
     materialId,
     defaultMaterialId,
     materials,
@@ -127,10 +153,13 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setDim,
     setTemplateParam,
     setUvMapping,
+    mergeUvMappings,
+    patchLighting,
     setMaterialId,
     setDefaultMaterialId,
     setMaterialSpec,
     setMaterials,
+    setLightingEditorPick,
   } = useConfiguratorStore()
 
   const [tab, setTab] = useState<Tab>('dimensions')
@@ -142,6 +171,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
   const currentMat = materials.find((m) => m.id === materialId)
   const currentMatLabel = currentMat ? currentMat.name : 'No material'
+  const resolvedLight = resolveConfiguratorLighting(lighting)
 
   const [localLimits, setLocalLimits] = useState<TemplateParamLimits>(limits)
   const [localDimLimits, setLocalDimLimits] = useState<DimLimits>(dimLimits ?? {})
@@ -149,6 +179,19 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [uvSurfaceKind, setUvSurfaceKind] = useState('back')
   const [expandedFace, setExpandedFace] = useState<FaceGroup | null>(null)
+  const [lightingPick, setLightingPick] = useState<LightingTabId>('ambient')
+
+  useEffect(() => {
+    if (tab === 'lighting') setLightingEditorPick(lightingPick)
+    else setLightingEditorPick(null)
+  }, [tab, lightingPick, setLightingEditorPick])
+
+  useEffect(
+    () => () => {
+      setLightingEditorPick(null)
+    },
+    [setLightingEditorPick],
+  )
 
   // Materials tab state
   const [adminMaterials, setAdminMaterials] = useState<AdminMaterial[]>([])
@@ -158,6 +201,8 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const [matSpec, setMatSpec] = useState<MaterialShaderSpec | null>(null)
   const [matSaving, setMatSaving] = useState(false)
   const [matMsg, setMatMsg] = useState<string | null>(null)
+  const [matListMsg, setMatListMsg] = useState<string | null>(null)
+  const [matCopyingId, setMatCopyingId] = useState<string | null>(null)
   const [showAssign, setShowAssign] = useState(false)
   const [bulkUnassigning, setBulkUnassigning] = useState(false)
   const preEditSpecRef = useRef<MaterialShaderSpec | null>(null)
@@ -220,6 +265,20 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setUvMapping(uvSurfaceKind, materialId, faceGroup, { [field]: value })
   }
 
+  function applyUvCopyFrom(sourceId: string) {
+    if (!materialId) return
+    const src = adminMaterials.find((m) => m.id === sourceId)
+    if (!src) return
+    if (
+      !window.confirm(
+        `Replace UV mapping for "${currentMatLabel}" with UV from "${formatMatOptionLabel(src)}"?`,
+      )
+    )
+      return
+    const merged = copyUvMappingsBetweenMaterials(uvMappings, sourceId, materialId)
+    mergeUvMappings(merged)
+  }
+
   async function onSave(e: FormEvent) {
     e.preventDefault()
     if (!configuratorId) return
@@ -238,6 +297,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             templateParams: { [templateKey]: merged },
             paramLimits: { [templateKey]: localLimits },
             uvMappings: uvMappings ?? {},
+            ...(lighting && Object.keys(lighting).length > 0 ? { lighting } : {}),
           },
         }),
       },
@@ -338,6 +398,41 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
       },
     )
     void loadMaterials()
+  }
+
+  function applyCopyIntoEditor(sourceId: string) {
+    const source = allMaterials.find((m) => m.id === sourceId)
+    if (!source || !editingMat) return
+    const { shader, colorHex } = cloneShaderAndSwatch(source)
+    setMatSpec(shader)
+    setEditingMat({ ...editingMat, colorHex })
+    setMatMsg(null)
+  }
+
+  async function applyCopyMatSettings(target: AdminMaterial, sourceId: string) {
+    const source = allMaterials.find((m) => m.id === sourceId)
+    if (!source) return
+    if (
+      !window.confirm(
+        `Replace shader and swatch colour for "${target.name}" with settings from "${formatMatOptionLabel(source)}"?`,
+      )
+    )
+      return
+    const { shader, colorHex } = cloneShaderAndSwatch(source)
+    setMatCopyingId(target.id)
+    setMatListMsg(null)
+    const r = await fetchJson(
+      `/api/admin/materials/${encodeURIComponent(target.id)}?configuratorId=${encodeURIComponent(target.configuratorId)}`,
+      { method: 'PATCH', body: JSON.stringify({ shader, colorHex }) },
+    )
+    setMatCopyingId(null)
+    if (!r.ok) {
+      setMatListMsg(r.error ?? 'Copy failed')
+      return
+    }
+    setMatListMsg('Settings copied.')
+    void loadMaterials()
+    setTimeout(() => setMatListMsg(null), 2500)
   }
 
   async function unassignAllLinkedExceptDefault() {
@@ -611,32 +706,67 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                     Cancel
                   </button>
                 </div>
+                {allMaterials.filter((m) => m.id !== editingMat.id).length > 0 ? (
+                  <div className={styles.matCopyRow}>
+                    <span className={styles.matCopyLabel}>Copy settings from</span>
+                    <select
+                      className={styles.matSelect}
+                      value=""
+                      onChange={(e) => {
+                        const id = e.target.value
+                        e.target.value = ''
+                        if (id) applyCopyIntoEditor(id)
+                      }}
+                      aria-label="Copy material settings from another material"
+                    >
+                      <option value="">— Choose material —</option>
+                      {allMaterials
+                        .filter((m) => m.id !== editingMat.id)
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {formatMatOptionLabel(m)}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div className={styles.matFields}>
-                  <label className={styles.matFieldRow}>
-                    Base colour
-                    <ColorSwatchInput
-                      value={matSpec.baseColorHex}
-                      onChange={(v) => setMatSpec((p) => p ? { ...p, baseColorHex: v } : p)}
-                    />
+                  <label className={styles.matFieldWide}>
+                    <span>Base colour</span>
+                    <span className={styles.matColourSpan}>
+                      <ColorSwatchInput
+                        value={matSpec.baseColorHex}
+                        onChange={(v) => setMatSpec((p) => p ? { ...p, baseColorHex: v } : p)}
+                      />
+                    </span>
                   </label>
-                  <label className={styles.matFieldRow}>
-                    Roughness
-                    <input type="range" min={0} max={1} step={0.01} value={matSpec.globalRoughness}
-                      onChange={(e) => setMatSpec((p) => p ? { ...p, globalRoughness: Number(e.target.value) } : p)} />
-                    <span className={styles.matNum}>{matSpec.globalRoughness.toFixed(2)}</span>
-                  </label>
-                  <label className={styles.matFieldRow}>
-                    Metalness
-                    <input type="range" min={0} max={1} step={0.01} value={matSpec.globalMetalness}
-                      onChange={(e) => setMatSpec((p) => p ? { ...p, globalMetalness: Number(e.target.value) } : p)} />
-                    <span className={styles.matNum}>{matSpec.globalMetalness.toFixed(2)}</span>
-                  </label>
-                  <label className={styles.matFieldRow}>
-                    AO
-                    <input type="range" min={0} max={1} step={0.01} value={matSpec.ambientOcclusion}
-                      onChange={(e) => setMatSpec((p) => p ? { ...p, ambientOcclusion: Number(e.target.value) } : p)} />
-                    <span className={styles.matNum}>{matSpec.ambientOcclusion.toFixed(2)}</span>
-                  </label>
+                  <MatSliderRow
+                    className={styles.matFieldRow}
+                    label="Roughness"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={matSpec.globalRoughness}
+                    onChange={(v) => setMatSpec((p) => (p ? { ...p, globalRoughness: v } : p))}
+                  />
+                  <MatSliderRow
+                    className={styles.matFieldRow}
+                    label="Metalness"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={matSpec.globalMetalness}
+                    onChange={(v) => setMatSpec((p) => (p ? { ...p, globalMetalness: v } : p))}
+                  />
+                  <MatSliderRow
+                    className={styles.matFieldRow}
+                    label="AO"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={matSpec.ambientOcclusion}
+                    onChange={(v) => setMatSpec((p) => (p ? { ...p, ambientOcclusion: v } : p))}
+                  />
 
                   {matSpec.layers.map((layer, i) => (
                     <div key={layer.id} className={styles.matLayer}>
@@ -646,92 +776,175 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                           setMatSpec((p) => p ? { ...p, layers: p.layers.filter((_, li) => li !== i) } : p)
                         }}>Remove</button>
                       </div>
-                      <label className={styles.matFieldRow}>
-                        Mix
-                        <input type="range" min={0} max={1} step={0.01} value={layer.mix}
-                          onChange={(e) => updateLayer(i, { mix: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{layer.mix.toFixed(2)}</span>
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Mix"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={layer.mix}
+                        onChange={(v) => updateLayer(i, { mix: v })}
+                      />
+                      <label className={styles.matFieldWide}>
+                        <span>Blend</span>
+                        <span className={styles.matColourSpan}>
+                          <select className={styles.matSelect} value={layer.blendMode}
+                            onChange={(e) => updateLayer(i, { blendMode: e.target.value as BlendMode })}>
+                            <option value="normal">Normal</option>
+                            <option value="multiply">Multiply</option>
+                            <option value="overlay">Overlay</option>
+                          </select>
+                        </span>
                       </label>
-                      <label className={styles.matFieldRow}>
-                        Blend
-                        <select className={styles.matSelect} value={layer.blendMode}
-                          onChange={(e) => updateLayer(i, { blendMode: e.target.value as BlendMode })}>
-                          <option value="normal">Normal</option>
-                          <option value="multiply">Multiply</option>
-                          <option value="overlay">Overlay</option>
-                        </select>
+                      <label className={styles.matFieldWide}>
+                        <span>Noise</span>
+                        <span className={styles.matColourSpan}>
+                          <select className={styles.matSelect} value={layer.noiseType}
+                            onChange={(e) => updateLayer(i, { noiseType: e.target.value as NoiseType })}>
+                            <option value="fbm">FBM</option>
+                            <option value="voronoi">Voronoi</option>
+                            <option value="simplex">Simplex</option>
+                            <option value="ridged">Ridged</option>
+                            <option value="turbulence">Turbulence</option>
+                            <option value="marble">Marble</option>
+                          </select>
+                        </span>
                       </label>
-                      <label className={styles.matFieldRow}>
-                        Noise
-                        <select className={styles.matSelect} value={layer.noiseType}
-                          onChange={(e) => updateLayer(i, { noiseType: e.target.value as NoiseType })}>
-                          <option value="fbm">FBM</option>
-                          <option value="voronoi">Voronoi</option>
-                          <option value="simplex">Simplex</option>
-                          <option value="ridged">Ridged</option>
-                          <option value="turbulence">Turbulence</option>
-                          <option value="marble">Marble</option>
-                        </select>
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Pos X (m)"
+                        min={-10}
+                        max={10}
+                        step={0.02}
+                        value={layer.noiseOffsetX ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseOffsetX: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Pos Y (m)"
+                        min={-10}
+                        max={10}
+                        step={0.02}
+                        value={layer.noiseOffsetY ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseOffsetY: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Pos Z (m)"
+                        min={-10}
+                        max={10}
+                        step={0.02}
+                        value={layer.noiseOffsetZ ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseOffsetZ: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Rot X (rad)"
+                        min={-Math.PI}
+                        max={Math.PI}
+                        step={0.01}
+                        value={layer.noiseRotationX ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseRotationX: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Rot Y (rad)"
+                        min={-Math.PI}
+                        max={Math.PI}
+                        step={0.01}
+                        value={layer.noiseRotationY ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseRotationY: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Rot Z (rad)"
+                        min={-Math.PI}
+                        max={Math.PI}
+                        step={0.01}
+                        value={layer.noiseRotationZ ?? 0}
+                        onChange={(v) => updateLayer(i, { noiseRotationZ: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Scale X"
+                        min={0.1}
+                        max={200}
+                        step={0.1}
+                        value={layer.noiseScale}
+                        onChange={(v) => updateLayer(i, { noiseScale: v })}
+                      />
+                      <MatSliderRowScaleOptional
+                        className={styles.matFieldRow}
+                        label="Scale Y"
+                        min={0}
+                        max={200}
+                        step={0.1}
+                        value={layer.noiseScaleY}
+                        onChange={(v) => updateLayer(i, { noiseScaleY: v })}
+                        emptyLabel="= X"
+                      />
+                      <MatSliderRowScaleOptional
+                        className={styles.matFieldRow}
+                        label="Scale Z"
+                        min={0}
+                        max={200}
+                        step={0.1}
+                        value={layer.noiseScaleZ}
+                        onChange={(v) => updateLayer(i, { noiseScaleZ: v })}
+                        emptyLabel="= X"
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Strength"
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        value={layer.noiseStrength}
+                        onChange={(v) => updateLayer(i, { noiseStrength: v })}
+                      />
+                      <label className={styles.matFieldWide}>
+                        <span>Colour</span>
+                        <span className={styles.matColourSpan}>
+                          <ColorSwatchInput value={layer.colorHex}
+                            onChange={(v) => updateLayer(i, { colorHex: v })} />
+                        </span>
                       </label>
-                      <label className={styles.matFieldRow}>
-                        Scale X
-                        <input type="range" min={0.1} max={200} step={0.1} value={layer.noiseScale}
-                          onChange={(e) => updateLayer(i, { noiseScale: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{layer.noiseScale.toFixed(1)}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Scale Y
-                        <input type="range" min={0} max={200} step={0.1} value={layer.noiseScaleY ?? 0}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            updateLayer(i, { noiseScaleY: v > 0 ? v : undefined })
-                          }} />
-                        <span className={styles.matNum}>{(layer.noiseScaleY ?? 0) > 0 ? (layer.noiseScaleY!).toFixed(1) : '= X'}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Scale Z
-                        <input type="range" min={0} max={200} step={0.1} value={layer.noiseScaleZ ?? 0}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            updateLayer(i, { noiseScaleZ: v > 0 ? v : undefined })
-                          }} />
-                        <span className={styles.matNum}>{(layer.noiseScaleZ ?? 0) > 0 ? (layer.noiseScaleZ!).toFixed(1) : '= X'}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Strength
-                        <input type="range" min={0} max={2} step={0.01} value={layer.noiseStrength}
-                          onChange={(e) => updateLayer(i, { noiseStrength: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{layer.noiseStrength.toFixed(2)}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Colour
-                        <ColorSwatchInput value={layer.colorHex}
-                          onChange={(v) => updateLayer(i, { colorHex: v })} />
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Roughness
-                        <input type="range" min={0} max={1} step={0.01} value={layer.roughness}
-                          onChange={(e) => updateLayer(i, { roughness: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{layer.roughness.toFixed(2)}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Metalness
-                        <input type="range" min={0} max={1} step={0.01} value={layer.metalness}
-                          onChange={(e) => updateLayer(i, { metalness: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{layer.metalness.toFixed(2)}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Displacement
-                        <input type="range" min={0} max={1} step={0.01} value={layer.displacementStrength ?? 0}
-                          onChange={(e) => updateLayer(i, { displacementStrength: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{(layer.displacementStrength ?? 0).toFixed(2)}</span>
-                      </label>
-                      <label className={styles.matFieldRow}>
-                        Normal
-                        <input type="range" min={0} max={2} step={0.01} value={layer.normalStrength ?? 0}
-                          onChange={(e) => updateLayer(i, { normalStrength: Number(e.target.value) })} />
-                        <span className={styles.matNum}>{(layer.normalStrength ?? 0).toFixed(2)}</span>
-                      </label>
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Roughness"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={layer.roughness}
+                        onChange={(v) => updateLayer(i, { roughness: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Metalness"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={layer.metalness}
+                        onChange={(v) => updateLayer(i, { metalness: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Displacement"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={layer.displacementStrength ?? 0}
+                        onChange={(v) => updateLayer(i, { displacementStrength: v })}
+                      />
+                      <MatSliderRow
+                        className={styles.matFieldRow}
+                        label="Normal"
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        value={layer.normalStrength ?? 0}
+                        onChange={(v) => updateLayer(i, { normalStrength: v })}
+                      />
                     </div>
                   ))}
                   {matSpec.layers.length < 3 ? (
@@ -749,6 +962,13 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               </div>
             ) : (
               <>
+                {matListMsg ? (
+                  <p
+                    className={`${styles.msg} ${matListMsg === 'Settings copied.' ? styles.msgOk : styles.msgErr}`}
+                  >
+                    {matListMsg}
+                  </p>
+                ) : null}
                 {/* Materials for this configurator (native + assigned) */}
                 {adminMaterials.map((mat) => (
                   <div key={mat.id} className={`${styles.matCard} ${!mat.enabled ? styles.matDisabled : ''}`}>
@@ -799,6 +1019,30 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
                         </button>
                       ) : null}
                     </div>
+                    {allMaterials.filter((m) => m.id !== mat.id).length > 0 ? (
+                      <div className={styles.matCopyRow}>
+                        <select
+                          className={styles.matSelect}
+                          value=""
+                          disabled={matCopyingId === mat.id}
+                          onChange={(e) => {
+                            const id = e.target.value
+                            e.target.value = ''
+                            if (id) void applyCopyMatSettings(mat, id)
+                          }}
+                          aria-label={`Copy settings onto ${mat.name}`}
+                        >
+                          <option value="">Copy settings from…</option>
+                          {allMaterials
+                            .filter((m) => m.id !== mat.id)
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {formatMatOptionLabel(m)}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
 
@@ -856,6 +1100,31 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             <p className={styles.uvHint}>
               Material: <strong>{currentMatLabel}</strong>
             </p>
+
+            {materialId && adminMaterials.filter((m) => m.id !== materialId).length > 0 ? (
+              <div className={styles.matCopyRow}>
+                <span className={styles.matCopyLabel}>Copy UV from</span>
+                <select
+                  className={styles.matSelect}
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value
+                    e.target.value = ''
+                    if (id) applyUvCopyFrom(id)
+                  }}
+                  aria-label="Copy UV mapping from another material"
+                >
+                  <option value="">— Choose material —</option>
+                  {adminMaterials
+                    .filter((m) => m.id !== materialId)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {formatMatOptionLabel(m)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : null}
 
             <label className={styles.uvKindRow}>
               <span className={styles.dimLabel}>Surface</span>
@@ -923,6 +1192,444 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         ) : null}
 
+        {/* ── LIGHTING TAB ── */}
+        {tab === 'lighting' ? (
+          <div className={styles.tabContent}>
+            <p className={styles.sectionTitle}>Scene lighting</p>
+            <p className={styles.hint}>
+              Pick a light, adjust values, then use <strong>Save as defaults</strong> to store them for this configurator.
+            </p>
+            <div className={styles.lightPickList} role="tablist" aria-label="Lights">
+              {LIGHTING_TAB_IDS.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className={`${styles.lightPick} ${lightingPick === row.id ? styles.lightPickActive : ''}`}
+                  onClick={() => setLightingPick(row.id)}
+                >
+                  {row.label}
+                </button>
+              ))}
+            </div>
+
+            {lightingPick === 'ambient' ? (
+              <MatSliderRow
+                className={styles.matFieldRow}
+                label="Intensity"
+                min={0}
+                max={3}
+                step={0.02}
+                value={resolvedLight.ambientIntensity}
+                onChange={(v) => patchLighting({ ambientIntensity: v })}
+              />
+            ) : null}
+
+            {lightingPick === 'directional0' ? (
+              <>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos X"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional0.position[0]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional0: {
+                        position: [
+                          v,
+                          resolvedLight.directional0.position[1],
+                          resolvedLight.directional0.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Y"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional0.position[1]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional0: {
+                        position: [
+                          resolvedLight.directional0.position[0],
+                          v,
+                          resolvedLight.directional0.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Z"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional0.position[2]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional0: {
+                        position: [
+                          resolvedLight.directional0.position[0],
+                          resolvedLight.directional0.position[1],
+                          v,
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Intensity"
+                  min={0}
+                  max={5}
+                  step={0.02}
+                  value={resolvedLight.directional0.intensity}
+                  onChange={(v) => patchLighting({ directional0: { intensity: v } })}
+                />
+                <label className={styles.matFieldWide}>
+                  <span>Colour</span>
+                  <span className={styles.matColourSpan}>
+                    <ColorSwatchInput
+                      value={resolvedLight.directional0.color}
+                      onChange={(c) => patchLighting({ directional0: { color: c } })}
+                      aria-label="Directional warm colour"
+                    />
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {lightingPick === 'directional1' ? (
+              <>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos X"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional1.position[0]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional1: {
+                        position: [
+                          v,
+                          resolvedLight.directional1.position[1],
+                          resolvedLight.directional1.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Y"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional1.position[1]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional1: {
+                        position: [
+                          resolvedLight.directional1.position[0],
+                          v,
+                          resolvedLight.directional1.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Z"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional1.position[2]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional1: {
+                        position: [
+                          resolvedLight.directional1.position[0],
+                          resolvedLight.directional1.position[1],
+                          v,
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Intensity"
+                  min={0}
+                  max={5}
+                  step={0.02}
+                  value={resolvedLight.directional1.intensity}
+                  onChange={(v) => patchLighting({ directional1: { intensity: v } })}
+                />
+                <label className={styles.matFieldWide}>
+                  <span>Colour</span>
+                  <span className={styles.matColourSpan}>
+                    <ColorSwatchInput
+                      value={resolvedLight.directional1.color}
+                      onChange={(c) => patchLighting({ directional1: { color: c } })}
+                      aria-label="Directional cool colour"
+                    />
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {lightingPick === 'directional2' ? (
+              <>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos X"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional2.position[0]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional2: {
+                        position: [
+                          v,
+                          resolvedLight.directional2.position[1],
+                          resolvedLight.directional2.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Y"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional2.position[1]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional2: {
+                        position: [
+                          resolvedLight.directional2.position[0],
+                          v,
+                          resolvedLight.directional2.position[2],
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Z"
+                  min={-12}
+                  max={12}
+                  step={0.05}
+                  value={resolvedLight.directional2.position[2]}
+                  onChange={(v) =>
+                    patchLighting({
+                      directional2: {
+                        position: [
+                          resolvedLight.directional2.position[0],
+                          resolvedLight.directional2.position[1],
+                          v,
+                        ],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Intensity"
+                  min={0}
+                  max={5}
+                  step={0.02}
+                  value={resolvedLight.directional2.intensity}
+                  onChange={(v) => patchLighting({ directional2: { intensity: v } })}
+                />
+                <label className={styles.matFieldWide}>
+                  <span>Colour</span>
+                  <span className={styles.matColourSpan}>
+                    <ColorSwatchInput
+                      value={resolvedLight.directional2.color}
+                      onChange={(c) => patchLighting({ directional2: { color: c } })}
+                      aria-label="Directional rim colour"
+                    />
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {lightingPick === 'keySpot' ? (
+              <>
+                <p className={styles.hint}>Stage key spot (scaled with product size). Softness is penumbra.</p>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos X"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.keySpot.position[0]}
+                  onChange={(v) =>
+                    patchLighting({
+                      keySpot: {
+                        position: [v, resolvedLight.keySpot.position[1], resolvedLight.keySpot.position[2]],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Y"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.keySpot.position[1]}
+                  onChange={(v) =>
+                    patchLighting({
+                      keySpot: {
+                        position: [resolvedLight.keySpot.position[0], v, resolvedLight.keySpot.position[2]],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Z"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.keySpot.position[2]}
+                  onChange={(v) =>
+                    patchLighting({
+                      keySpot: {
+                        position: [resolvedLight.keySpot.position[0], resolvedLight.keySpot.position[1], v],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Intensity"
+                  min={0}
+                  max={8}
+                  step={0.02}
+                  value={resolvedLight.keySpot.intensity}
+                  onChange={(v) => patchLighting({ keySpot: { intensity: v } })}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Softness"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={resolvedLight.keySpot.softness ?? 1}
+                  onChange={(v) => patchLighting({ keySpot: { softness: v } })}
+                />
+                <label className={styles.matFieldWide}>
+                  <span>Colour</span>
+                  <span className={styles.matColourSpan}>
+                    <ColorSwatchInput
+                      value={resolvedLight.keySpot.color}
+                      onChange={(c) => patchLighting({ keySpot: { color: c } })}
+                      aria-label="Key spot colour"
+                    />
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {lightingPick === 'fillPoint' ? (
+              <>
+                <p className={styles.hint}>Stage fill point (scaled with product size).</p>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos X"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.fillPoint.position[0]}
+                  onChange={(v) =>
+                    patchLighting({
+                      fillPoint: {
+                        position: [v, resolvedLight.fillPoint.position[1], resolvedLight.fillPoint.position[2]],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Y"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.fillPoint.position[1]}
+                  onChange={(v) =>
+                    patchLighting({
+                      fillPoint: {
+                        position: [resolvedLight.fillPoint.position[0], v, resolvedLight.fillPoint.position[2]],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Pos Z"
+                  min={-6}
+                  max={6}
+                  step={0.02}
+                  value={resolvedLight.fillPoint.position[2]}
+                  onChange={(v) =>
+                    patchLighting({
+                      fillPoint: {
+                        position: [resolvedLight.fillPoint.position[0], resolvedLight.fillPoint.position[1], v],
+                      },
+                    })
+                  }
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Intensity"
+                  min={0}
+                  max={8}
+                  step={0.02}
+                  value={resolvedLight.fillPoint.intensity}
+                  onChange={(v) => patchLighting({ fillPoint: { intensity: v } })}
+                />
+                <label className={styles.matFieldWide}>
+                  <span>Colour</span>
+                  <span className={styles.matColourSpan}>
+                    <ColorSwatchInput
+                      value={resolvedLight.fillPoint.color}
+                      onChange={(c) => patchLighting({ fillPoint: { color: c } })}
+                      aria-label="Fill point colour"
+                    />
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {lightingPick === 'environment' ? (
+              <MatSliderRow
+                className={styles.matFieldRow}
+                label="HDR blur"
+                min={0}
+                max={1}
+                step={0.02}
+                value={resolvedLight.environmentBlur}
+                onChange={(v) => patchLighting({ environmentBlur: v })}
+              />
+            ) : null}
+          </div>
+        ) : null}
+
         {/* ── SAVE / ACTIONS (always visible) ── */}
         <div className={styles.actions}>
           <button type="submit" className={styles.saveBtn} disabled={saving || !configuratorId}>
@@ -951,6 +1658,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               ['parameters', 'Parameters', AdminTabParamsIcon] as const,
               ['materials', 'Materials', AdminTabMaterialsIcon] as const,
               ['uv', 'UV mapping', AdminTabUvIcon] as const,
+              ['lighting', 'Lighting', AdminTabLightingIcon] as const,
             ] as const
           ).map(([t, label, Icon]) => (
             <button

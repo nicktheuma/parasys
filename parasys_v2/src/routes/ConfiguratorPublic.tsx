@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
-import type { DimLimits, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type {
+  ConfiguratorLightingSettings,
+  DimLimits,
+  ParamGraphSettings,
+  PublicMat,
+  SurfaceUvMapping,
+  TemplateParametricPreset,
+  TemplateParamLimits,
+} from '@shared/types'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { useDesignPackage } from '@/hooks/useDesignPackage'
 import { ConfiguratorCanvas } from '@/components/ConfiguratorCanvas'
@@ -56,6 +64,7 @@ export function ConfiguratorPublic() {
             templateParams?: Record<string, TemplateParametricPreset> | null
             paramLimits?: Record<string, TemplateParamLimits> | null
             uvMappings?: Record<string, SurfaceUvMapping> | null
+            lighting?: ConfiguratorLightingSettings | null
           } | null
           materials: PublicMat[]
         }
@@ -90,16 +99,26 @@ export function ConfiguratorPublic() {
       {checkout === 'success' && stripeSessionId ? (
         <div className={styles.banner} role="status">
           <p className={styles.bannerLead}>
-            Payment received. Download your design package (PDF + STL).
+            Payment received. Download your drawings (PDF) or 3D model (STL).
           </p>
-          <button
-            type="button"
-            className={styles.downloadPaid}
-            onClick={() => void pkg.downloadPaid(stripeSessionId)}
-            disabled={pkg.paidDownloadBusy}
-          >
-            {pkg.paidDownloadBusy ? 'Preparing\u2026' : 'Download design package'}
-          </button>
+          <div className={styles.downloadPaidRow}>
+            <button
+              type="button"
+              className={styles.downloadPaid}
+              onClick={() => void pkg.downloadPaid(stripeSessionId, 'pdf')}
+              disabled={pkg.paidBusyPdf || pkg.paidBusyStl}
+            >
+              {pkg.paidBusyPdf ? 'Preparing\u2026' : 'Download PDF'}
+            </button>
+            <button
+              type="button"
+              className={styles.downloadPaid}
+              onClick={() => void pkg.downloadPaid(stripeSessionId, 'stl')}
+              disabled={pkg.paidBusyPdf || pkg.paidBusyStl}
+            >
+              {pkg.paidBusyStl ? 'Preparing\u2026' : 'Download STL'}
+            </button>
+          </div>
         </div>
       ) : null}
       {checkout === 'success' && !stripeSessionId ? (
@@ -139,9 +158,11 @@ export function ConfiguratorPublic() {
           showDimensions={showDimensions}
           onToggleDimensions={toggleDimensions}
           allowFreeDownload={allowFreeDownload}
-          freeBusy={pkg.freeBusy}
+          freeBusyPdf={pkg.freeBusyPdf}
+          freeBusyStl={pkg.freeBusyStl}
           checkoutBusy={pkg.checkoutBusy}
-          onDownload={() => void pkg.downloadFree()}
+          onDownloadPdf={() => void pkg.downloadFree('pdf')}
+          onDownloadStl={() => void pkg.downloadFree('stl')}
           onBuy={() => void pkg.buyPackage()}
         />
       ) : null}

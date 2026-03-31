@@ -45,6 +45,12 @@ function normalizeLayer(raw: unknown, fallbackColor: string): MaterialShaderLaye
   if (typeof o.noiseScaleZ === 'number') layer.noiseScaleZ = clamp(o.noiseScaleZ, 0.01, 50)
   if (typeof o.displacementStrength === 'number') layer.displacementStrength = clamp(o.displacementStrength, 0, 1)
   if (typeof o.normalStrength === 'number') layer.normalStrength = clamp(o.normalStrength, 0, 2)
+  if (typeof o.noiseOffsetX === 'number') layer.noiseOffsetX = clamp(o.noiseOffsetX, -20, 20)
+  if (typeof o.noiseOffsetY === 'number') layer.noiseOffsetY = clamp(o.noiseOffsetY, -20, 20)
+  if (typeof o.noiseOffsetZ === 'number') layer.noiseOffsetZ = clamp(o.noiseOffsetZ, -20, 20)
+  if (typeof o.noiseRotationX === 'number') layer.noiseRotationX = clamp(o.noiseRotationX, -Math.PI * 2, Math.PI * 2)
+  if (typeof o.noiseRotationY === 'number') layer.noiseRotationY = clamp(o.noiseRotationY, -Math.PI * 2, Math.PI * 2)
+  if (typeof o.noiseRotationZ === 'number') layer.noiseRotationZ = clamp(o.noiseRotationZ, -Math.PI * 2, Math.PI * 2)
   return layer
 }
 

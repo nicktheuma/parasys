@@ -189,6 +189,12 @@
   margin: 0;
 }
 
+.downloadPaidRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .downloadPaid {
   padding: 0.45rem 0.75rem;
   border-radius: 8px;

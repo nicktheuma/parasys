@@ -6,51 +6,58 @@ function triggerBlobDownload(blob: Blob, headers: Headers, fallbackName: string)
   const cd = headers.get('Content-Disposition')
   const m = cd?.match(/filename="([^"]+)"/)
   const name = m?.[1] ?? fallbackName
-  const href = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = href
+  a.href = URL.createObjectURL(blob)
   a.download = name
   a.click()
-  URL.revokeObjectURL(href)
+  URL.revokeObjectURL(a.href)
 }
 
 export function useDesignPackage(slug: string | undefined) {
-  const [freeBusy, setFreeBusy] = useState(false)
+  const [freeBusyPdf, setFreeBusyPdf] = useState(false)
+  const [freeBusyStl, setFreeBusyStl] = useState(false)
   const [freeErr, setFreeErr] = useState<string | null>(null)
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [checkoutErr, setCheckoutErr] = useState<string | null>(null)
-  const [paidDownloadBusy, setPaidDownloadBusy] = useState(false)
+  const [paidBusyPdf, setPaidBusyPdf] = useState(false)
+  const [paidBusyStl, setPaidBusyStl] = useState(false)
   const [paidDownloadErr, setPaidDownloadErr] = useState<string | null>(null)
 
   const driven = useConfiguratorStore((s) => s.driven)
 
-  const downloadFree = useCallback(async () => {
-    if (!slug) return
-    setFreeErr(null)
-    setFreeBusy(true)
-    try {
-      const res = await fetch(apiUrl('/api/design-package/download'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          widthMm: driven.widthMm,
-          depthMm: driven.depthMm,
-          heightMm: driven.heightMm,
-        }),
-      })
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string }
-        setFreeErr(j.error ?? res.statusText)
-        return
+  const downloadFree = useCallback(
+    async (format: 'pdf' | 'stl') => {
+      if (!slug) return
+      const setBusy = format === 'pdf' ? setFreeBusyPdf : setFreeBusyStl
+      setFreeErr(null)
+      setBusy(true)
+      try {
+        const res = await fetch(apiUrl('/api/design-package/download'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug,
+            widthMm: driven.widthMm,
+            depthMm: driven.depthMm,
+            heightMm: driven.heightMm,
+            format,
+          }),
+        })
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string }
+          setFreeErr(j.error ?? res.statusText)
+          return
+        }
+        const blob = await res.blob()
+        const ext = format === 'pdf' ? 'pdf' : 'stl'
+        triggerBlobDownload(blob, res.headers, `parasys-design-${slug}.${ext}`)
+      } finally {
+        setBusy(false)
       }
-      const blob = await res.blob()
-      triggerBlobDownload(blob, res.headers, `parasys-design-${slug}.zip`)
-    } finally {
-      setFreeBusy(false)
-    }
-  }, [slug, driven.widthMm, driven.depthMm, driven.heightMm])
+    },
+    [slug, driven.widthMm, driven.depthMm, driven.heightMm],
+  )
 
   const buyPackage = useCallback(async () => {
     if (!slug) return
@@ -74,15 +81,16 @@ export function useDesignPackage(slug: string | undefined) {
   }, [slug, driven.widthMm, driven.depthMm, driven.heightMm])
 
   const downloadPaid = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, format: 'pdf' | 'stl') => {
+      const setBusy = format === 'pdf' ? setPaidBusyPdf : setPaidBusyStl
       setPaidDownloadErr(null)
-      setPaidDownloadBusy(true)
+      setBusy(true)
       try {
         const res = await fetch(apiUrl('/api/design-package/download-paid'), {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, format }),
         })
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string }
@@ -90,20 +98,23 @@ export function useDesignPackage(slug: string | undefined) {
           return
         }
         const blob = await res.blob()
-        triggerBlobDownload(blob, res.headers, `parasys-design-${slug ?? 'order'}.zip`)
+        const ext = format === 'pdf' ? 'pdf' : 'stl'
+        triggerBlobDownload(blob, res.headers, `parasys-design-${slug ?? 'order'}.${ext}`)
       } finally {
-        setPaidDownloadBusy(false)
+        setBusy(false)
       }
     },
     [slug],
   )
 
   return {
-    freeBusy,
+    freeBusyPdf,
+    freeBusyStl,
     freeErr,
     checkoutBusy,
     checkoutErr,
-    paidDownloadBusy,
+    paidBusyPdf,
+    paidBusyStl,
     paidDownloadErr,
     downloadFree,
     buyPackage,

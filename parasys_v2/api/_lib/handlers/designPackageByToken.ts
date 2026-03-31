@@ -2,11 +2,14 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../../../db/index'
 import type { OrderDimensionsSnapshot } from '../../../db/schema'
 import { configurators, orders } from '../../../db/schema'
-import { buildDesignPackageZip } from './designPackageDownload'
+import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload'
 
 export async function buildDesignPackageByDownloadToken(
   token: string,
-): Promise<{ ok: true; buffer: Buffer; filename: string } | { ok: false; status: number; error: string }> {
+  format: DesignAssetFormat = 'pdf',
+): Promise<
+  { ok: true; buffer: Buffer; filename: string; contentType: string } | { ok: false; status: number; error: string }
+> {
   const t = token.trim()
   if (!t) {
     return { ok: false, status: 400, error: 'token required' }
@@ -35,5 +38,5 @@ export async function buildDesignPackageByDownloadToken(
   }
 
   const snap = row.order.dimensionsSnapshot as OrderDimensionsSnapshot | null | undefined
-  return buildDesignPackageZip(row.slug, snap)
+  return buildDesignAsset(format, row.slug, snap)
 }

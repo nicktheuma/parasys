@@ -10,9 +10,11 @@ type Props = {
   showDimensions: boolean
   onToggleDimensions: () => void
   allowFreeDownload: boolean
-  freeBusy: boolean
+  freeBusyPdf: boolean
+  freeBusyStl: boolean
   checkoutBusy: boolean
-  onDownload: () => void
+  onDownloadPdf: () => void
+  onDownloadStl: () => void
   onBuy: () => void
 }
 
@@ -50,14 +52,24 @@ export function PublicControlsMvp(props: Props) {
       {openPanel === 'download' ? (
         <div className={`${styles.nestedPanel} ${styles.optionGrid}`} role="group" aria-label="Download options">
           {props.allowFreeDownload ? (
-            <button
-              type="button"
-              className={styles.publicButton}
-              onClick={props.onDownload}
-              disabled={props.freeBusy}
-            >
-              {props.freeBusy ? 'Preparing...' : 'ZIP'}
-            </button>
+            <>
+              <button
+                type="button"
+                className={styles.publicButton}
+                onClick={props.onDownloadPdf}
+                disabled={props.freeBusyPdf || props.freeBusyStl}
+              >
+                {props.freeBusyPdf ? 'Preparing…' : 'PDF'}
+              </button>
+              <button
+                type="button"
+                className={styles.publicButton}
+                onClick={props.onDownloadStl}
+                disabled={props.freeBusyPdf || props.freeBusyStl}
+              >
+                {props.freeBusyStl ? 'Preparing…' : 'STL'}
+              </button>
+            </>
           ) : null}
           <button type="button" className={styles.publicButton} onClick={props.onBuy} disabled={props.checkoutBusy}>
             {props.checkoutBusy ? 'Redirecting...' : 'Buy'}

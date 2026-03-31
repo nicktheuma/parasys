@@ -108,6 +108,26 @@ export type DimLimits = {
 }
 
 /** Stored as JSON; normalized in handlers via `normalizeSettings` */
+/** One adjustable light; position is world-space for canvas directionals, unit multipliers × bbox radius for stage spot/point */
+export type SceneLightSettings = {
+  position: [number, number, number]
+  intensity: number
+  color: string
+  /** Spot penumbra (0–1); ignored for directional / point / ambient */
+  softness?: number
+}
+
+/** Optional overrides; merged with app defaults at runtime */
+export type ConfiguratorLightingSettings = {
+  ambientIntensity?: number
+  directional0?: Partial<SceneLightSettings>
+  directional1?: Partial<SceneLightSettings>
+  directional2?: Partial<SceneLightSettings>
+  keySpot?: Partial<SceneLightSettings>
+  fillPoint?: Partial<SceneLightSettings>
+  environmentBlur?: number
+}
+
 export type ConfiguratorSettingsRow = {
   defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
   /** Optional static image URL for admin lists (same-origin path like `/configurator-thumbnails/x.svg` or https URL) */
@@ -119,6 +139,7 @@ export type ConfiguratorSettingsRow = {
   templateParams?: Record<string, TemplateParametricPreset> | null
   paramLimits?: Record<string, TemplateParamLimits> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
+  lighting?: ConfiguratorLightingSettings | null
 }
 
 export type NoiseType = 'fbm' | 'voronoi' | 'simplex' | 'ridged' | 'turbulence' | 'marble'
@@ -139,6 +160,14 @@ export type MaterialShaderLayer = {
   colorHex: string
   displacementStrength?: number
   normalStrength?: number
+  /** World-space offset of noise domain (meters) */
+  noiseOffsetX?: number
+  noiseOffsetY?: number
+  noiseOffsetZ?: number
+  /** Euler rotation of noise sampling (radians, X then Y then Z) */
+  noiseRotationX?: number
+  noiseRotationY?: number
+  noiseRotationZ?: number
 }
 
 export type MaterialShaderSpec = {

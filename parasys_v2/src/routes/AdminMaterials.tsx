@@ -3,6 +3,7 @@ import { ColorSwatchInput } from '@/components/ColorSwatchInput'
 import { MaterialThumb } from '@/components/MaterialThumb'
 import { fetchJson } from '@/lib/api'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
+import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
 import { MaterialEditorPanel } from './MaterialEditorPanel'
 import styles from './adminMaterials.module.css'
 
@@ -23,6 +24,18 @@ type Material = {
   createdAt: string
 }
 
+function formatMatOptionLabel(m: { folder: string; name: string }): string {
+  const f = m.folder.trim()
+  return f ? `${f} / ${m.name}` : m.name
+}
+
+function cloneShaderAndSwatch(source: Material): { shader: MaterialShaderSpec; colorHex: string } {
+  const shader = source.shader
+    ? structuredClone(source.shader)
+    : defaultMaterialSpec(source.colorHex)
+  return { shader, colorHex: source.colorHex }
+}
+
 export function AdminMaterials() {
   const [configurators, setConfigurators] = useState<Configurator[]>([])
   const [configId, setConfigId] = useState('')
@@ -37,6 +50,7 @@ export function AdminMaterials() {
   const [creating, setCreating] = useState(false)
   const [showCreateMaterial, setShowCreateMaterial] = useState(false)
   const [editing, setEditing] = useState<Material | null>(null)
+  const [copyingMatId, setCopyingMatId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -138,6 +152,31 @@ export function AdminMaterials() {
     }
   }
 
+  async function onCopySettingsTo(target: Material, sourceId: string) {
+    const source = items.find((m) => m.id === sourceId)
+    if (!source) return
+    if (
+      !window.confirm(
+        `Replace shader and swatch colour for "${formatMatOptionLabel(target)}" with settings from "${formatMatOptionLabel(source)}"?`,
+      )
+    )
+      return
+    const cid = configId === '__all__' ? target.configuratorId : configId
+    const { shader, colorHex } = cloneShaderAndSwatch(source)
+    setCopyingMatId(target.id)
+    setError(null)
+    const r = await fetchJson(
+      `/api/admin/materials/${encodeURIComponent(target.id)}?configuratorId=${encodeURIComponent(cid)}`,
+      { method: 'PATCH', body: JSON.stringify({ shader, colorHex }) },
+    )
+    setCopyingMatId(null)
+    if (!r.ok) {
+      setError(r.error ?? 'Copy failed')
+      return
+    }
+    await loadMaterials()
+  }
+
   async function onDelete(mat: Material) {
     if (!window.confirm('Delete this material?')) return
     const cid = configId === '__all__' ? mat.configuratorId : configId
@@ -237,6 +276,7 @@ export function AdminMaterials() {
           key={editing.id}
           configuratorId={configId === '__all__' ? editing.configuratorId : configId}
           material={editing}
+          copySources={items.filter((m) => m.id !== editing.id)}
           onClose={() => setEditing(null)}
           onSaved={() => void loadMaterials()}
         />
@@ -252,48 +292,77 @@ export function AdminMaterials() {
             <ul className={styles.ul}>
               {items.map((m) => (
                 <li key={m.id} className={`${styles.li} ${!m.enabled ? styles.liDisabled : ''}`}>
-                  <MaterialThumb shader={m.shader} colorHex={m.colorHex} />
-                  <span className={styles.matMeta}>
-                    <strong>{m.folder ? `${m.folder} / ` : ''}</strong>
-                    {m.name}
-                    <code className={styles.hex}>{m.colorHex}</code>
-                    {!m.enabled ? <span className={styles.disabledBadge}>Hidden</span> : null}
-                    {configId === '__all__' ? (
-                      <span className={styles.cfgBadge}>
-                        {configurators.find((c) => c.id === m.configuratorId)?.name ?? m.configuratorId}
-                      </span>
-                    ) : null}
-                  </span>
-                  <div className={styles.matActions}>
-                    <button
-                      type="button"
-                      className={m.enabled ? styles.secondary : styles.enableBtn}
-                      onClick={() => void onToggleEnabled(m)}
-                    >
-                      {m.enabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <select
-                      className={styles.assignSelect}
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) void onAssign(m, e.target.value)
-                        e.target.value = ''
-                      }}
-                    >
-                      <option value="">Assign to...</option>
-                      {configurators
-                        .filter((c) => c.id !== m.configuratorId)
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    <button type="button" className={styles.edit} onClick={() => setEditing(m)}>
-                      Edit shader
-                    </button>
-                    <button type="button" className={styles.danger} onClick={() => void onDelete(m)}>
-                      Delete
-                    </button>
+                  <div className={styles.liMain}>
+                    <MaterialThumb shader={m.shader} colorHex={m.colorHex} />
+                    <span className={styles.matMeta}>
+                      <strong>{m.folder ? `${m.folder} / ` : ''}</strong>
+                      {m.name}
+                      <code className={styles.hex}>{m.colorHex}</code>
+                      {!m.enabled ? <span className={styles.disabledBadge}>Hidden</span> : null}
+                      {configId === '__all__' ? (
+                        <span className={styles.cfgBadge}>
+                          {configurators.find((c) => c.id === m.configuratorId)?.name ?? m.configuratorId}
+                        </span>
+                      ) : null}
+                    </span>
+                    <div className={styles.matActions}>
+                      <button
+                        type="button"
+                        className={m.enabled ? styles.secondary : styles.enableBtn}
+                        onClick={() => void onToggleEnabled(m)}
+                      >
+                        {m.enabled ? 'Disable' : 'Enable'}
+                      </button>
+                      <select
+                        className={styles.assignSelect}
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) void onAssign(m, e.target.value)
+                          e.target.value = ''
+                        }}
+                      >
+                        <option value="">Assign to...</option>
+                        {configurators
+                          .filter((c) => c.id !== m.configuratorId)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                      </select>
+                      <button type="button" className={styles.edit} onClick={() => setEditing(m)}>
+                        Edit shader
+                      </button>
+                      <button type="button" className={styles.danger} onClick={() => void onDelete(m)}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
+                  {items.filter((x) => x.id !== m.id).length > 0 ? (
+                    <div className={styles.copyRow}>
+                      <select
+                        className={styles.assignSelect}
+                        value=""
+                        disabled={copyingMatId === m.id}
+                        onChange={(e) => {
+                          const id = e.target.value
+                          e.target.value = ''
+                          if (id) void onCopySettingsTo(m, id)
+                        }}
+                        aria-label={`Copy settings onto ${m.name}`}
+                      >
+                        <option value="">Copy settings from…</option>
+                        {items
+                          .filter((x) => x.id !== m.id)
+                          .map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {formatMatOptionLabel(x)}
+                              {configId === '__all__'
+                                ? ` (${configurators.find((c) => c.id === x.configuratorId)?.name ?? x.configuratorId})`
+                                : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>

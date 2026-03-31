@@ -241,6 +241,33 @@ export async function updateConfigurator(
                 ...patch.settings.uvMappings,
               }
             : prev?.uvMappings,
+        lighting:
+          patch.settings.lighting !== undefined
+            ? {
+                ...(prev?.lighting ?? {}),
+                ...patch.settings.lighting,
+                directional0: {
+                  ...(prev?.lighting?.directional0 ?? {}),
+                  ...patch.settings.lighting?.directional0,
+                },
+                directional1: {
+                  ...(prev?.lighting?.directional1 ?? {}),
+                  ...patch.settings.lighting?.directional1,
+                },
+                directional2: {
+                  ...(prev?.lighting?.directional2 ?? {}),
+                  ...patch.settings.lighting?.directional2,
+                },
+                keySpot: {
+                  ...(prev?.lighting?.keySpot ?? {}),
+                  ...patch.settings.lighting?.keySpot,
+                },
+                fillPoint: {
+                  ...(prev?.lighting?.fillPoint ?? {}),
+                  ...patch.settings.lighting?.fillPoint,
+                },
+              }
+            : prev?.lighting,
       }
       updates.settings = normalizeSettings(merged)
     }

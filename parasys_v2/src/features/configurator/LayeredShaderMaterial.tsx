@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo } from 'react'
+import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { MaterialShaderSpec } from '@/lib/materialShader'
 import type { SurfaceUvMapping } from '@shared/types'
@@ -74,38 +75,6 @@ vec3 _lsm_blendCol(int mode, vec3 base, vec3 layer, float t) {
   }
   return mix(base, layer, t);
 }
-`
-
-function scaleVec(i: number): string {
-  const L = `uL${i}`
-  return `vec3(${L}Scale, ${L}ScaleY > 0.0 ? ${L}ScaleY : ${L}Scale, ${L}ScaleZ > 0.0 ? ${L}ScaleZ : ${L}Scale)`
-}
-
-const PER_LAYER = 'Mix Scale ScaleY ScaleZ Strength Rough Metal Disp Norm'.split(' ')
-const layerUniforms = /* glsl */ `
-uniform int uLayerCount;
-${[0, 1, 2].map(i =>
-  PER_LAYER.map(p => `uniform float uL${i}${p};`).join(' ') +
-  ` uniform vec3 uL${i}Color; uniform int uL${i}Noise; uniform int uL${i}Blend;`
-).join('\n')}
-uniform float uAoFactor;
-`
-
-// Color / roughness / metalness — injected after metalnessmap_fragment
-function colorBlock(i: number): string {
-  const L = `uL${i}`
-  return /* glsl */ `
-  if (uLayerCount > ${i}) {
-    vec3 csc${i} = ${scaleVec(i)};
-    float cn${i} = _lsm_layerNoise(${L}Noise, wp, csc${i});
-    float ct${i} = ${L}Mix * ${L}Strength * cn${i};
-    albedo = _lsm_blendCol(${L}Blend, albedo, ${L}Color, ct${i});
-    rough = mix(rough, ${L}Rough, ${L}Mix * cn${i});
-    metal = mix(metal, ${L}Metal, ${L}Mix * cn${i});
-  }`
-}
-
-const uvTransformGlsl = /* glsl */ `
 vec3 _lsm_rotX(vec3 p, float a) {
   float c = cos(a), s = sin(a);
   return vec3(p.x, c*p.y - s*p.z, s*p.y + c*p.z);
@@ -118,6 +87,46 @@ vec3 _lsm_rotZ(vec3 p, float a) {
   float c = cos(a), s = sin(a);
   return vec3(c*p.x - s*p.y, s*p.x + c*p.y, p.z);
 }
+vec3 _lsm_layerSample(vec3 wp, vec3 off, vec3 rot) {
+  vec3 q = wp + off;
+  q = _lsm_rotX(q, rot.x);
+  q = _lsm_rotY(q, rot.y);
+  q = _lsm_rotZ(q, rot.z);
+  return q;
+}
+`
+
+function scaleVec(i: number): string {
+  const L = `uL${i}`
+  return `vec3(${L}Scale, ${L}ScaleY > 0.0 ? ${L}ScaleY : ${L}Scale, ${L}ScaleZ > 0.0 ? ${L}ScaleZ : ${L}Scale)`
+}
+
+const PER_LAYER = 'Mix Scale ScaleY ScaleZ Strength Rough Metal Disp Norm'.split(' ')
+const layerUniforms = /* glsl */ `
+uniform int uLayerCount;
+${[0, 1, 2].map(i =>
+  PER_LAYER.map(p => `uniform float uL${i}${p};`).join(' ') +
+  ` uniform vec3 uL${i}Color; uniform int uL${i}Noise; uniform int uL${i}Blend; uniform vec3 uL${i}Offset; uniform vec3 uL${i}Rot;`
+).join('\n')}
+uniform float uAoFactor;
+`
+
+// Color / roughness / metalness — injected after metalnessmap_fragment
+function colorBlock(i: number): string {
+  const L = `uL${i}`
+  return /* glsl */ `
+  if (uLayerCount > ${i}) {
+    vec3 lwp${i} = _lsm_layerSample(wp, uL${i}Offset, uL${i}Rot);
+    vec3 csc${i} = ${scaleVec(i)};
+    float cn${i} = _lsm_layerNoise(${L}Noise, lwp${i}, csc${i});
+    float ct${i} = ${L}Mix * ${L}Strength * cn${i};
+    albedo = _lsm_blendCol(${L}Blend, albedo, ${L}Color, ct${i});
+    rough = mix(rough, ${L}Rough, ${L}Mix * cn${i});
+    metal = mix(metal, ${L}Metal, ${L}Mix * cn${i});
+  }`
+}
+
+const uvTransformGlsl = /* glsl */ `
 vec3 _lsm_uvTransform(vec3 p, int fi) {
   vec3 sc; vec2 off; vec3 rot;
   if (fi == 1) { sc = uUvScale[1]; off = uUvOff[1]; rot = uUvRot[1]; }
@@ -157,10 +166,10 @@ function normalBlock(i: number): string {
   if (uLayerCount > ${i} && ${L}Norm > 0.0) {
     vec3 nsc${i} = ${scaleVec(i)};
     float eps = 0.001;
-    float nc${i} = _lsm_layerNoise(${L}Noise, nwp, nsc${i});
-    float ndx${i} = _lsm_layerNoise(${L}Noise, nwp + vec3(eps,0.0,0.0), nsc${i}) - nc${i};
-    float ndy${i} = _lsm_layerNoise(${L}Noise, nwp + vec3(0.0,eps,0.0), nsc${i}) - nc${i};
-    float ndz${i} = _lsm_layerNoise(${L}Noise, nwp + vec3(0.0,0.0,eps), nsc${i}) - nc${i};
+    float nc${i} = _lsm_layerNoise(${L}Noise, _lsm_layerSample(nwp, uL${i}Offset, uL${i}Rot), nsc${i});
+    float ndx${i} = _lsm_layerNoise(${L}Noise, _lsm_layerSample(nwp + vec3(eps,0.0,0.0), uL${i}Offset, uL${i}Rot), nsc${i}) - nc${i};
+    float ndy${i} = _lsm_layerNoise(${L}Noise, _lsm_layerSample(nwp + vec3(0.0,eps,0.0), uL${i}Offset, uL${i}Rot), nsc${i}) - nc${i};
+    float ndz${i} = _lsm_layerNoise(${L}Noise, _lsm_layerSample(nwp + vec3(0.0,0.0,eps), uL${i}Offset, uL${i}Rot), nsc${i}) - nc${i};
     vec3 npert${i} = normalize(vec3(-ndx${i}, -ndy${i}, -ndz${i})) * ${L}Norm * ${L}Mix;
     normal = normalize(normal + npert${i});
   }`
@@ -183,7 +192,8 @@ function dispBlock(i: number): string {
   if (uLayerCount > ${i} && ${L}Disp > 0.0) {
     vec3 dsc${i} = ${scaleVec(i)};
     vec3 dwp${i} = (modelMatrix * vec4(transformed, 1.0)).xyz;
-    float dn${i} = _lsm_layerNoise(${L}Noise, dwp${i}, dsc${i});
+    vec3 dlwp${i} = _lsm_layerSample(dwp${i}, uL${i}Offset, uL${i}Rot);
+    float dn${i} = _lsm_layerNoise(${L}Noise, dlwp${i}, dsc${i});
     transformed += objectNormal * dn${i} * ${L}Disp * ${L}Mix * 0.02;
   }`
 }
@@ -234,6 +244,8 @@ function buildUniforms(): Uniforms {
     u[`${L}Color`] = { value: new THREE.Color('#ffffff') }
     u[`${L}Noise`] = { value: 0 }
     u[`${L}Blend`] = { value: 0 }
+    u[`${L}Offset`] = { value: new THREE.Vector3(0, 0, 0) }
+    u[`${L}Rot`] = { value: new THREE.Vector3(0, 0, 0) }
   }
   return u
 }
@@ -299,7 +311,7 @@ void main() {`,
     )
   }
 
-  mat.customProgramCacheKey = () => 'lsm-v7'
+  mat.customProgramCacheKey = () => 'lsm-v8'
 
   return mat
 }
@@ -333,6 +345,16 @@ function applySpec(mat: THREE.MeshPhysicalMaterial, spec: MaterialShaderSpec) {
       ;(u[`${pfx}Color`].value as THREE.Color).set(L.colorHex)
       u[`${pfx}Noise`].value = noiseToInt(L.noiseType)
       u[`${pfx}Blend`].value = blendToInt(L.blendMode)
+      ;(u[`${pfx}Offset`].value as THREE.Vector3).set(
+        L.noiseOffsetX ?? 0,
+        L.noiseOffsetY ?? 0,
+        L.noiseOffsetZ ?? 0,
+      )
+      ;(u[`${pfx}Rot`].value as THREE.Vector3).set(
+        L.noiseRotationX ?? 0,
+        L.noiseRotationY ?? 0,
+        L.noiseRotationZ ?? 0,
+      )
     } else {
       u[`${pfx}Mix`].value = 0
       u[`${pfx}Scale`].value = 2
@@ -346,6 +368,8 @@ function applySpec(mat: THREE.MeshPhysicalMaterial, spec: MaterialShaderSpec) {
       ;(u[`${pfx}Color`].value as THREE.Color).set('#ffffff')
       u[`${pfx}Noise`].value = 0
       u[`${pfx}Blend`].value = 0
+      ;(u[`${pfx}Offset`].value as THREE.Vector3).set(0, 0, 0)
+      ;(u[`${pfx}Rot`].value as THREE.Vector3).set(0, 0, 0)
     }
   }
 
@@ -360,6 +384,7 @@ export function LayeredShaderMaterial({
   uvFaceMappings?: SurfaceUvMapping[]
 }) {
   const mat = useMemo(() => createMaterial(), [])
+  const invalidate = useThree((s) => s.invalidate)
 
   useLayoutEffect(() => {
     applySpec(mat, spec)
@@ -380,7 +405,8 @@ export function LayeredShaderMaterial({
         )
       }
     }
-  }, [mat, spec, uvFaceMappings])
+    invalidate()
+  }, [mat, spec, uvFaceMappings, invalidate])
 
   useLayoutEffect(() => {
     return () => { mat.dispose() }

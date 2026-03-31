@@ -4,12 +4,16 @@ import Stripe from 'stripe'
 import { getDb } from '../../../db/index'
 import type { OrderDimensionsSnapshot } from '../../../db/schema'
 import { configurators, orders } from '../../../db/schema'
-import { buildDesignPackageZip } from './designPackageDownload'
+import { buildDesignAsset, type DesignAssetFormat } from './designPackageDownload'
 import { getStripeClient } from './stripeCheckout'
 
-export async function buildPaidDesignPackageZip(
+export async function buildPaidDesignAsset(
+  format: DesignAssetFormat,
   sessionId: string,
-): Promise<{ ok: true; buffer: Buffer; filename: string } | { ok: false; status: number; error: string }> {
+): Promise<
+  | { ok: true; buffer: Buffer; filename: string; contentType: string }
+  | { ok: false; status: number; error: string }
+> {
   const sid = sessionId.trim()
   if (!sid) {
     return { ok: false, status: 400, error: 'session_id required' }
@@ -65,5 +69,5 @@ export async function buildPaidDesignPackageZip(
   }
 
   const snap = row.order.dimensionsSnapshot as OrderDimensionsSnapshot | null | undefined
-  return buildDesignPackageZip(row.slug, snap)
+  return buildDesignAsset(format, row.slug, snap)
 }

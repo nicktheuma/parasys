@@ -4,6 +4,7 @@ export { FACE_GROUPS } from '../db/schema'
 
 export type {
   BlendMode,
+  ConfiguratorLightingSettings,
   ConfiguratorSettingsRow,
   DimLimits,
   GhInputMode,
@@ -17,6 +18,7 @@ export type {
   ParamGraphSettings,
   ParamRange,
   FaceGroup,
+  SceneLightSettings,
   SurfaceUvMapping,
   TemplateParametricPreset,
   TemplateParamLimits,

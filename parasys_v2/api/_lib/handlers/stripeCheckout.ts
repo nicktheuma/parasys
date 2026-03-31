@@ -129,10 +129,13 @@ export async function handleStripeWebhook(
       .where(eq(orders.id, orderId))
 
     if (emailAddr && publicUrl && process.env.RESEND_API_KEY) {
-      const downloadUrl = `${publicUrl}/api/design-package/download-by-token?token=${encodeURIComponent(downloadToken)}`
+      const base = `${publicUrl}/api/design-package/download-by-token?token=${encodeURIComponent(downloadToken)}`
+      const downloadUrlPdf = `${base}&format=pdf`
+      const downloadUrlStl = `${base}&format=stl`
       const sent = await sendPurchaseReceiptEmail({
         to: emailAddr,
-        downloadUrl,
+        downloadUrlPdf,
+        downloadUrlStl,
         productName: row.productName,
       })
       if (sent.ok) {

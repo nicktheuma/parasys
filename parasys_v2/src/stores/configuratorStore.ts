@@ -1,5 +1,16 @@
 import { create } from 'zustand'
-import type { DimLimits, FaceGroup, MaterialShaderSpec, ParamGraphSettings, PublicMat, SurfaceUvMapping, TemplateParametricPreset, TemplateParamLimits } from '@shared/types'
+import type {
+  ConfiguratorLightingSettings,
+  DimLimits,
+  FaceGroup,
+  MaterialShaderSpec,
+  ParamGraphSettings,
+  PublicMat,
+  SurfaceUvMapping,
+  TemplateParametricPreset,
+  TemplateParamLimits,
+} from '@shared/types'
+import { mergeConfiguratorLightingPatch, type LightingTabId } from '@/lib/configuratorLighting'
 import { FACE_GROUPS } from '@shared/types'
 import { clampDimMm, DIM_MM } from '@/lib/configuratorDimensions'
 import { defaultMaterialSpec } from '@/lib/defaultMaterialSpec'
@@ -34,6 +45,9 @@ export type ConfiguratorStore = {
   dimLimits: DimLimits | null
   paramLimits: Record<string, TemplateParamLimits> | null
   uvMappings: Record<string, SurfaceUvMapping> | null
+  lighting: ConfiguratorLightingSettings | null
+  /** When admin edits lighting, which row is selected — drives 3D gizmo highlight */
+  lightingEditorPick: LightingTabId | null
   showDimensions: boolean
   loadErr: string | null
 
@@ -46,6 +60,9 @@ export type ConfiguratorStore = {
   setMaterialSpec: (spec: MaterialShaderSpec) => void
   setTemplateParam: (key: string, preset: TemplateParametricPreset) => void
   setUvMapping: (surfaceKind: string, materialId: string, faceGroup: FaceGroup, mapping: SurfaceUvMapping) => void
+  mergeUvMappings: (entries: Record<string, SurfaceUvMapping>) => void
+  patchLighting: (patch: Partial<ConfiguratorLightingSettings>) => void
+  setLightingEditorPick: (id: LightingTabId | null) => void
   toggleDimensions: () => void
   loadConfigurator: (data: {
     id: string
@@ -60,6 +77,7 @@ export type ConfiguratorStore = {
       templateParams?: Record<string, TemplateParametricPreset> | null
       paramLimits?: Record<string, TemplateParamLimits> | null
       uvMappings?: Record<string, SurfaceUvMapping> | null
+      lighting?: ConfiguratorLightingSettings | null
     } | null
   }) => void
   setLoadErr: (err: string | null) => void
@@ -98,6 +116,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   dimLimits: null,
   paramLimits: null,
   uvMappings: null,
+  lighting: null,
+  lightingEditorPick: null,
   showDimensions: true,
   loadErr: null,
   driven: deriveDriven(null, DIM_MM.width.default, DIM_MM.depth.default, DIM_MM.height.default),
@@ -148,6 +168,22 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
     }))
   },
 
+  mergeUvMappings(entries) {
+    set((s) => ({
+      uvMappings: { ...(s.uvMappings ?? {}), ...entries },
+    }))
+  },
+
+  patchLighting(patch) {
+    set((s) => ({
+      lighting: mergeConfiguratorLightingPatch(s.lighting, patch),
+    }))
+  },
+
+  setLightingEditorPick(id) {
+    set({ lightingEditorPick: id })
+  },
+
   toggleDimensions() {
     set((s) => ({ showDimensions: !s.showDimensions }))
   },
@@ -179,6 +215,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       dimLimits: data.settings?.dimLimits ?? null,
       paramLimits: data.settings?.paramLimits ?? null,
       uvMappings: data.settings?.uvMappings ?? null,
+      lighting: data.settings?.lighting ?? null,
+      lightingEditorPick: null,
       loadErr: null,
       driven: deriveDriven(pg, w, dp, h),
       materialSpec: deriveMaterialSpec(mats, mid),
@@ -186,7 +224,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   },
 
   setLoadErr(err) {
-    set({ loadErr: err, configuratorId: null, productName: null })
+    set({ loadErr: err, configuratorId: null, productName: null, lightingEditorPick: null })
   },
 
   setMaterials(materials) {

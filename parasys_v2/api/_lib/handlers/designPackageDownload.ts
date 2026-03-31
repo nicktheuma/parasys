@@ -1,9 +1,13 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import JSZip from 'jszip'
-import * as THREE from 'three'
-import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
+import type { ConfiguratorSettingsRow } from '../../../db/schema'
+import { mergeTemplateParametricPreset } from '../../../src/features/parametric/mvp1/templateParametricPresets.ts'
+import { buildManufacturingPdf } from '../designPackagePdf'
+import { buildPlaceholderStlBox, buildStlFromPanels } from '../designPackageStl'
 import { resolveDimsMm } from '../dimensions'
 import { getConfiguratorBySlug } from './configurators'
+import { generatePanelSpecs } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
+import type { PanelSpec } from '../../../src/features/parametric/mvp1/panelSpecs.ts'
+
+export type DesignAssetFormat = 'pdf' | 'stl'
 
 export function isFreeDesignPackageAllowed(): boolean {
   const v = process.env.ALLOW_FREE_DESIGN_PACKAGE
@@ -15,48 +19,53 @@ function safeFilePart(s: string): string {
   return t || 'configurator'
 }
 
-async function buildPdfSummary(meta: {
-  slug: string
-  name: string
-  templateKey: string
-  widthMm: number
-  depthMm: number
-  heightMm: number
-}): Promise<Buffer> {
-  const doc = await PDFDocument.create()
-  const page = doc.addPage([612, 792])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  let y = 750
-  const line = (text: string, size = 11) => {
-    page.drawText(text, { x: 50, y, size, font, color: rgb(0.12, 0.14, 0.18) })
-    y -= size + 6
-  }
-  line('Parasys — design package (development)', 14)
-  y -= 6
-  line(`Product: ${meta.name}`)
-  line(`Slug: ${meta.slug}`)
-  line(`Template: ${meta.templateKey}`)
-  line('')
-  line(`Dimensions (mm): W ${meta.widthMm} × D ${meta.depthMm} × H ${meta.heightMm}`)
-  line('')
-  line('This PDF is a placeholder. Labelled views, plans, elevations, and', 10)
-  line('cut sheets will replace this content in a later milestone.', 10)
-  return Buffer.from(await doc.save())
+/** Templates that use ParametricPanelProduct / generatePanelSpecs */
+const PANEL_TEMPLATE_KEYS = new Set([
+  'open_shelf',
+  'wardrobe',
+  'media_unit',
+  'tv_console',
+  'sideboard',
+  'kitchen_island',
+  'bedside_table',
+])
+
+function computePanelSpecs(
+  templateKey: string,
+  widthM: number,
+  depthM: number,
+  heightM: number,
+  settings: ConfiguratorSettingsRow | null | undefined,
+): PanelSpec[] | null {
+  if (!PANEL_TEMPLATE_KEYS.has(templateKey)) return null
+  const merged = mergeTemplateParametricPreset(templateKey, settings?.templateParams?.[templateKey] ?? null)
+  if (!merged) return null
+  const materialThickness = Math.max(0.002, Math.min(widthM, depthM, heightM) * 0.03)
+  const slotOffsetFactor = merged.slotOffsetFactor ?? 0.5
+  const slotOffset = materialThickness * slotOffsetFactor
+  return generatePanelSpecs({
+    width: widthM,
+    height: heightM,
+    depth: depthM,
+    dividers: merged.dividers ?? 2,
+    shelves: merged.shelves ?? 2,
+    edgeOffset: merged.edgeOffset ?? 0,
+    slotOffset,
+    materialThickness,
+  })
 }
 
-function buildPlaceholderStl(widthM: number, heightM: number, depthM: number): Buffer {
-  const geom = new THREE.BoxGeometry(widthM, heightM, depthM)
-  const mesh = new THREE.Mesh(geom)
-  mesh.updateMatrixWorld(true)
-  const exporter = new STLExporter()
-  const ascii = exporter.parse(mesh, { binary: false }) as string
-  return Buffer.from(ascii, 'utf8')
-}
-
-export async function buildDesignPackageZip(
+/**
+ * Single-file export: PDF (drawings + parts sheet) or STL (assembled panels or placeholder box).
+ */
+export async function buildDesignAsset(
+  format: DesignAssetFormat,
   slug: string,
   dimsInput?: { widthMm?: number; depthMm?: number; heightMm?: number } | null,
-): Promise<{ ok: true; buffer: Buffer; filename: string } | { ok: false; status: number; error: string }> {
+): Promise<
+  | { ok: true; buffer: Buffer; filename: string; contentType: string }
+  | { ok: false; status: number; error: string }
+> {
   const trimmed = slug.trim()
   if (!trimmed) {
     return { ok: false, status: 400, error: 'slug required' }
@@ -75,35 +84,44 @@ export async function buildDesignPackageZip(
   const heightM = heightMm / 1000
   const depthM = depthMm / 1000
 
-  const pdf = await buildPdfSummary({
-    slug: c.item.slug,
-    name: c.item.name,
-    templateKey: c.item.templateKey,
-    widthMm,
-    depthMm,
-    heightMm,
-  })
-  const stl = buildPlaceholderStl(widthM, heightM, depthM)
-
-  const zip = new JSZip()
-  zip.file('summary.pdf', pdf)
-  zip.file('model.stl', stl)
-  zip.file(
-    'readme.txt',
-    [
-      'Parasys design package (development build)',
-      '',
-      `Configurator: ${c.item.name} (${c.item.slug})`,
-      `Dimensions (mm): W ${widthMm} × D ${depthMm} × H ${heightMm}`,
-      '',
-      'STL: placeholder box matching the dimensions above (demo export).',
-      'PDF: placeholder summary until production drawings are generated.',
-      '',
-      'Disable free downloads in production: unset ALLOW_FREE_DESIGN_PACKAGE.',
-    ].join('\n'),
+  const panels = computePanelSpecs(c.item.templateKey, widthM, depthM, heightM, c.item.settings)
+  const templateMerged = mergeTemplateParametricPreset(
+    c.item.templateKey,
+    c.item.settings?.templateParams?.[c.item.templateKey] ?? null,
   )
+  const safeSlug = safeFilePart(c.item.slug)
 
-  const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
-  const filename = `parasys-design-${safeFilePart(c.item.slug)}.zip`
-  return { ok: true, buffer: out as Buffer, filename }
+  if (format === 'pdf') {
+    const pdf = await buildManufacturingPdf({
+      slug: c.item.slug,
+      name: c.item.name,
+      templateKey: c.item.templateKey,
+      widthMm,
+      depthMm,
+      heightMm,
+      panels,
+      templateMerged,
+    })
+    return {
+      ok: true,
+      buffer: pdf,
+      filename: `parasys-${safeSlug}.pdf`,
+      contentType: 'application/pdf',
+    }
+  }
+
+  if (format === 'stl') {
+    const stl =
+      panels && panels.length > 0
+        ? buildStlFromPanels(panels, heightM)
+        : buildPlaceholderStlBox(widthM, heightM, depthM)
+    return {
+      ok: true,
+      buffer: stl,
+      filename: `parasys-${safeSlug}.stl`,
+      contentType: 'model/stl',
+    }
+  }
+
+  return { ok: false, status: 400, error: 'format must be pdf or stl' }
 }

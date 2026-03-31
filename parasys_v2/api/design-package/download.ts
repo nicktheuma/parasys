@@ -1,9 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
-  buildDesignPackageZip,
+  buildDesignAsset,
   isFreeDesignPackageAllowed,
+  type DesignAssetFormat,
 } from '../_lib/handlers/designPackageDownload'
 import { json, readJsonBody } from '../_lib/http'
+
+function parseFormat(raw: unknown): DesignAssetFormat {
+  return raw === 'stl' ? 'stl' : 'pdf'
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -11,7 +16,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   if (!isFreeDesignPackageAllowed()) {
-    json(res, 403, { error: 'Free design package download is disabled (set ALLOW_FREE_DESIGN_PACKAGE=true for dev)' })
+    json(res, 403, {
+      error: 'Free design package download is disabled (set ALLOW_FREE_DESIGN_PACKAGE=true for dev)',
+    })
     return
   }
   const body = await readJsonBody<{
@@ -19,8 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     widthMm?: number
     depthMm?: number
     heightMm?: number
+    format?: string
   }>(req)
-  const r = await buildDesignPackageZip(body.slug ?? '', {
+  const format = parseFormat(body.format)
+  const r = await buildDesignAsset(format, body.slug ?? '', {
     widthMm: body.widthMm,
     depthMm: body.depthMm,
     heightMm: body.heightMm,
@@ -30,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   res.status(200)
-  res.setHeader('Content-Type', 'application/zip')
+  res.setHeader('Content-Type', r.contentType)
   res.setHeader('Content-Disposition', `attachment; filename="${r.filename}"`)
   res.send(r.buffer)
 }

@@ -82,6 +82,22 @@
   gap: 1rem;
 }
 
+.copyRow {
+  margin: 0;
+}
+
+.copyLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.copyLabel .select {
+  max-width: 100%;
+}
+
 .fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -109,6 +125,30 @@
   margin-bottom: 0.5rem;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.rowMat {
+  display: grid;
+  grid-template-columns: 120px 1fr 3.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.rowMatWide {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.rowMatWideVal {
+  grid-column: 2 / -1;
 }
 
 .input,

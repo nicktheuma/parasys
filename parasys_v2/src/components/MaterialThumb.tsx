@@ -1,4 +1,10 @@
 import { Suspense, useMemo } from 'react'
+
+function fnv1a(s: string): string {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
+  return (h >>> 0).toString(36)
+}
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { LayeredShaderMaterial } from '@/features/configurator/LayeredShaderMaterial'
@@ -18,8 +24,14 @@ export function MaterialThumb({ shader, colorHex, size = 48, interactive = false
     [shader, colorHex],
   )
 
+  const canvasKey = useMemo(() => {
+    const sig = shader != null ? JSON.stringify(shader) : ''
+    return `${colorHex}:${fnv1a(sig)}`
+  }, [shader, colorHex])
+
   return (
     <Canvas
+      key={canvasKey}
       frameloop={interactive ? 'always' : 'demand'}
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
