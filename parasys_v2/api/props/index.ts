@@ -1,0 +1,16 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { listPropsPublic } from '../_lib/handlers/props'
+import { json } from '../_lib/http'
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') {
+    json(res, 405, { error: 'Method not allowed' })
+    return
+  }
+  const r = await listPropsPublic()
+  if (!r.ok) {
+    json(res, r.status, { error: r.error })
+    return
+  }
+  json(res, 200, { items: r.items })
+}

@@ -24,6 +24,7 @@ const AdminParametricDesigner = lazy(() =>
 const AdminMaterials = lazy(() =>
   import('@/routes/AdminMaterials').then((m) => ({ default: m.AdminMaterials })),
 )
+const AdminProps = lazy(() => import('@/routes/AdminProps').then((m) => ({ default: m.AdminProps })))
 const ConfiguratorPublic = lazy(() =>
   import('@/routes/ConfiguratorPublic').then((m) => ({
     default: m.ConfiguratorPublic,
@@ -61,6 +62,7 @@ export function App() {
           <Route path="orders" element={<AdminOrders />} />
           <Route path="designer" element={<AdminParametricDesigner />} />
           <Route path="materials" element={<AdminMaterials />} />
+          <Route path="props" element={<AdminProps />} />
         </Route>
 
         <Route path="/404" element={<NotFound />} />

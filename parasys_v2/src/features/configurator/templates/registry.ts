@@ -5,6 +5,17 @@ import { SofaTemplate } from './sofaTemplate'
 import { BoatTemplate, JewelryTemplate, PackagingTemplate } from './simpleTemplates'
 import { FallbackTemplate } from './fallbackTemplate'
 
+/** Templates that use panel geometry + shelf anchors for props */
+export const PANEL_TEMPLATE_KEYS = new Set<string>([
+  'open_shelf',
+  'wardrobe',
+  'media_unit',
+  'tv_console',
+  'sideboard',
+  'kitchen_island',
+  'bedside_table',
+])
+
 const REGISTRY = new Map<string, TemplateRenderer>([
   ['open_shelf', PanelTemplate],
   ['wardrobe', PanelTemplate],

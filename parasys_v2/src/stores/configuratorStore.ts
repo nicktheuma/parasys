@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type {
   ConfiguratorLightingSettings,
+  ConfiguratorPropPlacement,
+  ConfiguratorPropsSettings,
   DimLimits,
   FaceGroup,
   MaterialShaderSpec,
@@ -10,6 +12,7 @@ import type {
   TemplateParametricPreset,
   TemplateParamLimits,
 } from '@shared/types'
+import type { PropLibraryItem } from '@/features/configurator/props/types'
 import { mergeConfiguratorLightingPatch, type LightingTabId } from '@/lib/configuratorLighting'
 import { FACE_GROUPS } from '@shared/types'
 import { clampDimMm, DIM_MM } from '@/lib/configuratorDimensions'
@@ -46,6 +49,10 @@ export type ConfiguratorStore = {
   paramLimits: Record<string, TemplateParamLimits> | null
   uvMappings: Record<string, SurfaceUvMapping> | null
   lighting: ConfiguratorLightingSettings | null
+  /** Decorative props: placements from configurator settings */
+  propsConfig: ConfiguratorPropsSettings | null
+  /** Global prop catalog (public rows) */
+  propLibrary: PropLibraryItem[]
   /** When admin edits lighting, which row is selected — drives 3D gizmo highlight */
   lightingEditorPick: LightingTabId | null
   showDimensions: boolean
@@ -78,11 +85,16 @@ export type ConfiguratorStore = {
       paramLimits?: Record<string, TemplateParamLimits> | null
       uvMappings?: Record<string, SurfaceUvMapping> | null
       lighting?: ConfiguratorLightingSettings | null
+      props?: ConfiguratorPropsSettings | null
     } | null
   }) => void
   setLoadErr: (err: string | null) => void
   /** Replace materials list (e.g. after admin assign); keeps current materialId and refreshes spec */
   setMaterials: (materials: PublicMat[]) => void
+  setPropLibrary: (items: PropLibraryItem[]) => void
+  setPropsPlacements: (placements: ConfiguratorPropPlacement[]) => void
+  /** Merge into props settings (density, palette, placements, …) */
+  setPropsConfig: (patch: Partial<ConfiguratorPropsSettings>) => void
 }
 
 function deriveMaterialSpec(materials: PublicMat[], materialId: string | null): MaterialShaderSpec {
@@ -117,6 +129,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   paramLimits: null,
   uvMappings: null,
   lighting: null,
+  propsConfig: null,
+  propLibrary: [],
   lightingEditorPick: null,
   showDimensions: true,
   loadErr: null,
@@ -216,6 +230,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       paramLimits: data.settings?.paramLimits ?? null,
       uvMappings: data.settings?.uvMappings ?? null,
       lighting: data.settings?.lighting ?? null,
+      propsConfig: data.settings?.props ?? { placements: [] },
       lightingEditorPick: null,
       loadErr: null,
       driven: deriveDriven(pg, w, dp, h),
@@ -224,7 +239,40 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   },
 
   setLoadErr(err) {
-    set({ loadErr: err, configuratorId: null, productName: null, lightingEditorPick: null })
+    set({
+      loadErr: err,
+      configuratorId: null,
+      productName: null,
+      lightingEditorPick: null,
+      propsConfig: null,
+      propLibrary: [],
+    })
+  },
+
+  setPropLibrary(items) {
+    set({ propLibrary: items })
+  },
+
+  setPropsPlacements(placements) {
+    set((s) => ({
+      propsConfig: {
+        ...(s.propsConfig ?? { placements: [] }),
+        placements,
+      },
+    }))
+  },
+
+  setPropsConfig(patch) {
+    set((s) => {
+      const prev = s.propsConfig ?? { placements: [] }
+      return {
+        propsConfig: {
+          ...prev,
+          ...patch,
+          placements: patch.placements !== undefined ? patch.placements : prev.placements,
+        },
+      }
+    })
   },
 
   setMaterials(materials) {

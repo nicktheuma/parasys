@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import type {
   ConfiguratorLightingSettings,
+  ConfiguratorPropsSettings,
   DimLimits,
   ParamGraphSettings,
   PublicMat,
@@ -10,6 +11,7 @@ import type {
   TemplateParametricPreset,
   TemplateParamLimits,
 } from '@shared/types'
+import type { PropLibraryItem } from '@/features/configurator/props/types'
 import { useConfiguratorStore } from '@/stores/configuratorStore'
 import { useDesignPackage } from '@/hooks/useDesignPackage'
 import { ConfiguratorCanvas } from '@/components/ConfiguratorCanvas'
@@ -27,7 +29,7 @@ export function ConfiguratorPublic() {
 
   const { productName, materials, materialId, showDimensions, loadErr } =
     useConfiguratorStore()
-  const { loadConfigurator, setLoadErr, setMaterialId, toggleDimensions } =
+  const { loadConfigurator, setLoadErr, setMaterialId, toggleDimensions, setPropLibrary } =
     useConfiguratorStore()
 
   const [showAdminPanel, setShowAdminPanel] = useState(false)
@@ -56,6 +58,7 @@ export function ConfiguratorPublic() {
           id: string
           name: string
           templateKey: string
+          propsCatalog?: PropLibraryItem[]
           settings: {
             defaultDims?: { widthMm?: number; depthMm?: number; heightMm?: number }
             defaultMaterialId?: string | null
@@ -65,6 +68,7 @@ export function ConfiguratorPublic() {
             paramLimits?: Record<string, TemplateParamLimits> | null
             uvMappings?: Record<string, SurfaceUvMapping> | null
             lighting?: ConfiguratorLightingSettings | null
+            props?: ConfiguratorPropsSettings | null
           } | null
           materials: PublicMat[]
         }
@@ -74,12 +78,22 @@ export function ConfiguratorPublic() {
         setLoadErr(r.error ?? 'Configurator not found')
         return
       }
-      loadConfigurator(r.data.item)
+      const item = r.data.item
+      loadConfigurator(item)
+      const catalog = item.propsCatalog
+      if (Array.isArray(catalog)) {
+        setPropLibrary(catalog)
+      } else {
+        const pr = await fetchJson<{ items: PropLibraryItem[] }>('/api/props', { method: 'GET' })
+        if (cancelled) return
+        if (pr.ok && pr.data?.items) setPropLibrary(pr.data.items)
+        else setPropLibrary([])
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [slug, loadConfigurator, setLoadErr])
+  }, [slug, loadConfigurator, setLoadErr, setPropLibrary])
 
   return (
     <div className={styles.page}>

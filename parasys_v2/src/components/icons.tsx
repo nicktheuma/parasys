@@ -90,3 +90,14 @@ export function AdminTabLightingIcon({ size = 18, color = 'currentColor', classN
     </svg>
   )
 }
+
+/** Admin panel tab: decorative props */
+export function AdminTabPropsIcon({ size = 18, color = 'currentColor', className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.65} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="9" y="10" width="6" height="6" rx="1" />
+      <rect x="14" y="6" width="6" height="6" rx="1" />
+    </svg>
+  )
+}

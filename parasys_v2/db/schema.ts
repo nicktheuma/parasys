@@ -126,6 +126,8 @@ export type ConfiguratorLightingSettings = {
   keySpot?: Partial<SceneLightSettings>
   fillPoint?: Partial<SceneLightSettings>
   environmentBlur?: number
+  /** IBL strength on `scene.environment` (Three.js; typical 0–2) */
+  environmentIntensity?: number
 }
 
 export type ConfiguratorSettingsRow = {
@@ -140,7 +142,36 @@ export type ConfiguratorSettingsRow = {
   paramLimits?: Record<string, TemplateParamLimits> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
   lighting?: ConfiguratorLightingSettings | null
+  /** Decorative objects (books, plants, etc.) — panel templates use shelf anchors */
+  props?: ConfiguratorPropsSettings | null
 }
+
+export type PropHorizontalAlign = 'center' | 'left' | 'right'
+export type PropDepthAlign = 'center' | 'front' | 'back'
+
+/** One instance of a library prop placed on an anchor (e.g. shelf:2) */
+export type ConfiguratorPropPlacement = {
+  id: string
+  propLibraryId: string
+  anchorId: string
+  /** Extra multiplier on auto-fit scale (clamped in app) */
+  scaleBias?: number
+  materialSpec?: MaterialShaderSpec | null
+  /** Horizontal placement along shelf width (X); default center */
+  alignX?: PropHorizontalAlign
+  /** Depth placement along shelf (Z, +Z = front) */
+  alignZ?: PropDepthAlign
+}
+
+export type ConfiguratorPropsSettings = {
+  placements: ConfiguratorPropPlacement[]
+  /** 0 = only manual placements; 1 = fill all shelf slots (9 per shelf: 3×3 alignments) */
+  density?: number
+  /** Prop library ids used for auto-fill (round-robin); if empty, all enabled props are considered */
+  palettePropIds?: string[]
+}
+
+export type PropKind = 'placeholder_cube' | 'glb'
 
 export type NoiseType = 'fbm' | 'voronoi' | 'simplex' | 'ridged' | 'turbulence' | 'marble'
 export type BlendMode = 'normal' | 'multiply' | 'overlay'
@@ -255,4 +286,18 @@ export const materialAssignments = pgTable('material_assignments', {
   configuratorId: uuid('configurator_id')
     .references(() => configurators.id, { onDelete: 'cascade' })
     .notNull(),
+})
+
+/** Global catalog of decorative props (GLB or placeholder geometry) */
+export const propLibrary = pgTable('prop_library', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  kind: text('kind').$type<PropKind>().notNull().default('placeholder_cube'),
+  glbUrl: text('glb_url'),
+  /** Placeholder box dimensions in mm (local X, Y, Z before fit scaling) */
+  placeholderDimsMm: jsonb('placeholder_dims_mm').$type<[number, number, number]>().notNull(),
+  defaultShader: jsonb('default_shader').$type<MaterialShaderSpec | null>(),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })

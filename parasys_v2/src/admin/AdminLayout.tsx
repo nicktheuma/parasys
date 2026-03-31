@@ -19,6 +19,9 @@ export function AdminLayout() {
           <NavLink to="/admin/materials" className={({ isActive }) => (isActive ? styles.active : undefined)}>
             Materials
           </NavLink>
+          <NavLink to="/admin/props" className={({ isActive }) => (isActive ? styles.active : undefined)}>
+            Props
+          </NavLink>
         </nav>
       </header>
       <main className={styles.main}>

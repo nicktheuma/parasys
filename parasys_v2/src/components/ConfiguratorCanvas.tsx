@@ -94,6 +94,8 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
     uvMappings,
     lighting,
     lightingEditorPick,
+    propsConfig,
+    propLibrary,
   } = useConfiguratorStore()
 
   const resolvedLighting = useMemo(() => resolveConfiguratorLighting(lighting), [lighting])
@@ -131,6 +133,8 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
             materialId={materialId}
             templateParamOverrides={templateParamOverrides}
             uvMappings={uvMappings}
+            propsConfig={propsConfig}
+            propLibrary={propLibrary}
             resolvedLighting={resolvedLighting}
             lightingEditorPick={lightingEditorPick}
             showStageLightGizmos={showLightingGizmos}
@@ -152,6 +156,7 @@ export function ConfiguratorCanvas({ adminMode }: { adminMode?: boolean }) {
             key={`env-${resolvedLighting.environmentBlur}`}
             files="/monochrome_studio_02_1k.hdr"
             blur={resolvedLighting.environmentBlur}
+            environmentIntensity={resolvedLighting.environmentIntensity}
           />
 
           <OrbitControls

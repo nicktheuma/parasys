@@ -45,20 +45,36 @@ function newLayer(): MaterialShaderLayer {
   }
 }
 
-export function MaterialEditorPanel({
-  configuratorId,
-  material,
-  copySources,
-  onClose,
-  onSaved,
-}: {
-  configuratorId: string
-  material: Material
-  copySources?: Material[]
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [spec, setSpec] = useState<MaterialShaderSpec>(() => material.shader ?? defaultMaterialSpec(material.colorHex))
+export type MaterialEditorPanelProps =
+  | {
+      mode?: 'material'
+      configuratorId: string
+      material: Material
+      copySources?: Material[]
+      onClose: () => void
+      onSaved: () => void
+    }
+  | {
+      mode: 'prop'
+      prop: { id: string; name: string; shader: MaterialShaderSpec | null }
+      onClose: () => void
+      onSaved: () => void
+    }
+
+export function MaterialEditorPanel(props: MaterialEditorPanelProps) {
+  const isProp = props.mode === 'prop'
+  const material = !isProp ? props.material : null
+  const prop = isProp ? props.prop : null
+
+  const [spec, setSpec] = useState<MaterialShaderSpec>(() => {
+    if (isProp && prop) {
+      return prop.shader ?? defaultMaterialSpec('#9ca3af')
+    }
+    if (material) {
+      return material.shader ?? defaultMaterialSpec(material.colorHex)
+    }
+    return defaultMaterialSpec('#888888')
+  })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -90,8 +106,28 @@ export function MaterialEditorPanel({
     e.preventDefault()
     setSaving(true)
     setErr(null)
+    if (isProp && prop) {
+      const r = await fetchJson<{ item: unknown }>('/api/admin/props', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: prop.id, defaultShader: spec }),
+      })
+      setSaving(false)
+      if (!r.ok) {
+        setErr(r.error ?? 'Save failed')
+        return
+      }
+      props.onSaved()
+      props.onClose()
+      return
+    }
+    if (!material) {
+      setSaving(false)
+      return
+    }
     const r = await fetchJson<{ item: Material }>(
-      `/api/admin/materials/${encodeURIComponent(material.id)}?configuratorId=${encodeURIComponent(configuratorId)}`,
+      `/api/admin/materials/${encodeURIComponent(material.id)}?configuratorId=${encodeURIComponent(
+        props.mode !== 'prop' ? props.configuratorId : '',
+      )}`,
       {
         method: 'PATCH',
         body: JSON.stringify({
@@ -107,18 +143,21 @@ export function MaterialEditorPanel({
       setErr(r.error ?? 'Save failed')
       return
     }
-    onSaved()
-    onClose()
+    props.onSaved()
+    props.onClose()
   }
+
+  const title =
+    isProp && prop ? `Prop: ${prop.name}` : material ? `Material: ${material.name}` : 'Shader'
 
   return (
     <div className={styles.overlay} role="dialog" aria-labelledby="mat-edit-title">
       <div className={styles.modal}>
         <div className={styles.head}>
           <h2 id="mat-edit-title" className={styles.title}>
-            Material: {material.name}
+            {title}
           </h2>
-          <button type="button" className={styles.close} onClick={onClose}>
+          <button type="button" className={styles.close} onClick={props.onClose}>
             Close
           </button>
         </div>
@@ -128,7 +167,7 @@ export function MaterialEditorPanel({
             <MaterialEditorPreview spec={spec} />
           </aside>
           <form className={styles.form} onSubmit={onSubmit}>
-          {copySources && copySources.length > 0 ? (
+          {!isProp && props.copySources && props.copySources.length > 0 ? (
             <div className={styles.copyRow}>
               <label className={styles.copyLabel}>
                 <span>Copy settings from</span>
@@ -139,7 +178,7 @@ export function MaterialEditorPanel({
                     const id = e.target.value
                     e.target.value = ''
                     if (!id) return
-                    const source = copySources.find((m) => m.id === id)
+                    const source = props.copySources?.find((m) => m.id === id)
                     if (!source) return
                     const { shader } = cloneShaderAndSwatch(source)
                     setSpec(shader)
@@ -148,7 +187,7 @@ export function MaterialEditorPanel({
                   aria-label="Copy shader settings from another material"
                 >
                   <option value="">— Choose material —</option>
-                  {copySources.map((m) => (
+                  {props.copySources?.map((m) => (
                     <option key={m.id} value={m.id}>
                       {formatMatOptionLabel(m)}
                     </option>
@@ -392,11 +431,11 @@ export function MaterialEditorPanel({
 
           {err ? <p className={styles.error}>{err}</p> : null}
           <div className={styles.actions}>
-            <button type="button" className={styles.cancel} onClick={onClose}>
+            <button type="button" className={styles.cancel} onClick={props.onClose}>
               Cancel
             </button>
             <button type="submit" className={styles.save} disabled={saving}>
-              {saving ? 'Saving…' : 'Save material'}
+              {saving ? 'Saving…' : isProp ? 'Save prop shader' : 'Save material'}
             </button>
           </div>
         </form>

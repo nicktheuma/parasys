@@ -107,6 +107,21 @@
   margin: 0 0 1rem;
 }
 
+.msgOk {
+  color: #2e7d32;
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .muted {
   color: var(--muted);
   margin: 0;

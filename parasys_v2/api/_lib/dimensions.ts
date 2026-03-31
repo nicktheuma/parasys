@@ -1,6 +1,8 @@
 import type {
   ConfiguratorLightingSettings,
+  ConfiguratorPropPlacement,
   ConfiguratorSettingsRow,
+  MaterialShaderSpec,
   ParamGraphNode,
   ParamGraphSettings,
   SceneLightSettings,
@@ -239,6 +241,9 @@ export function normalizeSettings(
     if (typeof src.environmentBlur === 'number' && Number.isFinite(src.environmentBlur)) {
       clean.environmentBlur = Math.max(0, Math.min(1, src.environmentBlur))
     }
+    if (typeof src.environmentIntensity === 'number' && Number.isFinite(src.environmentIntensity)) {
+      clean.environmentIntensity = Math.max(0, Math.min(4, src.environmentIntensity))
+    }
     const d0 = normLight(src.directional0)
     if (d0) clean.directional0 = d0
     const d1 = normLight(src.directional1)
@@ -275,6 +280,64 @@ export function normalizeSettings(
       if (hasValue) cleanUv[surfaceKey] = entry
     }
     if (Object.keys(cleanUv).length > 0) out.uvMappings = cleanUv
+  }
+
+  const pr = input.props
+  if (pr && typeof pr === 'object') {
+    const placementsRaw = (pr as { placements?: unknown }).placements
+    const placements: ConfiguratorPropPlacement[] = []
+    if (Array.isArray(placementsRaw)) {
+      const alignXOk = (v: unknown): v is 'center' | 'left' | 'right' =>
+        v === 'center' || v === 'left' || v === 'right'
+      const alignZOk = (v: unknown): v is 'center' | 'front' | 'back' =>
+        v === 'center' || v === 'front' || v === 'back'
+      for (const row of placementsRaw) {
+        if (!row || typeof row !== 'object') continue
+        const r = row as Record<string, unknown>
+        if (typeof r.id !== 'string' || !r.id || r.id.length > 80) continue
+        if (typeof r.propLibraryId !== 'string' || !r.propLibraryId) continue
+        if (typeof r.anchorId !== 'string' || !r.anchorId || r.anchorId.length > 120) continue
+        const scaleBias =
+          typeof r.scaleBias === 'number' && Number.isFinite(r.scaleBias)
+            ? Math.max(0.05, Math.min(24, r.scaleBias))
+            : undefined
+        let materialSpec: MaterialShaderSpec | undefined
+        if (r.materialSpec && typeof r.materialSpec === 'object') {
+          materialSpec = r.materialSpec as MaterialShaderSpec
+        }
+        const alignX = alignXOk(r.alignX) ? r.alignX : undefined
+        const alignZ = alignZOk(r.alignZ) ? r.alignZ : undefined
+        placements.push({
+          id: r.id,
+          propLibraryId: r.propLibraryId,
+          anchorId: r.anchorId,
+          scaleBias,
+          materialSpec,
+          alignX,
+          alignZ,
+        })
+      }
+    }
+    let density: number | undefined
+    const rawD = (pr as { density?: unknown }).density
+    if (typeof rawD === 'number' && Number.isFinite(rawD)) {
+      density = Math.max(0, Math.min(1, rawD))
+    }
+    const paletteRaw = (pr as { palettePropIds?: unknown }).palettePropIds
+    const palettePropIds: string[] = []
+    if (Array.isArray(paletteRaw)) {
+      for (const id of paletteRaw) {
+        if (typeof id === 'string' && id.trim().length > 0 && palettePropIds.length < 32) {
+          palettePropIds.push(id.trim())
+        }
+      }
+    }
+    if (placements.length > 0 || density !== undefined || palettePropIds.length > 0) {
+      const propsOut: NonNullable<ConfiguratorSettingsRow['props']> = { placements }
+      if (density !== undefined) propsOut.density = density
+      if (palettePropIds.length > 0) propsOut.palettePropIds = palettePropIds
+      out.props = propsOut
+    }
   }
 
   return Object.keys(out).length > 0 ? out : null

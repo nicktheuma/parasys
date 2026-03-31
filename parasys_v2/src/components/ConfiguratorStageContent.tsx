@@ -5,7 +5,13 @@ import * as THREE from 'three'
 import type { SpotLight } from 'three'
 import { TemplateProduct } from '@/features/configurator/TemplateProduct'
 import type { ResolvedConfiguratorLighting } from '@/lib/configuratorLighting'
-import type { MaterialShaderSpec, SurfaceUvMapping, TemplateParametricPreset } from '@shared/types'
+import type {
+  ConfiguratorPropsSettings,
+  MaterialShaderSpec,
+  SurfaceUvMapping,
+  TemplateParametricPreset,
+} from '@shared/types'
+import type { PropLibraryItem } from '@/features/configurator/props/types'
 import { DimensionsOverlay3D } from '@/components/DimensionsOverlay3D'
 import { StageLightingGizmos } from '@/components/LightingEditorGizmos'
 import type { LightingTabId } from '@/lib/configuratorLighting'
@@ -20,6 +26,8 @@ type Props = {
   materialId: string | null
   templateParamOverrides: Record<string, TemplateParametricPreset> | null
   uvMappings: Record<string, SurfaceUvMapping> | null
+  propsConfig: ConfiguratorPropsSettings | null
+  propLibrary: PropLibraryItem[]
   resolvedLighting: ResolvedConfiguratorLighting
   lightingEditorPick: LightingTabId | null
   showStageLightGizmos?: boolean
@@ -109,6 +117,8 @@ export function ConfiguratorStageContent({
   materialId,
   templateParamOverrides,
   uvMappings,
+  propsConfig,
+  propLibrary,
   resolvedLighting,
   lightingEditorPick,
   showStageLightGizmos,
@@ -223,6 +233,8 @@ export function ConfiguratorStageContent({
             materialId={materialId}
             templateParamOverrides={templateParamOverrides}
             uvMappings={uvMappings}
+            propsConfig={propsConfig}
+            propLibrary={propLibrary}
           />
           <DimensionsOverlay3D />
         </Center>

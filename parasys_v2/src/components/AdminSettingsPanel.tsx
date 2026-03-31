@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchJson } from '@/lib/api'
 import { DIM_MM } from '@/lib/configuratorDimensions'
@@ -12,6 +12,7 @@ import {
 } from '@/lib/configuratorLighting'
 import { copyUvMappingsBetweenMaterials } from '@/lib/uvMappingsCopy'
 import type {
+  ConfiguratorPropPlacement,
   TemplateParametricPreset,
   TemplateParamLimits,
   ParamRange,
@@ -28,12 +29,16 @@ import {
   AdminTabLightingIcon,
   AdminTabMaterialsIcon,
   AdminTabParamsIcon,
+  AdminTabPropsIcon,
   AdminTabUvIcon,
 } from './icons'
 import { FACE_GROUPS } from '@shared/types'
+import { PANEL_TEMPLATE_KEYS } from '@/features/configurator/templates/registry'
+import { anchorLabelList, panelAnchorsFromDimsMm } from '@/features/configurator/props/panelPropAnchors'
+import type { PropLibraryItem } from '@/features/configurator/props/types'
 import styles from './adminSettingsPanel.module.css'
 
-type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv' | 'lighting'
+type Tab = 'dimensions' | 'parameters' | 'materials' | 'uv' | 'lighting' | 'props'
 
 type NumericParamKey = Exclude<keyof TemplateParametricPreset, 'interlockEnabled'>
 
@@ -160,6 +165,9 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
     setMaterialSpec,
     setMaterials,
     setLightingEditorPick,
+    propsConfig,
+    setPropsPlacements,
+    setPropsConfig,
   } = useConfiguratorStore()
 
   const [tab, setTab] = useState<Tab>('dimensions')
@@ -180,6 +188,80 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   const [uvSurfaceKind, setUvSurfaceKind] = useState('back')
   const [expandedFace, setExpandedFace] = useState<FaceGroup | null>(null)
   const [lightingPick, setLightingPick] = useState<LightingTabId>('ambient')
+  const [adminPropCatalog, setAdminPropCatalog] = useState<PropLibraryItem[]>([])
+
+  const panelPropsOk = PANEL_TEMPLATE_KEYS.has(templateKey)
+  const mergedForAnchors: TemplateParametricPreset = { ...defaults, ...overrides }
+  const shelves = mergedForAnchors.shelves ?? 2
+  const edgeOffset = mergedForAnchors.edgeOffset ?? 0
+  const widthM = widthMm * 0.001
+  const depthM = depthMm * 0.001
+  const heightM = heightMm * 0.001
+  const autoThickness = Math.max(0.002, Math.min(widthM, depthM, heightM) * 0.03)
+  const materialThicknessM =
+    mergedForAnchors.panelThickness != null ? Math.max(0.001, mergedForAnchors.panelThickness) : autoThickness
+  const slotOffsetFactor = mergedForAnchors.slotOffsetFactor ?? 0.5
+  const slotOffset = materialThicknessM * slotOffsetFactor
+
+  const shelfAnchorOptions = useMemo(() => {
+    if (!panelPropsOk) return [] as { id: string; label: string }[]
+    const anchors = panelAnchorsFromDimsMm(
+      widthMm,
+      depthMm,
+      heightMm,
+      shelves,
+      materialThicknessM,
+      edgeOffset,
+      slotOffset,
+    )
+    return anchorLabelList(anchors)
+  }, [panelPropsOk, widthMm, depthMm, heightMm, shelves, materialThicknessM, edgeOffset, slotOffset])
+
+  const placements = propsConfig?.placements ?? []
+  const catalogForPlace = useMemo(
+    () => adminPropCatalog.filter((x) => x.kind === 'placeholder_cube' || x.kind === 'glb'),
+    [adminPropCatalog],
+  )
+
+  function patchPlacement(id: string, patch: Partial<ConfiguratorPropPlacement>) {
+    const cur = useConfiguratorStore.getState().propsConfig?.placements ?? []
+    setPropsPlacements(cur.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+  }
+
+  function removePlacementRow(id: string) {
+    const cur = useConfiguratorStore.getState().propsConfig?.placements ?? []
+    setPropsPlacements(cur.filter((p) => p.id !== id))
+  }
+
+  function addPlacementRow() {
+    const cur = useConfiguratorStore.getState().propsConfig?.placements ?? []
+    const firstProp = catalogForPlace[0]?.id ?? ''
+    const firstAnchor = shelfAnchorOptions[0]?.id ?? 'shelf:0'
+    setPropsPlacements([
+      ...cur,
+      { id: crypto.randomUUID(), propLibraryId: firstProp, anchorId: firstAnchor, scaleBias: 1 },
+    ])
+  }
+
+  const paletteIds = propsConfig?.palettePropIds ?? []
+  function togglePaletteProp(id: string) {
+    const next = paletteIds.includes(id) ? paletteIds.filter((x) => x !== id) : [...paletteIds, id]
+    setPropsConfig({ palettePropIds: next })
+  }
+
+  useEffect(() => {
+    if (tab !== 'props' || !configuratorId) return
+    let cancelled = false
+    void (async () => {
+      const r = await fetchJson<{ items: PropLibraryItem[] }>('/api/admin/props', { method: 'GET' })
+      if (cancelled) return
+      if (r.ok && r.data?.items) setAdminPropCatalog(r.data.items.filter((x) => x.enabled !== false))
+      else setAdminPropCatalog([])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tab, configuratorId])
 
   useEffect(() => {
     if (tab === 'lighting') setLightingEditorPick(lightingPick)
@@ -298,6 +380,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             paramLimits: { [templateKey]: localLimits },
             uvMappings: uvMappings ?? {},
             ...(lighting && Object.keys(lighting).length > 0 ? { lighting } : {}),
+            props: propsConfig ?? { placements: [] },
           },
         }),
       },
@@ -1617,16 +1700,238 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
             ) : null}
 
             {lightingPick === 'environment' ? (
-              <MatSliderRow
-                className={styles.matFieldRow}
-                label="HDR blur"
-                min={0}
-                max={1}
-                step={0.02}
-                value={resolvedLight.environmentBlur}
-                onChange={(v) => patchLighting({ environmentBlur: v })}
-              />
+              <>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Environment intensity (IBL)"
+                  min={0}
+                  max={3}
+                  step={0.02}
+                  value={resolvedLight.environmentIntensity}
+                  onChange={(v) => patchLighting({ environmentIntensity: v })}
+                />
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="HDR blur"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={resolvedLight.environmentBlur}
+                  onChange={(v) => patchLighting({ environmentBlur: v })}
+                />
+                <p className={styles.lightEnvHint}>
+                  The product is also lit by ambient, three directionals, key spot, and fill point (other
+                  tabs). Turn those down to see IBL changes more clearly.
+                </p>
+              </>
             ) : null}
+          </div>
+        ) : null}
+
+        {/* ── PROPS TAB ── */}
+        {tab === 'props' ? (
+          <div className={styles.tabContent}>
+            <p className={styles.sectionTitle}>Decorative props</p>
+            <p className={styles.hint}>
+              Placeholder cubes auto-scale to each shelf footprint. Edit the global library under{' '}
+              <button type="button" className={styles.inlineLink} onClick={() => navigate('/admin/props')}>
+                Admin → Props
+              </button>
+              .
+            </p>
+            {!panelPropsOk ? (
+              <p className={styles.hint}>
+                Shelf anchors apply to panel-based templates only (shelving, cabinets, islands). This
+                template does not use shelf props.
+              </p>
+            ) : (
+              <>
+                <p className={styles.hint}>
+                  Auto-fill adds props from the palette across shelf positions (3×3 horizontal × depth per
+                  shelf). Manual placements are listed below; density 0 uses only manual rows.
+                </p>
+                <MatSliderRow
+                  className={styles.matFieldRow}
+                  label="Auto-fill density"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={propsConfig?.density ?? 0}
+                  onChange={(v) => setPropsConfig({ density: v })}
+                />
+                <p className={styles.dimLabel}>Palette for auto-fill (empty = all library props)</p>
+                <div className={styles.propPaletteGrid}>
+                  {adminPropCatalog.map((c) => (
+                    <label key={c.id} className={styles.checkRow}>
+                      <input
+                        type="checkbox"
+                        checked={paletteIds.includes(c.id)}
+                        onChange={() => togglePaletteProp(c.id)}
+                      />
+                      <span>
+                        {c.name} ({c.kind})
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {catalogForPlace.length === 0 ? (
+                  <p className={styles.hint}>
+                    No props in the library yet. Seed the database or upload GLBs under Admin → Props.
+                  </p>
+                ) : null}
+                {placements.map((pl) => {
+                  const override = Boolean(pl.materialSpec)
+                  return (
+                    <div key={pl.id} className={styles.propCard}>
+                      <div className={styles.propRow}>
+                        <div className={styles.propField}>
+                          <span className={styles.dimLabel}>Prop</span>
+                          <select
+                            className={styles.matSelect}
+                            value={pl.propLibraryId}
+                            onChange={(e) => patchPlacement(pl.id, { propLibraryId: e.target.value })}
+                          >
+                            {catalogForPlace.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} ({c.kind})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.propField}>
+                          <span className={styles.dimLabel}>Shelf</span>
+                          <select
+                            className={styles.matSelect}
+                            value={pl.anchorId}
+                            onChange={(e) => patchPlacement(pl.id, { anchorId: e.target.value })}
+                          >
+                            {shelfAnchorOptions.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.propField}>
+                          <span className={styles.dimLabel}>Align X</span>
+                          <select
+                            className={styles.matSelect}
+                            value={pl.alignX ?? 'center'}
+                            onChange={(e) =>
+                              patchPlacement(pl.id, {
+                                alignX: e.target.value as 'left' | 'center' | 'right',
+                              })
+                            }
+                          >
+                            <option value="left">Left (toward −X)</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right (+X)</option>
+                          </select>
+                        </div>
+                        <div className={styles.propField}>
+                          <span className={styles.dimLabel}>Align Z</span>
+                          <select
+                            className={styles.matSelect}
+                            value={pl.alignZ ?? 'center'}
+                            onChange={(e) =>
+                              patchPlacement(pl.id, {
+                                alignZ: e.target.value as 'back' | 'center' | 'front',
+                              })
+                            }
+                          >
+                            <option value="back">Back (−Z)</option>
+                            <option value="center">Center</option>
+                            <option value="front">Front (+Z)</option>
+                          </select>
+                        </div>
+                        <div className={styles.propField}>
+                          <span className={styles.dimLabel}>Scale bias</span>
+                          <input
+                            type="number"
+                            className={styles.numInput}
+                            min={0.05}
+                            max={24}
+                            step={0.05}
+                            value={pl.scaleBias ?? 1}
+                            onChange={(e) =>
+                              patchPlacement(pl.id, { scaleBias: Number(e.target.value) || 1 })
+                            }
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.backBtn}
+                          onClick={() => removePlacementRow(pl.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <label className={styles.checkRow}>
+                        <input
+                          type="checkbox"
+                          checked={override}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              patchPlacement(pl.id, { materialSpec: defaultMaterialSpec('#9ca3af') })
+                            } else {
+                              patchPlacement(pl.id, { materialSpec: null })
+                            }
+                          }}
+                        />
+                        <span>Override material (this placement)</span>
+                      </label>
+                      {override && pl.materialSpec ? (
+                        <div className={styles.propRow}>
+                          <ColorSwatchInput
+                            value={pl.materialSpec.baseColorHex}
+                            onChange={(v) =>
+                              patchPlacement(pl.id, {
+                                materialSpec: { ...pl.materialSpec, baseColorHex: v } as MaterialShaderSpec,
+                              })
+                            }
+                            aria-label="Prop base colour"
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Roughness"
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={pl.materialSpec.globalRoughness}
+                            onChange={(val) =>
+                              patchPlacement(pl.id, {
+                                materialSpec: { ...pl.materialSpec, globalRoughness: val } as MaterialShaderSpec,
+                              })
+                            }
+                          />
+                          <MatSliderRow
+                            className={styles.matFieldRow}
+                            label="Metalness"
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={pl.materialSpec.globalMetalness}
+                            onChange={(val) =>
+                              patchPlacement(pl.id, {
+                                materialSpec: { ...pl.materialSpec, globalMetalness: val } as MaterialShaderSpec,
+                              })
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  disabled={!panelPropsOk || catalogForPlace.length === 0}
+                  onClick={addPlacementRow}
+                >
+                  Add manual placement
+                </button>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -1659,6 +1964,7 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
               ['materials', 'Materials', AdminTabMaterialsIcon] as const,
               ['uv', 'UV mapping', AdminTabUvIcon] as const,
               ['lighting', 'Lighting', AdminTabLightingIcon] as const,
+              ['props', 'Props', AdminTabPropsIcon] as const,
             ] as const
           ).map(([t, label, Icon]) => (
             <button

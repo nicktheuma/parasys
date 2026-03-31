@@ -56,6 +56,8 @@ export type ResolvedConfiguratorLighting = {
   keySpot: SceneLightSettings
   fillPoint: SceneLightSettings
   environmentBlur: number
+  /** Scales image-based lighting from the HDR environment map */
+  environmentIntensity: number
 }
 
 export const DEFAULT_RESOLVED_LIGHTING: ResolvedConfiguratorLighting = {
@@ -66,6 +68,7 @@ export const DEFAULT_RESOLVED_LIGHTING: ResolvedConfiguratorLighting = {
   keySpot: { ...KS },
   fillPoint: { ...FP },
   environmentBlur: 0.6,
+  environmentIntensity: 1,
 }
 
 function mergeLight(base: SceneLightSettings, patch?: Partial<SceneLightSettings> | null): SceneLightSettings {
@@ -90,6 +93,8 @@ export function resolveConfiguratorLighting(
     keySpot: mergeLight(DEFAULT_RESOLVED_LIGHTING.keySpot, p.keySpot),
     fillPoint: mergeLight(DEFAULT_RESOLVED_LIGHTING.fillPoint, p.fillPoint),
     environmentBlur: p.environmentBlur ?? DEFAULT_RESOLVED_LIGHTING.environmentBlur,
+    environmentIntensity:
+      p.environmentIntensity ?? DEFAULT_RESOLVED_LIGHTING.environmentIntensity,
   }
 }
 
@@ -100,7 +105,7 @@ export const LIGHTING_TAB_IDS = [
   { id: 'directional2', label: 'Directional — rim' },
   { id: 'keySpot', label: 'Spot — key (shadows)' },
   { id: 'fillPoint', label: 'Point — fill' },
-  { id: 'environment', label: 'Environment (HDR blur)' },
+  { id: 'environment', label: 'Environment (HDR / IBL)' },
 ] as const
 
 export type LightingTabId = (typeof LIGHTING_TAB_IDS)[number]['id']

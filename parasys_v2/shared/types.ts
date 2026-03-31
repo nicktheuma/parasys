@@ -5,6 +5,10 @@ export { FACE_GROUPS } from '../db/schema'
 export type {
   BlendMode,
   ConfiguratorLightingSettings,
+  ConfiguratorPropPlacement,
+  ConfiguratorPropsSettings,
+  PropDepthAlign,
+  PropHorizontalAlign,
   ConfiguratorSettingsRow,
   DimLimits,
   GhInputMode,
@@ -12,6 +16,7 @@ export type {
   MaterialShaderSpec,
   NoiseType,
   OrderDimensionsSnapshot,
+  PropKind,
   ParamGraphEdge,
   ParamGraphNode,
   ParamGraphNodeType,

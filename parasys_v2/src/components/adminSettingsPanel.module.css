@@ -223,6 +223,16 @@
   cursor: pointer;
 }
 
+.propPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.35rem 0.6rem;
+  margin: 0.25rem 0 0.6rem;
+  max-height: 8rem;
+  overflow: auto;
+  padding: 0.1rem 0;
+}
+
 .actions {
   display: flex;
   flex-direction: column;
@@ -291,6 +301,14 @@
   background: var(--surface-2);
   font-family: inherit;
   font-size: 0.7rem;
+}
+
+.lightEnvHint {
+  margin: 0.35rem 0 0;
+  font-size: 0.65rem;
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 22rem;
 }
 
 /* ── UV Section ── */
@@ -616,4 +634,39 @@
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.propCard {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.propRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.propField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 6.5rem;
+}
+
+.inlineLink {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
 }

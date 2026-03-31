@@ -30,6 +30,7 @@
     "cookie": "^1.0.2",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.40.1",
+    "formidable": "^3.5.4",
     "jose": "^6.0.10",
     "pdf-lib": "^1.17.1",
     "raw-body": "^3.0.0",

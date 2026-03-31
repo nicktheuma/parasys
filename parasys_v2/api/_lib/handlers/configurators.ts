@@ -1,10 +1,11 @@
 import { and, desc, eq } from 'drizzle-orm'
-import type { ConfiguratorSettingsRow, MaterialShaderSpec } from '../../../db/schema'
+import type { ConfiguratorSettingsRow, MaterialShaderSpec, PropKind } from '../../../db/schema'
 import { getDb } from '../../../db/index'
 import { configurators } from '../../../db/schema'
 import { TEMPLATE_KEYS } from '../../../shared/constants'
 import { normalizeSettings } from '../dimensions'
 import { listMaterialsForPublicConfigurator } from './materials'
+import { listPropsPublic } from './props'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
 
@@ -107,6 +108,19 @@ export type PublicMaterialRow = {
   shader: MaterialShaderSpec | null
 }
 
+/** Enabled global prop catalog rows (same shape as GET /api/props) */
+export type PublicPropLibraryRow = {
+  id: string
+  name: string
+  slug: string
+  kind: PropKind
+  glbUrl: string | null
+  placeholderDimsMm: [number, number, number]
+  defaultShader: MaterialShaderSpec | null
+  enabled: boolean
+  createdAt: string
+}
+
 export async function getPublicConfigurator(
   slug: string,
 ): Promise<
@@ -119,6 +133,7 @@ export async function getPublicConfigurator(
         templateKey: string
         settings: ConfiguratorSettingsRow | null
         materials: PublicMaterialRow[]
+        propsCatalog: PublicPropLibraryRow[]
       }
     }
   | { ok: false; status: number; error: string }
@@ -139,6 +154,9 @@ export async function getPublicConfigurator(
     shader: m.shader ?? null,
   }))
 
+  const propsR = await listPropsPublic()
+  const propsCatalog: PublicPropLibraryRow[] = propsR.ok ? propsR.items : []
+
   const { id: cid, slug: s, name, templateKey, settings } = r.item
   return {
     ok: true,
@@ -149,6 +167,7 @@ export async function getPublicConfigurator(
       templateKey,
       settings,
       materials: materialsOut,
+      propsCatalog,
     },
   }
 }
@@ -268,6 +287,7 @@ export async function updateConfigurator(
                 },
               }
             : prev?.lighting,
+        props: patch.settings.props !== undefined ? patch.settings.props : prev?.props,
       }
       updates.settings = normalizeSettings(merged)
     }

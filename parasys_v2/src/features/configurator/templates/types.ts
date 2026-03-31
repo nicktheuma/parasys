@@ -1,5 +1,11 @@
 import type { JSX } from 'react'
-import type { MaterialShaderSpec, SurfaceUvMapping, TemplateParametricPreset } from '@shared/types'
+import type {
+  ConfiguratorPropsSettings,
+  MaterialShaderSpec,
+  SurfaceUvMapping,
+  TemplateParametricPreset,
+} from '@shared/types'
+import type { PropLibraryItem } from '@/features/configurator/props/types'
 
 export type TemplateProps = {
   wm: number
@@ -10,6 +16,8 @@ export type TemplateProps = {
   templateParamOverrides?: Record<string, TemplateParametricPreset> | null
   uvMappings?: Record<string, SurfaceUvMapping> | null
   templateKey: string
+  propsConfig?: ConfiguratorPropsSettings | null
+  propLibrary?: PropLibraryItem[] | null
 }
 
 export type TemplateRenderer = (props: TemplateProps) => JSX.Element
