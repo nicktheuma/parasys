@@ -246,10 +246,25 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   )
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [hasAdminSession, setHasAdminSession] = useState<boolean | null>(null)
   const [uvSurfaceKind, setUvSurfaceKind] = useState('back')
   const [expandedFace, setExpandedFace] = useState<FaceGroup | null>(null)
   const [lightingPick, setLightingPick] = useState<LightingTabId>('ambient')
   const [adminPropCatalog, setAdminPropCatalog] = useState<PropLibraryItem[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const session = await fetchJson<{ ok: boolean; role?: string }>('/api/auth/session', {
+        method: 'GET',
+      })
+      if (cancelled) return
+      setHasAdminSession(Boolean(session.ok && session.data?.ok && session.data?.role === 'admin'))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const panelPropsOk = PANEL_TEMPLATE_KEYS.has(templateKey)
   const mergedForAnchors: TemplateParametricPreset = { ...defaults, ...overrides }
@@ -508,6 +523,10 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
   async function onSave(e: FormEvent) {
     e.preventDefault()
     if (!configuratorId) return
+    if (hasAdminSession === false) {
+      setSaveMsg('Unauthorized on this domain. Log in at /admin on this same host.')
+      return
+    }
     setSaving(true)
     setSaveMsg(null)
 
@@ -2864,7 +2883,12 @@ export function AdminSettingsPanel({ onClose }: { onClose: () => void }) {
 
         {/* ── SAVE / ACTIONS (always visible) ── */}
         <div className={styles.actions}>
-          <button type="submit" className={styles.saveBtn} disabled={saving || !configuratorId}>
+          <button
+            type="submit"
+            className={styles.saveBtn}
+            disabled={saving || !configuratorId || hasAdminSession === false}
+            title={hasAdminSession === false ? 'Log in as admin on this host to save defaults.' : undefined}
+          >
             {saving ? 'Saving\u2026' : 'Save as defaults'}
           </button>
           <button
