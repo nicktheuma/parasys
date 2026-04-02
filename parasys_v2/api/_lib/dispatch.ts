@@ -59,6 +59,8 @@ export async function dispatchApi(req: VercelRequest, res: VercelResponse): Prom
   mergePathParamsIntoQuery(req, pathname)
 
   const routes: Array<{ test: () => boolean; mod: () => Promise<{ default: Handler }> }> = [
+    { test: () => method === 'GET' && pathKey === 'health', mod: () => import('./routes/health.js') },
+
     { test: () => method === 'POST' && pathKey === 'auth/login', mod: () => import('./routes/authLogin.js') },
     { test: () => method === 'POST' && pathKey === 'auth/logout', mod: () => import('./routes/authLogout.js') },
     { test: () => method === 'GET' && pathKey === 'auth/session', mod: () => import('./routes/authSession.js') },
