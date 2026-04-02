@@ -194,7 +194,6 @@ export async function buildManufacturingPdf(args: {
           slug: args.slug,
           dateIso,
           sheetStartIndex1Based: frontMatterPages + 1,
-          totalSheets: frontMatterPages + nesting.sheetCount,
         },
       })
       nestedPdfBytes = pdfBytes

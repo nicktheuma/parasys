@@ -168,7 +168,7 @@ export function normalizeSettings(
       endpointTypeRaw === 'arrow' ||
       endpointTypeRaw === 'diagonal' ||
       endpointTypeRaw === 'cross'
-        ? endpointTypeRaw
+        ? (endpointTypeRaw as 'dot' | 'arrow' | 'diagonal' | 'cross')
         : undefined
     const hex = (v: unknown): string | undefined => {
       if (typeof v !== 'string') return undefined

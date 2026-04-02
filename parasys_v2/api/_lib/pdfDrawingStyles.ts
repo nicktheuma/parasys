@@ -62,7 +62,7 @@ export type CoverTitleBlockFields = {
 export function drawTitleBlockBottomRightPt(
   page: PDFPage,
   pageWidth: number,
-  pageHeight: number,
+  _pageHeight: number,
   font: PDFFont,
   fontBold: PDFFont,
   fields: CoverTitleBlockFields,
