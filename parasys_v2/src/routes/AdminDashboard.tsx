@@ -250,8 +250,11 @@ export function AdminDashboard() {
     setSavingEdit(true)
     setError(null)
     const hasDims = editForm.w.trim() !== '' || editForm.d.trim() !== '' || editForm.h.trim() !== ''
-    const settings: { isPublic?: boolean; defaultDims?: { widthMm: number; depthMm: number; heightMm: number } } = {}
-    if (!editForm.isPublic) settings.isPublic = false
+    // Explicitly send `isPublic` so admins can re-publish a configurator that was previously private.
+    // (Omitting the field would keep `isPublic: false` if the backend merges settings patches.)
+    const settings: { isPublic: boolean; defaultDims?: { widthMm: number; depthMm: number; heightMm: number } } = {
+      isPublic: editForm.isPublic,
+    }
     if (hasDims) {
       settings.defaultDims = {
         widthMm: clampDimMm('width', editForm.w.trim() === '' ? DIM_MM.width.default : Number(editForm.w)),
@@ -259,7 +262,7 @@ export function AdminDashboard() {
         heightMm: clampDimMm('height', editForm.h.trim() === '' ? DIM_MM.height.default : Number(editForm.h)),
       }
     }
-    const settingsPatch = Object.keys(settings).length > 0 ? settings : undefined
+    const settingsPatch = settings
     const r = await fetchJson<{ item: Configurator }>(`/api/admin/configurators/${encodeURIComponent(editing.id)}`, {
       method: 'PATCH',
       body: JSON.stringify({
