@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { isAdminRequest } from '../auth.js'
 import { getPublicConfigurator } from '../handlers/configurators.js'
 import { json } from '../http.js'
 
@@ -21,6 +22,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const r = await getPublicConfigurator(slug)
   if (!r.ok) {
+    if (r.status === 404) {
+      const isAdmin = await isAdminRequest(req)
+      if (isAdmin) {
+        const adminView = await getPublicConfigurator(slug, { allowPrivate: true })
+        if (adminView.ok) {
+          json(res, 200, { item: adminView.item })
+          return
+        }
+      }
+    }
     json(res, r.status, { error: r.error })
     return
   }

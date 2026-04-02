@@ -127,6 +127,7 @@ export type PublicPropLibraryRow = {
 
 export async function getPublicConfigurator(
   slug: string,
+  opts?: { allowPrivate?: boolean },
 ): Promise<
   | {
       ok: true
@@ -144,7 +145,7 @@ export async function getPublicConfigurator(
 > {
   const r = await getConfiguratorBySlug(slug.trim())
   if (!r.ok) return r
-  if (!isPublicSettings(r.item.settings)) {
+  if (!opts?.allowPrivate && !isPublicSettings(r.item.settings)) {
     return { ok: false, status: 404, error: 'Not found' }
   }
   const db = getDb()
